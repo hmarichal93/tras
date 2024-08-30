@@ -8,7 +8,7 @@ class Menu:
     cstrd = "CS-TRD"
     inbd = "INBD"
 
-def annotate_pith(input_image, output_file):
+def annotate_pith(input_image=None, output_file=None):
 
 
     return

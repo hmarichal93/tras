@@ -4,9 +4,12 @@ import cv2
 
 from PIL import Image
 from streamlit_option_menu import option_menu
+from pathlib import Path
 
 from lib.image import LabelMeInterface as UserInterface
 from lib.io import load_json
+from ui.common import Context
+
 
 pixels_length = 1
 know_distance = 2
@@ -20,6 +23,48 @@ background_json_path = "output/background.json"
 DISPLAY_IMAGE_SIZE = 256
 
 scale_json_file = "output/scale.json"
+config = None
+
+class ViewContext(Context):
+    def init_specific_ui_components(self):
+        config = self.config["image"]
+
+        self.image_path = self.output_dir / config["image_path"]
+        self.mode = config["mode"]
+
+        self.scale_json_path = self.output_dir / config["scale"]["json_path"]
+        self.units_mode = config["scale"]["unit"]
+        self.pixels_length = config["scale"]["pixels_length"]
+        self.know_distance = config["scale"]["know_distance"]
+        self.dpi = config["scale"]["dpi"]
+
+        self.image_no_background_path = self.output_dir / config["background"]["image_path"]
+        self.background_json_path = self.output_dir / config["background"]["json_path"]
+
+        #runtime variables
+        self.bg_image = None
+        self.bg_image_pil = None
+        self.bg_image_pil_no_background = None
+
+
+    def update_config(self):
+        config = self.config["image"]
+
+        config["mode"] = self.mode
+        config["image_path"] = str(self.image_path.name)
+
+
+
+
+        config["scale"]["unit"] = self.units_mode
+        config["scale"]["pixels_length"] = self.pixels_length
+        config["scale"]["know_distance"] = self.know_distance
+        config["scale"]["dpi"] = self.dpi
+
+        return
+
+        # config["background"]["image_path"] = self.image_no_background_path
+        # config["background"]["json_path"] = self.background_json_path
 
 
 class Menu:
@@ -28,9 +73,11 @@ class Menu:
     background  = "Remove Background"
 
 
-def main():
-    global pixels_length, know_distance, mode, bg_image, bg_image_pil, bg_image_pil_no_background, image_path,\
-        image_no_background_path, scale_json_file
+def main(runtime_config_path):
+    global CTX
+    CTX = ViewContext(runtime_config_path)
+    CTX.init_specific_ui_components()
+
     st.header("Image")
     st.markdown(
         """
@@ -42,48 +89,69 @@ def main():
          icons=['house', 'gear'], menu_icon="cast", default_index=0, orientation="horizontal")
 
 
+
     if selected == Menu.image:
-        mode =  st.radio( "Mode",("cross-section", "core"), horizontal=True )
+        CTX.mode = st.radio("Mode", ("cross-section", "core"), horizontal=True, index = 0 if CTX.mode == "cross-section"
+                                                else 1 )
 
-        bg_image = st.file_uploader("Image:", type=["png", "jpg"]) if bg_image is  None else bg_image
+        CTX.bg_image = st.file_uploader("Image:", type=["png", "jpg"])
+        if CTX.bg_image:
+            CTX.bg_image_pil = Image.open(CTX.bg_image)
+            CTX.bg_image_pil.save(CTX.image_path)
+            bg_image_pil_display = CTX.bg_image_pil.resize((CTX.display_image_size, CTX.display_image_size),
+                                                           Image.Resampling.LANCZOS)
+            st.image(bg_image_pil_display)
 
-        if bg_image:
-            bg_image_pil = Image.open(bg_image)
-            bg_image_pil.save(image_path)
-            #resize image
-            bg_image_pil_display = bg_image_pil.resize((256, 256), Image.Resampling.LANCZOS)
+        elif Path(CTX.image_path).exists():
+            CTX.bg_image_pil = Image.open(CTX.image_path)
+            bg_image_pil_display = CTX.bg_image_pil.resize((CTX.display_image_size, CTX.display_image_size),
+                                                           Image.Resampling.LANCZOS)
             st.image(bg_image_pil_display)
 
 
-    if selected == Menu.scale and bg_image:
-        units_mode = st.radio(
+    if selected == Menu.scale and Path(CTX.image_path).exists():
+        CTX.units_mode = st.radio(
             "Unit:",
-            ("cm", "mm", "dpi"), horizontal=True
+            ("cm", "mm", "dpi"), horizontal=True, index = scale_index_unit(CTX.units_mode)
         )
-        if units_mode == "dpi":
-            scale_pixels = st.number_input("DPI scale:", 1, 2000, 300)
+        if CTX.units_mode == "dpi":
+            CTX.dpi = st.number_input("DPI scale:", 1, 2000, CTX.dpi)
 
         else:
-            st.button("Set Distance in Pixels", on_click=set_scale, kwargs={"image_path":image_path,
-                                                                            "output_file":scale_json_file})
-            st.number_input("Distance in Pixels", 1, 10000, pixels_length)
-            st.number_input("Know distance", 1, 100, know_distance)
+            button = st.button("Set Distance in Pixels")
+            if button:
+                CTX.pixels_length  = set_scale(CTX)
+            CTX.pixels_length = st.number_input("Distance in Pixels", 1, 10000, CTX.pixels_length)
+            CTX.know_distance = st.number_input("Know distance", 1, 100, CTX.know_distance)
 
-    #st.subheader("Remove Background")
-    if selected == Menu.background and bg_image:
+    if selected == Menu.background and Path(CTX.image_path).exists():
         if st.button("Remove Background"):
-            interface = BackgroundInterface(image_path, background_json_path, image_no_background_path)
+            interface = BackgroundInterface(CTX.image_path, CTX.background_json_path, CTX.image_no_background_path)
             interface.interface()
             res = interface.parse_output()
-            if res is not  None:
-                bg_image_pil_no_background = interface.remove_background()
-                bg_image_pil_no_background = bg_image_pil_no_background.resize((DISPLAY_IMAGE_SIZE, DISPLAY_IMAGE_SIZE),
-                                                                               Image.Resampling.LANCZOS)
+            if res is not None:
+                CTX.bg_image_pil_no_background = interface.remove_background()
+                CTX.bg_image_pil_no_background = CTX.bg_image_pil_no_background.resize((CTX.display_image_size,
+                                                                CTX.display_image_size), Image.Resampling.LANCZOS)
+                st.image(CTX.bg_image_pil_no_background)
 
-        if bg_image_pil_no_background:
-            st.image(bg_image_pil_no_background)
+        if Path(CTX.image_no_background_path).exists():
+            CTX.bg_image_pil_no_background = Image.open(CTX.image_no_background_path)
+            CTX.bg_image_pil_no_background = CTX.bg_image_pil_no_background.resize((CTX.display_image_size,
+                                                                                    CTX.display_image_size),
+                                                                                   Image.Resampling.LANCZOS)
+            st.image(CTX.bg_image_pil_no_background)
 
+    #save status
+    CTX.save_config()
 
+def scale_index_unit(unit):
+    if unit == "cm":
+        return 0
+    elif unit == "mm":
+        return 1
+    else:
+        return 2
 
 
 class BackgroundInterface(UserInterface):
@@ -141,10 +209,9 @@ class ScaleInterface(UserInterface):
         return pixels_length
 
 
-def set_scale(image_path, output_file):
-    global pixels_length
-    scale = ScaleInterface(image_path, output_file)
+def set_scale(CTX):
+    scale = ScaleInterface(CTX.image_path, CTX.scale_json_path)
     scale.interface()
-    pixels_length = scale.parse_output()
+    CTX.pixels_length = scale.parse_output()
 
-    return pixels_length
+    return CTX.pixels_length

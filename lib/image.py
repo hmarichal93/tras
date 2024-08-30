@@ -12,9 +12,6 @@ class UserInterface(ABC):
         pass
 
 
-
-
-
 class LabelMeInterface(UserInterface):
     def __init__(self, image_path, output_path):
         super().__init__(image_path, output_path)
@@ -26,3 +23,4 @@ class LabelMeInterface(UserInterface):
     @abstractmethod
     def parse_output(self):
         pass
+

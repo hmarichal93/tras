@@ -8,6 +8,8 @@ from ui.image import main as image
 from ui.automatic import main as automatic_ring_delineation
 from ui.home import main as home
 
+from lib.io import load_json, write_json, bytesio_to_dict
+
 class Menu:
     home = "Home"
     image = "Image"
@@ -16,7 +18,9 @@ class Menu:
     metrics = "Metrics"
     save = "Save"
 
-APP_NAME = "DendroTool"
+APP_NAME = "UruDendro-Tool"
+DEFAULT_CONFIG_PATH = "./config/default.json"
+RUNTIME_CONFIG_PATH = "./config/runtime.json"
 
 
 
@@ -35,16 +39,10 @@ def main():
 
 
     if selected == Menu.home:
-        runtime_config_path = home()
-        if not runtime_config_path:
-            display_runtime_config_path = "default"
-        else:
-            display_runtime_config_path = runtime_config_path.name
-
-        st.write('Runtime Config `%s`' % display_runtime_config_path)
+        home(DEFAULT_CONFIG_PATH, RUNTIME_CONFIG_PATH)
 
     elif selected == Menu.image:
-        image()
+        image(RUNTIME_CONFIG_PATH)
 
 
     elif selected == Menu.automatic_ring_delineation:

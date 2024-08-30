@@ -1,7 +1,34 @@
 import json
 
-
-def load_json(output_file):
-    with open(output_file) as f:
+def load_json(filepath: str) -> dict:
+    """
+    Load json utility.
+    :param filepath: file to json file
+    :return: the loaded json as a dictionary
+    """
+    with open(str(filepath), 'r') as f:
         data = json.load(f)
     return data
+
+
+def write_json(dict_to_save: dict, filepath: str) -> None:
+    """
+    Write dictionary to disk
+    :param dict_to_save: serializable dictionary to save
+    :param filepath: path where to save
+    :return: void
+    """
+    with open(str(filepath), 'w') as f:
+        json.dump(dict_to_save, f)
+
+def bytesio_to_dict(bytesio_obj):
+    # Read the content from the BytesIO object
+    content = bytesio_obj.getvalue()
+
+    # Convert the content to a string
+    content_str = content.decode('utf-8')
+
+    # Parse the string as a JSON object to convert it to a Python dictionary
+    data_dict = json.loads(content_str)
+
+    return data_dict
