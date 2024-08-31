@@ -120,9 +120,9 @@ def main(runtime_config_path):
             if run_button:
                 #TODO: Implement
                 st.write("Running CS-TRD METHOD")
-                save_button = st.button("Save")
+                save_button = st.button("Download")
                 if save_button:
-                    st.write("Saving Result")
+                    # TODO: Implement. https://docs.streamlit.io/develop/api-reference/widgets/st.download_button
                     pass
 
         if method_latewood == LatewoodMethods.inbd:
@@ -136,10 +136,12 @@ def main(runtime_config_path):
             if run_button:
                 # TODO: Implement
                 st.write("Running INBD METHOD")
-                save_button = st.button("Save")
+                save_button = st.button("Download")
                 if save_button:
-                    st.write("Saving Result")
+                    #TODO: Implement. https://docs.streamlit.io/develop/api-reference/widgets/st.download_button
                     pass
+
+
 
 
 
@@ -156,3 +158,21 @@ def main(runtime_config_path):
 def annotate_pith():
     #TODO: Implement
     pass
+
+
+
+
+class PithBoundaryInterface(UserInterface):
+
+    def __init__(self, image_path, output_file):
+        super().__init__(image_path, output_file)
+
+    def parse_output(self):
+        try:
+            data = load_json(self.output_path)
+        except FileNotFoundError:
+            st.write("No json file found")
+
+        line = np.array(data['shapes'][0]['points'])
+        pixels_length = int(np.linalg.norm(line[0] - line[1]))
+        return pixels_length

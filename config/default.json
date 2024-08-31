@@ -1,6 +1,11 @@
 {
   "general": {"output_dir": "./output", "display_image_size": 256 },
- "image": {"image_path": "image.png" , "mode":"cross-section",
-   "scale": {"unit":"cm", "dpi": 300, "pixels_length":1, "know_distance": 2, "json_path":  "scale.json"},
-   "background": {"image_path": "background.png", "json_path":  "background.json"} }
+  "image": {
+           "image_path": "image.png" , "mode":"cross-section",
+           "scale": {"unit":"cm", "dpi": 300, "pixels_length":1, "know_distance": 2, "json_path":  "scale.json"},
+           "background": {"image_path": "background.png", "json_path":  "background.json"},
+           "metadata" : {"tree_planting_date":  {"year":  1993, "month":  1, "day":  1}, "location":  "Rivera, Uruguay",
+                        "species":  "Pinus taeda", "observations":  "None", "code" : "AAA-1234"
+           }
+  }
 }

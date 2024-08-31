@@ -1,6 +1,7 @@
 import streamlit as st
 import numpy as np
 import cv2
+import datetime
 
 from PIL import Image
 from streamlit_option_menu import option_menu
@@ -38,6 +39,13 @@ class ViewContext(Context):
         self.know_distance = config["scale"]["know_distance"]
         self.dpi = config["scale"]["dpi"]
 
+
+        self.tree_planting_date = config["metadata"]["tree_planting_date"]
+        self.location = config["metadata"]["location"]
+        self.species = config["metadata"]["species"]
+        self.observations = config["metadata"]["observations"]
+        self.code = config["metadata"]["code"]
+
         self.image_no_background_path = self.output_dir / config["background"]["image_path"]
         self.background_json_path = self.output_dir / config["background"]["json_path"]
 
@@ -54,12 +62,17 @@ class ViewContext(Context):
         config["image_path"] = str(self.image_path.name)
 
 
-
-
         config["scale"]["unit"] = self.units_mode
         config["scale"]["pixels_length"] = self.pixels_length
         config["scale"]["know_distance"] = self.know_distance
         config["scale"]["dpi"] = self.dpi
+
+
+        config["metadata"]["tree_planting_date"] = self.tree_planting_date
+        config["metadata"]["location"] = self.location
+        config["metadata"]["species"] = self.species
+        config["metadata"]["observations"] = self.observations
+        config["metadata"]["code"] = self.code
 
         return
 
@@ -71,6 +84,7 @@ class Menu:
     image = "Upload Image"
     scale = "Set Scale"
     background  = "Remove Background"
+    metadata = "Metadata"
 
 
 def main(runtime_config_path):
@@ -85,7 +99,7 @@ def main(runtime_config_path):
         """
     )
 
-    selected = option_menu(None, [Menu.image, Menu.scale, Menu.background],
+    selected = option_menu(None, [Menu.image, Menu.scale, Menu.background, Menu.metadata],
                            menu_icon="cast", default_index=0, orientation="horizontal")
 
 
@@ -141,6 +155,36 @@ def main(runtime_config_path):
                                                                                     CTX.display_image_size),
                                                                                    Image.Resampling.LANCZOS)
             st.image(CTX.bg_image_pil_no_background)
+
+    if selected == Menu.metadata and Path(CTX.image_path).exists():
+
+        code = st.text_input("Code", value = CTX.code)
+        CTX.code = code
+
+        year, month, day = (CTX.tree_planting_date['year'], CTX.tree_planting_date['month'],
+                            CTX.tree_planting_date['day'])
+        input_date = st.date_input( "Tree planting date", datetime.date(year, month, day),
+                                    min_value = datetime.date(1500, 1, 1),
+                                    max_value = datetime.date(3000, 1, 1))
+        CTX.tree_planting_date = {}
+        CTX.tree_planting_date['year'] = input_date.year
+        CTX.tree_planting_date['month'] = input_date.month
+        CTX.tree_planting_date['day'] = input_date.day
+
+
+        location = st.text_input("Location", value = CTX.location)
+        CTX.location = location
+
+        species = st.text_input("Species", value = CTX.species)
+        CTX.species = species
+
+        observations = st.text_area("Observations", value = CTX.observations)
+        CTX.observations = observations
+
+
+
+
+
 
     #save status
     CTX.save_config()

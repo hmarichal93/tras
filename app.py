@@ -1,8 +1,10 @@
+import os
+
 import streamlit as st
 
 from streamlit_option_menu import option_menu
 from PIL import Image
-
+from pathlib import Path
 
 from ui.image import main as image
 from ui.automatic import main as automatic_ring_delineation
@@ -25,7 +27,11 @@ RUNTIME_CONFIG_PATH = "./config/runtime.json"
 
 
 
+def initialization():
+    if Path(RUNTIME_CONFIG_PATH).exists():
+        os.system(f"rm -rf {RUNTIME_CONFIG_PATH}")
 
+    return
 
 
 def main():

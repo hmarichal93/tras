@@ -2,9 +2,9 @@ import streamlit as st
 import os
 
 from streamlit_option_menu import option_menu
+from pathlib import Path
 
 from lib.io import load_json, write_json, bytesio_to_dict
-
 
 
 
@@ -21,11 +21,20 @@ def main(default_config_path, runtime_config_path):
         config = bytesio_to_dict(uploaded_config)
 
     st.write('Runtime Config `%s`' % display_runtime_config_path)
-    write_json(config, runtime_config_path)
+    if not Path(runtime_config_path).exists():
+        write_json(config, runtime_config_path)
 
-    st.button("Clearing Previous Experiments", on_click=delete_cache_folder, kwargs = {"folder": config["general"]["output_dir"]})
+    reset = st.button("Clearing Previous Experiments")
+    if reset:
+        delete_cache_folder(config["general"]["output_dir"])
+        reset_runtime_config(runtime_config_path, default_config_path)
 
     return runtime_config_path
+
+def reset_runtime_config(runtime_config_path, default_config_path):
+    config = load_json(default_config_path)
+    write_json(config, runtime_config_path)
+    st.write("Runtime Config reset to default")
 
 def delete_cache_folder(folder):
     if os.path.exists(folder):
