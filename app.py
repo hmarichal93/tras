@@ -7,6 +7,7 @@ from PIL import Image
 from ui.image import main as image
 from ui.automatic import main as automatic_ring_delineation
 from ui.home import main as home
+from ui.manual import  main as manual
 
 from lib.io import load_json, write_json, bytesio_to_dict
 
@@ -34,8 +35,7 @@ def main():
     # 1. as sidebar menu
     with st.sidebar:
         selected = option_menu(APP_NAME, [Menu.home, Menu.image, Menu.automatic_ring_delineation,
-                                          Menu.manual_ring_delineation, Menu.metrics, Menu.save],
-                            icons=['house', 'gear',':robot_face:', ':muscle:','🔎'], menu_icon="cast", default_index=0)
+                                          Menu.manual_ring_delineation, Menu.metrics, Menu.save], menu_icon="cast", default_index=0)
 
 
     if selected == Menu.home:
@@ -46,10 +46,10 @@ def main():
 
 
     elif selected == Menu.automatic_ring_delineation:
-        automatic_ring_delineation()
+        automatic_ring_delineation(RUNTIME_CONFIG_PATH)
 
     elif selected == Menu.manual_ring_delineation:
-        st.write("You are at Manual-Ring-Delineation")
+        manual(RUNTIME_CONFIG_PATH)
 
     elif selected == Menu.metrics:
         st.write("You are at Metrics")

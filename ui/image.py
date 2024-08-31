@@ -86,7 +86,7 @@ def main(runtime_config_path):
     )
 
     selected = option_menu(None, [Menu.image, Menu.scale, Menu.background],
-         icons=['house', 'gear'], menu_icon="cast", default_index=0, orientation="horizontal")
+                           menu_icon="cast", default_index=0, orientation="horizontal")
 
 
 
