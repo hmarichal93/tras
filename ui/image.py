@@ -45,6 +45,8 @@ class ViewContext(Context):
         self.species = config["metadata"]["species"]
         self.observations = config["metadata"]["observations"]
         self.code = config["metadata"]["code"]
+        self.latitude = config['metadata']['latitude']
+        self.longitude = config['metadata']['longitude']
 
         self.image_no_background_path = self.output_dir / config["background"]["image_path"]
         self.background_json_path = self.output_dir / config["background"]["json_path"]
@@ -70,6 +72,8 @@ class ViewContext(Context):
 
         config["metadata"]["tree_planting_date"] = self.tree_planting_date
         config["metadata"]["location"] = self.location
+        config["metadata"]['latitude'] = self.latitude
+        config['metadata']['longitude'] = self.longitude
         config["metadata"]["species"] = self.species
         config["metadata"]["observations"] = self.observations
         config["metadata"]["code"] = self.code
@@ -174,6 +178,12 @@ def main(runtime_config_path):
 
         location = st.text_input("Location", value = CTX.location)
         CTX.location = location
+
+        latitude = st.number_input("Latitude", value = CTX.latitude, format="%.8f")
+        CTX.latitude = latitude
+
+        longitude = st.number_input("Longitude", value = CTX.longitude, format="%.8f")
+        CTX.longitude = longitude
 
         species = st.text_input("Species", value = CTX.species)
         CTX.species = species

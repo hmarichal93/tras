@@ -50,7 +50,6 @@ def main():
     elif selected == Menu.image:
         image(RUNTIME_CONFIG_PATH)
 
-
     elif selected == Menu.automatic_ring_delineation:
         automatic_ring_delineation(RUNTIME_CONFIG_PATH)
 
@@ -67,8 +66,6 @@ def main():
     with st.sidebar:
         realtime_update = st.checkbox("Update in realtime", True)
         st.image("assets/logo.jpg")
-
-
 
 
 
