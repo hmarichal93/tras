@@ -13,11 +13,18 @@ class UserInterface(ABC):
 
 
 class LabelMeInterface(UserInterface):
-    def __init__(self, image_path, output_path):
+    def __init__(self, image_path, output_path, edit=False):
         super().__init__(image_path, output_path)
+        self.edit = edit
 
     def interface(self):
-        command = f"labelme {self.image_path} -O {self.output_path}  --nodata "
+        if self.edit:
+            command = f"labelme {self.output_path}"
+
+        else:
+            command = f"labelme {self.image_path} -O {self.output_path}  --nodata "
+
+        print(command)
         os.system(command)
 
     @abstractmethod

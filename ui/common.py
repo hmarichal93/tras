@@ -3,6 +3,22 @@ from pathlib import Path
 
 from lib.io import load_json, write_json
 
+
+class Shapes:
+    pith = "Pith"
+    latewood = "Late Wood"
+    earlywood = "Early Wood"
+    knot = "Knot"
+    compresionwood = "Compression Wood"
+
+class Color:
+    red = "Red"
+    green = "Green"
+    blue = "Blue"
+    yellow = "Yellow"
+    black = "Black"
+    white = "White"
+
 class Context(ABC):
     def __init__(self, runtime_config_path):
         #set general config

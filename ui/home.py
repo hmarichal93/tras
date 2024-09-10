@@ -29,6 +29,25 @@ def main(default_config_path, runtime_config_path):
         delete_cache_folder(config["general"]["output_dir"])
         reset_runtime_config(runtime_config_path, default_config_path)
 
+    folder_picker = st.button("Select Output folder")
+    dirname = False
+    if folder_picker:
+        import tkinter as tk
+        from tkinter import filedialog
+
+        # Set up tkinter
+        root = tk.Tk()
+        root.withdraw()
+
+        # Make folder picker dialog appear on top of other windows
+        root.wm_attributes('-topmost', 1)
+        dirname = filedialog.askdirectory(master=root)
+        st.write(f'Selected folder: {dirname}')
+        dirname = dirname if Path(dirname).is_dir() else False
+        if dirname:
+            config["general"]["output_dir"] = dirname
+            write_json(config, runtime_config_path)
+
     return runtime_config_path
 
 def reset_runtime_config(runtime_config_path, default_config_path):
