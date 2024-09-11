@@ -97,6 +97,7 @@ class Ring:
         annual_ring_width, circle_equivalent_area = self.ring_width(self.outer_edge)
         return annual_ring_width
 
+
     @staticmethod
     def ring_width_estimated(outer_ring, inner_ring, radii_list):
         """
@@ -126,6 +127,7 @@ class Ring:
         return mean_ring_width, std_ring_width
 
 
+
     def early_wood_area(self):
         if self.early_wood_curve is None:
             return 0
@@ -133,11 +135,13 @@ class Ring:
         early_wood_area = early_wood_polygon.area
         return early_wood_area
 
+
     def late_wood_area(self):
         if self.early_wood_curve is None:
             return 0
         late_wood_area = self.area() - self.early_wood_area()
         return late_wood_area
+
 
     def late_wood_width(self):
         late_wood_width, late_wood_area = self.ring_width(self.outer_edge)
