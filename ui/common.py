@@ -12,12 +12,12 @@ class Shapes:
     compresionwood = "Compression Wood"
 
 class Color:
-    red = "Red"
-    green = "Green"
-    blue = "Blue"
-    yellow = "Yellow"
-    black = "Black"
-    white = "White"
+    red = "red"
+    green = "green"
+    blue = "blue"
+    yellow = "yellow"
+    black = "black"
+    white = "white"
 
 class Context(ABC):
     def __init__(self, runtime_config_path):
