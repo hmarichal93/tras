@@ -76,6 +76,16 @@ class ViewContext(Context):
 
         return
 
+    def get_annotation_file_given_shape(self, shape):
+        if shape == Shapes.earlywood:
+            return self.ew_annotation_file
+        if shape == Shapes.latewood:
+            return self.lw_annotation_file
+        if shape == Shapes.knot:
+            return self.knot_annotation_file
+        if shape == Shapes.compresionwood:
+            return self.cw_annotation_file
+
     def update_config(self):
         config_manual = self.config["manual"]
         config_manual["main_shape"] = self.main_shape
@@ -334,16 +344,18 @@ class UI:
         if edit_button:
             image_annotations_path = self.annotations_files_dict[self.CTX.main_shape]
             image_with_drawable_shapes_path = self.draw_shapes_over_image(self.CTX.image_path, self.CTX.drawable_shapes)
-            shape_edition = ShapeInterface(image_with_drawable_shapes_path, output_path, image_annotations_path)
+            shape_edition = ShapeInterface(image_with_drawable_shapes_path, image_annotations_path, output_path)
             shape_edition.parse_input()
             shape_edition.interface()
             st.write("Annotations saved in", output_path)
 
+
     def draw_shapes_over_image(self, image_path, drawable_shapes, output_image_name="images_with_shapes.png"):
         image = load_image(image_path)
         for shape in drawable_shapes:
-            if drawable_shapes[shape]:
-                if not self.CTX.cw_annotation_file:
+            if drawable_shapes[shape] and not shape == self.CTX.main_shape:
+                annotation_file = self.annotations_files_dict[shape]
+                if not annotation_file:
                     continue
                 #get visualization settings
                 visualization_shape = self.CTX.shape_visualization_settings[shape]
@@ -352,7 +364,7 @@ class UI:
                 stroke = visualization_shape.stroke
                 fill = visualization_shape.fill
                 opacity = visualization_shape.opacity
-                poly_shapes = UserInterface.load_shapes(self.CTX.cw_annotation_file)
+                poly_shapes = UserInterface.load_shapes(annotation_file)
                 for poly in poly_shapes:
                     image = Drawing.curve(poly.exterior.coords, image, color, thickness )
 
