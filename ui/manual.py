@@ -121,7 +121,7 @@ class ViewContext(Context):
 
 class ShapeInterface(UserInterface):
 
-    def __init__(self, image_path, output_file,  annotations_path):
+    def __init__(self, image_path:Path, output_file:Path,  annotations_path:Path):
         super().__init__(image_path, output_file, edit=annotations_path)
         self.annotations_path = annotations_path
 
@@ -344,7 +344,7 @@ class UI:
         if edit_button:
             image_annotations_path = self.annotations_files_dict[self.CTX.main_shape]
             image_with_drawable_shapes_path = self.draw_shapes_over_image(self.CTX.image_path, self.CTX.drawable_shapes)
-            shape_edition = ShapeInterface(image_with_drawable_shapes_path, image_annotations_path, output_path)
+            shape_edition = ShapeInterface(image_with_drawable_shapes_path, output_path, image_annotations_path)
             shape_edition.parse_input()
             shape_edition.interface()
             st.write("Annotations saved in", output_path)
