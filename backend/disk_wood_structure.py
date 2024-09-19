@@ -37,7 +37,8 @@ class AnnualRing(DiskWoodStructure):
     Annual ring structure. In conifers, it is composed of late and early wood structures. That is why the parameter
     late_early_wood_boundary is used to define the boundary between them ,and it is optional.
     """
-    def __init__(self, exterior = None, hole = None, late_early_wood_boundary = None, label = None):
+    def __init__(self, exterior = None, hole = None, late_early_wood_boundary = None, main_label = None,
+                 secondary_label = None):
         if exterior is None:
             raise ValueError("Exterior points must be provided")
         if hole is None:
@@ -48,12 +49,15 @@ class AnnualRing(DiskWoodStructure):
             if not Point(hole[0]).within(Polygon(exterior)):
                 raise ValueError("Hole points must be inside the exterior points")
             super().__init__(exterior, hole)
-        self.label = label
+        self.main_label = main_label
+        self.secondary_label = secondary_label
         self.late_wood = None
         self.early_wood = None
         if late_early_wood_boundary is not None:
-            self.late_wood = AnnualRing(exterior, late_early_wood_boundary, label=f"{self.label}_late_wood")
-            self.early_wood = AnnualRing(late_early_wood_boundary, hole, label=f"{self.label}_early_wood")
+            self.late_wood = AnnualRing(exterior, late_early_wood_boundary, main_label=f"{self.main_label}_late_wood",
+                                        secondary_label=secondary_label)
+            self.early_wood = AnnualRing(late_early_wood_boundary, hole, main_label=f"{self.main_label}_early_wood",
+                                        secondary_label=secondary_label)
 
 
     def draw(self, image:np.array, color: Color = Color.red, thickness: int = 1, opacity: float = 0.3, full_details=True) -> np.array:
@@ -65,7 +69,6 @@ class AnnualRing(DiskWoodStructure):
         :return:
         """
         if full_details:
-            print("Drawing full details")
             #draw late wood
             if self.late_wood is not None:
                 image = self.late_wood.draw(image, Color.blue, thickness, opacity, False)
@@ -73,11 +76,6 @@ class AnnualRing(DiskWoodStructure):
             #draw early wood
             if self.early_wood is not None:
                 image = self.early_wood.draw(image, Color.green, thickness, opacity, False)
-
-
-
-
-
 
         else:
             mask_exterior = np.zeros_like(image)

@@ -26,10 +26,10 @@ class LabelmeShape:
         self.flags = shape['flags']
 
     def __str__(self):
-        return f"(label={self.label}, shape_type={self.shape_type}, size = {self.points.shape})"
+        return f"(main_label={self.label}, shape_type={self.shape_type}, size = {self.points.shape})"
 
     def __repr__(self):
-        return f"(label={self.label}, shape_type={self.shape_type}, size = {self.points.shape})"
+        return f"(main_label={self.label}, shape_type={self.shape_type}, size = {self.points.shape})"
 
     def area(self):
         poly  = Polygon(self.points)
@@ -181,12 +181,16 @@ class AL_AnnualRings:
         for late in late_structures:
             try:
                 early = self.get_early_ring_within_late_rings(late, previous, early_structures, image.copy())
+
+
                 if idx == 0:
                     ring = AnnualRing(exterior=late.points, hole=None, late_early_wood_boundary=early.points
-                           if early is not None else None, label="pith")
+                           if early is not None else None, main_label=late.label,
+                                      secondary_label= early.label if early is not None else None)
                 else:
                     ring = AnnualRing(exterior=late.points, hole=previous.points, late_early_wood_boundary=early.points
-                           if early is not None else None, label=f"ring_{idx}")
+                           if early is not None else None, main_label=late.label,
+                                      secondary_label= early.label if early is not None else None)
 
             except ValueError as e:
                 print(f"Error: {e}")
@@ -227,13 +231,13 @@ def main():
     al_annual_rings = AL_AnnualRings(late_wood_path=Path(labelme_latewood_path),
                                      early_wood_path=Path(labelme_earlywood_path))
     annual_rings_list = al_annual_rings.read()
-    df = pd.DataFrame(columns=["ring", "area", "latewood_area", "early_wood_area", "area_early_ratio"])
+    df = pd.DataFrame(columns=["ring (main_label)", "ring (secondary label)", "area", "latewood_area", "early_wood_area", "area_early_ratio"])
     for idx, ring in enumerate(annual_rings_list):
 
         area = ring.area
         latewood_area = ring.late_wood.area if ring.late_wood is not None else 0
         earlywood_area = ring.early_wood.area if ring.early_wood is not None else 0
-        df.loc[idx] = [f"ring_{idx}", area, latewood_area, earlywood_area, earlywood_area/area]
+        df.loc[idx] = [f"{ring.main_label}", f"{ring.secondary_label}",area, latewood_area, earlywood_area, earlywood_area/area]
 
         image_debug = ring.draw(image.copy(), full_details=True, opacity=0.1)
         cv2.imwrite(f"output/ring_{idx}.png", image_debug)
