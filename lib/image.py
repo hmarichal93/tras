@@ -118,7 +118,7 @@ class Drawing:
 
     @staticmethod
     def curve(curva, img, color=(0, 255, 0), thickness = 1):
-        y, x = curva.xy
+        y,x = curva.xy
         y = np.array(y).astype(int)
         x = np.array(x).astype(int)
         pts = np.vstack((x,y)).T
@@ -129,7 +129,7 @@ class Drawing:
         return img
 
     @staticmethod
-    def fill(poly, image, color, opacity):
+    def fill(poly, image, color, opacity=0):
         y, x = poly.xy
         y = np.array(y).astype(int)
         x = np.array(x).astype(int)
