@@ -60,6 +60,28 @@ class AnnualRing(DiskWoodStructure):
                                         secondary_label=secondary_label)
 
 
+
+    def equivalent_radii(self):
+        """
+        Calculate the equivalent radii of the annual ring
+        :return: equivalent radii
+        """
+        outter_boundary = Polygon(self.exterior)
+        inner_points = np.array([list(interior.coords) for interior in self.interiors]).squeeze()
+        inner_boundary = Polygon(inner_points)
+        outter_area = outter_boundary.area
+        inner_area = inner_boundary.area
+        equivalent_radii = np.sqrt(outter_area - inner_area)
+
+        return equivalent_radii
+
+    def similarity_factor(self):
+        perimeter = self.exterior.length
+        area = self.area
+        radii_perfect_circle = np.sqrt(area / np.pi)
+        ring_similarity_factor = 1 - (perimeter - 2*np.pi*radii_perfect_circle) / perimeter
+        return ring_similarity_factor
+
     def draw(self, image:np.array, color: Color = Color.red, thickness: int = 1, opacity: float = 0.3, full_details=True) -> np.array:
         """
         Draw the disk wood structure on the image

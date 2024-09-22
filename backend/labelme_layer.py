@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import List
 
 import pandas as pd
-from shapely.geometry import Polygon
+from shapely.geometry import Polygon, Point
 
 from lib.io import load_json, write_json
 from lib.image import Color, Drawing
@@ -206,6 +206,60 @@ class AL_AnnualRings:
         pass
 
 
+def export_results(labelme_latewood_path : str, labelme_earlywood_path : str, image_path : str, metadata: dict,
+                   output_path="output/measures.csv"):
+    #metadata
+    year = metadata["year"]
+    pixels_millimeter_relation = float(metadata["pixels_millimeter_relation"])
+
+    image = cv2.imread(image_path)
+    al_annual_rings = AL_AnnualRings(late_wood_path=Path(labelme_latewood_path),
+                                     early_wood_path=Path(labelme_earlywood_path))
+    annual_rings_list = al_annual_rings.read()
+
+    df = pd.DataFrame(columns=["Annual Ring (main_label)", "Annual Ring (secondary label)", "Year",
+                               "Area [mm2]", "Area EW [mm2]", "Area LW [mm2]", "Area LW/EW (%)",
+                               "Width Annual Ring [mm]", "Width EW [mm]", "Width LW [mm]", "Width LW/EW (%)",
+                               "Eccentricity Module [mm]", "Eccentricity Phase [°]", "Ring Similarity Factor [0-1]"])
+
+    pith = Point(0, 0)
+    for idx, ring in enumerate(annual_rings_list):
+        #area
+        area = ring.area
+        latewood_area = ring.late_wood.area if ring.late_wood is not None else 0
+        earlywood_area = ring.early_wood.area if ring.early_wood is not None else 0
+        area_latewood_earlywood = latewood_area / earlywood_area if latewood_area > 0 and earlywood_area > 0 else 0
+
+        #width
+        width_annual_ring = ring.equivalent_radii()
+        width_latewood = ring.late_wood.equivalent_radii() if ring.late_wood is not None else 0
+        width_earlywood = ring.early_wood.equivalent_radii() if ring.early_wood is not None else 0
+        width_latewood_earlywood = width_latewood / width_earlywood if width_latewood > 0 and width_earlywood > 0 else 0
+
+        #eccentricity
+        if idx == 0:
+            pith = ring.centroid
+        eccentricity_module = ring.centroid.distance(pith)
+        if eccentricity_module == 0:
+            eccentricity_phase = 0
+        else:
+            x, y = (ring.centroid - pith).coords.xy
+            eccentricity_phase = np.arctan2(y, x)[0] if x != 0 else 0
+
+        ring_similarity_factor = ring.similarity_factor()
+
+        #save results
+        df.loc[idx] = [
+            f"{ring.main_label}", f"{ring.secondary_label}", year,
+            area, earlywood_area, latewood_area, area_latewood_earlywood,
+            width_annual_ring, width_earlywood, width_latewood, width_latewood_earlywood,
+            eccentricity_module, eccentricity_phase, ring_similarity_factor
+        ]
+        #image_debug = ring.draw(image.copy(), full_details=True, opacity=0.1)
+        #cv2.imwrite(f"output/ring_{idx}.png", image_debug)
+
+    df.to_csv(output_path, index=False)
+    return
 
 def draw_circular_region(image, poly_outter, poly_inner, color, opacity):
     mask_exterior = np.zeros_like(image)
@@ -224,25 +278,15 @@ def draw_circular_region(image, poly_outter, poly_inner, color, opacity):
 def main():
     root = "./input/L09d/"
     image_path = f"{root}L09d_nobackground.png"
-    image = cv2.imread(image_path)
     labelme_latewood_path = f"{root}L09d_latewood.json"
     labelme_earlywood_path = f"{root}L09d_earlywood.json"
-    #al_annual_rings = AL_AnnualRings(early_wood_path=Path(labelme_earlywood_path), late_wood_path=Path(labelme_latewood_path))
-    al_annual_rings = AL_AnnualRings(late_wood_path=Path(labelme_latewood_path),
-                                     early_wood_path=Path(labelme_earlywood_path))
-    annual_rings_list = al_annual_rings.read()
-    df = pd.DataFrame(columns=["ring (main_label)", "ring (secondary label)", "area", "latewood_area", "early_wood_area", "area_early_ratio"])
-    for idx, ring in enumerate(annual_rings_list):
+    metadata = {
+        "year": 2000,
+        "pixels_millimeter_relation": 1
+    }
+    export_results(labelme_latewood_path, labelme_earlywood_path, image_path, metadata)
 
-        area = ring.area
-        latewood_area = ring.late_wood.area if ring.late_wood is not None else 0
-        earlywood_area = ring.early_wood.area if ring.early_wood is not None else 0
-        df.loc[idx] = [f"{ring.main_label}", f"{ring.secondary_label}",area, latewood_area, earlywood_area, earlywood_area/area]
 
-        image_debug = ring.draw(image.copy(), full_details=True, opacity=0.1)
-        cv2.imwrite(f"output/ring_{idx}.png", image_debug)
-    df.to_csv("output/area.csv", index=False)
-    return
 
 
 if __name__ == "__main__":
