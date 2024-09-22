@@ -118,6 +118,22 @@ class AnnualRing(DiskWoodStructure):
 
         return image
 
+    def draw_rings(self, image:np.array, thickness: int = 1) -> np.array:
+        """
+        Draw the disk wood structure on the image
+        :param image: image to draw on
+        :param color: color to draw the disk wood structure
+        :param full_details: if True, draw the late and early wood
+        :return:
+        """
+        if self.late_wood is not None:
+            image = Drawing.curve(self.late_wood.exterior.coords, image, Color.blue, thickness)
+
+        if self.early_wood is not None:
+            image = Drawing.curve(self.early_wood.exterior.coords, image, Color.red, thickness)
+
+
+        return image
 
 class KnotWood(DiskWoodStructure):
 

@@ -207,7 +207,7 @@ class AL_AnnualRings:
 
 
 def export_results(labelme_latewood_path : str, labelme_earlywood_path : str, image_path : str, metadata: dict,
-                   output_path="output/measures.csv"):
+                   output_path="output/measures.csv", draw=True):
     #metadata
     year = metadata["year"]
     pixels_millimeter_relation = float(metadata["pixels_millimeter_relation"])
@@ -223,6 +223,7 @@ def export_results(labelme_latewood_path : str, labelme_earlywood_path : str, im
                                "Eccentricity Module [mm]", "Eccentricity Phase [°]", "Ring Similarity Factor [0-1]"])
 
     pith = Point(0, 0)
+    image_full = image.copy()
     for idx, ring in enumerate(annual_rings_list):
         #area
         area = ring.area
@@ -255,9 +256,13 @@ def export_results(labelme_latewood_path : str, labelme_earlywood_path : str, im
             width_annual_ring, width_earlywood, width_latewood, width_latewood_earlywood,
             eccentricity_module, eccentricity_phase, ring_similarity_factor
         ]
-        #image_debug = ring.draw(image.copy(), full_details=True, opacity=0.1)
-        #cv2.imwrite(f"output/ring_{idx}.png", image_debug)
+        if draw:
+            image_debug = ring.draw(image.copy(), full_details=True, opacity=0.1)
+            image_full = ring.draw_rings(image_full, thickness=3)
 
+            cv2.imwrite(f"output/ring_{idx}.png", image_debug)
+
+    cv2.imwrite("output/annual_rings.png", image_full)
     df.to_csv(output_path, index=False)
     return
 
@@ -276,13 +281,13 @@ def draw_circular_region(image, poly_outter, poly_inner, color, opacity):
     return image
 
 def main():
-    root = "./input/L09d/"
-    image_path = f"{root}L09d_nobackground.png"
-    labelme_latewood_path = f"{root}L09d_latewood.json"
-    labelme_earlywood_path = f"{root}L09d_earlywood.json"
+    root = "./input/C14/"
+    image_path = f"{root}image.jpg"
+    labelme_latewood_path = f"{root}latewood.json"
+    labelme_earlywood_path = f"{root}earlywood.json"
     metadata = {
         "year": 2000,
-        "pixels_millimeter_relation": 1
+        "pixels_millimeter_relation": 10 / 52
     }
     export_results(labelme_latewood_path, labelme_earlywood_path, image_path, metadata)
 
