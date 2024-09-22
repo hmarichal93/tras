@@ -126,8 +126,7 @@ class AnnualRing(DiskWoodStructure):
         :param full_details: if True, draw the late and early wood
         :return:
         """
-        if self.late_wood is not None:
-            image = Drawing.curve(self.late_wood.exterior.coords, image, Color.blue, thickness)
+        image = Drawing.curve(self.exterior.coords, image, Color.blue, thickness)
 
         if self.early_wood is not None:
             image = Drawing.curve(self.early_wood.exterior.coords, image, Color.red, thickness)
