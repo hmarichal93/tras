@@ -154,15 +154,7 @@ class AL_AnnualRings:
             if does_intersect:
                 break
 
-
-
-
         return early
-
-
-        #if len(early_rings_within_late_ring) == 0:
-        #    return None
-        #return early_rings_within_late_ring[0]
 
     def read(self):
         late_structures = self.al_latewood.read()
@@ -247,7 +239,7 @@ def export_results(labelme_latewood_path : str, labelme_earlywood_path : str, im
             eccentricity_phase = 0
         else:
             x, y = (ring.centroid - pith).coords.xy
-            eccentricity_phase = np.arctan2(y, x)[0] if x != 0 else 0
+            eccentricity_phase = np.arctan2(y, x)[0]* 180 / np.pi if x != 0 else 0
 
         ring_similarity_factor = ring.similarity_factor()
 
