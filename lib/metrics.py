@@ -125,7 +125,7 @@ def extract_ring_properties(annual_rings_list, year, plantation_date):
         annual_ring_label_list.append(ring.main_label)
         ew_lw_label_list.append(ring.secondary_label)
         #save results
-        year = year + datetime.timedelta(days=365) if plantation_date else year - datetime.timedelta(days=365)
+        year = year + datetime.timedelta(days=366) if plantation_date else year - datetime.timedelta(days=365)
 
     return annual_ring_label_list, year_list, ew_lw_label_list, ring_area_list, ew_area_list, eccentricity_module_list, eccentricity_phase_list, ring_perimeter_list
 
@@ -147,7 +147,7 @@ def debug_images(annual_rings_list, df, image_path, output_dir):
             image_debug = Drawing.curve(aux_poly.exterior.coords, image_debug, Color.black, thickness)
             #draw arrow from centroid to pith
             image_debug = Drawing.arrow(image_debug, pith, ring_centroid, Color.red, thickness=3)
-        output_name = f"{output_dir}/{ring.main_label}.png"
+        output_name = f"{output_dir}/{idx}_ring_properties_label_{ring.main_label}.png"
         cv2.imwrite(output_name, image_debug)
 
     cv2.imwrite(f"{output_dir}/rings.png", image_full)
@@ -177,8 +177,35 @@ def export_results( labelme_latewood_path : str, labelme_earlywood_path : str, i
     if draw:
         debug_images(annual_rings_list, df, image_path, output_dir)
 
+    generate_plots(df, output_dir)
+
     return
 
+def generate_plots(df, output_dir):
+    #pass
+    #Area bar plot
+    lw_area = df["Area LW [mm2]"]
+    ew_area = df["Area EW [mm2]"]
+    ring_area = df["Ring Area [mm2]"]
+    year = df["Year"]
+    #convert year to int
+    year = year.astype(int)
+    from matplotlib import pyplot as plt
+    plt.figure()
+    bar_width = 0.25
+    plt.bar(year - bar_width/2.1, ew_area,  label="Earlywood", width=bar_width)
+    plt.bar(year - bar_width/2.1, lw_area, bottom=ew_area, label="Latewood", width=bar_width)
+    plt.bar(year + bar_width/2.1, ring_area,  label="Ring", width=bar_width)
+
+    plt.xticks(year)
+    plt.grid(True)
+    #rotate xticks 90 degrees
+    plt.xticks(rotation=90)
+    plt.xlabel("Year")
+    plt.ylabel("Area [mm2]")
+    plt.legend()
+    plt.title("Ring Area Distribution")
+    plt.savefig(f"{output_dir}/area_bar_plot.png")
 
 
 def main():
