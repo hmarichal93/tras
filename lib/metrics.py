@@ -155,16 +155,18 @@ def debug_images(annual_rings_list, df, image_path, output_dir):
     cv2.imwrite(f"{output_dir}/rings.png", image_full)
 
     return
-def export_results( labelme_latewood_path : str, labelme_earlywood_path : str, image_path : str, metadata: dict,
-                   output_dir="output",  plantation_date=True, draw=False):
+def export_results( labelme_latewood_path : str = None, labelme_earlywood_path : str =None, image_path : str = None, metadata: dict = None,
+                   output_dir="output",  draw=False):
     #metadata
     year = metadata["year"]
     year = datetime.datetime(year, 1, 1)
 
+    plantation_date = metadata["plantation_date"]
+
     pixels_millimeter_relation = float(metadata["pixels_millimeter_relation"])
 
     al_annual_rings = AL_AnnualRings(late_wood_path=Path(labelme_latewood_path),
-                                     early_wood_path=Path(labelme_earlywood_path))
+                                     early_wood_path=Path(labelme_earlywood_path) if labelme_earlywood_path else None)
     annual_rings_list = al_annual_rings.read()
 
     (annual_ring_label_list, year_list, ew_lw_label_list, ring_area_list, ew_area_list, eccentricity_module_list,
@@ -175,7 +177,7 @@ def export_results( labelme_latewood_path : str, labelme_earlywood_path : str, i
         eccentricity_module_list, eccentricity_phase_list, ring_perimeter_list, pixels_millimeter_relation
     )
 
-    df.to_csv(f"{output_dir}/measures.csv", index=False)
+    df.to_csv(f"{output_dir}/measurements.csv", index=False)
     if draw:
         debug_images(annual_rings_list, df, image_path, output_dir)
 
@@ -288,15 +290,23 @@ def generate_pdf(df, output_dir):
 
 
 def main():
-    root = "./input/C14/"
+    folder_name = "C14"
+    folder_name = "W_F09_T_S2"
+    folder_name = "W_F12_T_S4"
+    root = f"./input/{folder_name}/"
     image_path = f"{root}image.jpg"
     labelme_latewood_path = f"{root}latewood.json"
     labelme_earlywood_path = f"{root}earlywood.json"
     metadata = {
-        "year": 1993,
-        "pixels_millimeter_relation": 10 / 52
+        "year": 2007,
+        "plantation_date": True,
+        "pixels_millimeter_relation": 1#10 / 52
     }
-    export_results(labelme_latewood_path, labelme_earlywood_path, image_path, metadata, draw=True)
+    output_dir = f"./output/{folder_name}"
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    #export_results(labelme_latewood_path, labelme_earlywood_path, image_path, metadata, draw=True, output_dir=output_dir)
+    export_results(labelme_latewood_path = labelme_latewood_path, image_path= image_path, metadata=metadata, draw=True, output_dir=output_dir)
+
 
 
 
