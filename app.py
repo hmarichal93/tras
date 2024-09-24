@@ -10,6 +10,7 @@ from ui.image import main as image
 from ui.automatic import main as automatic_ring_delineation
 from ui.home import main as home
 from ui.manual import  main as manual
+from ui.metrics import  main as metrics
 
 from lib.io import load_json, write_json, bytesio_to_dict
 
@@ -57,7 +58,7 @@ def main():
         manual(RUNTIME_CONFIG_PATH)
 
     elif selected == Menu.metrics:
-        st.write("You are at Metrics")
+        metrics(RUNTIME_CONFIG_PATH)
 
     elif selected == Menu.save:
         st.write("You are at Save")
