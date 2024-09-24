@@ -21,6 +21,7 @@ from backend.labelme_layer import AL_AnnualRings
 
 class Table:
     def __init__(self, unit="mm"):
+        self.unit = unit
         self.main_label = "Annual Ring (label)"
         self.ew_lw_label = "EW/LW label"
         self.year = "Year"
@@ -350,7 +351,7 @@ def main():
     output_dir = f"./output/{folder_name}"
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     #export_results(labelme_latewood_path, labelme_earlywood_path, image_path, metadata, draw=True, output_dir=output_dir)
-    export_results(labelme_latewood_path = labelme_latewood_path, image_path= image_path, metadata=metadata, draw=True, output_dir=output_dir)
+    export_results(labelme_latewood_path = labelme_latewood_path, image_path= image_path, metadata=metadata, draw=False, output_dir=output_dir)
 
 
 
