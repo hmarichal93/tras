@@ -61,19 +61,11 @@ class AnnualRing(DiskWoodStructure):
 
 
 
-    def equivalent_radii(self):
-        """
-        Calculate the equivalent radii of the annual ring
-        :return: equivalent radii
-        """
-        outter_boundary = Polygon(self.exterior)
-        inner_points = np.array([list(interior.coords) for interior in self.interiors]).squeeze()
-        inner_boundary = Polygon(inner_points)
-        outter_area = outter_boundary.area
-        inner_area = inner_boundary.area
-        equivalent_radii = np.sqrt(outter_area - inner_area)
 
-        return equivalent_radii
+
+    def get_centroid(self):
+        outter_boundary = Polygon(self.exterior)
+        return outter_boundary.centroid
 
     def similarity_factor(self):
         perimeter = self.exterior.length
