@@ -1,15 +1,22 @@
+import numpy as np
+
+from abc import ABC, abstractmethod
+
 
 
 class CrossSectionTree(ABC):
     def __init__(self, image_path, pith_path=None, knots_path=None, compression_wood_path=None, annual_ring_path=None,
                  early_late_path = None, bark_path=None):
 
-        self.image = load_image(image_path)
-        self.pith = labelme_generator(pith_path, shape_type = ShapeType.PITH)
-        self.knots = labelme_generator(knots_path,shape_type = ShapeType.KNOT_WOOD)
-        self.compression_wood = labelme_generator(compression_wood_path, shape_type = ShapeType.COMPRESSION_WOOD)
-        self.annual_rings = labelme_generator(annual_ring_path, early_late_path, shape_type = ShapeType.ANNUAL_RING)
-        self.bark = labelme_generator(bark_path, ShapeType.BARK)
+        self.image = None
+
+        #wood structure
+        self.pith = None
+        self.knots = []
+        self.compression_wood = []
+        self.annual_rings = []
+        self.bark = None
+
 
     @abstractmethod
     def draw(self, image:np.array, color: Color) -> np.array:

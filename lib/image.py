@@ -80,6 +80,15 @@ class Color:
 class Drawing:
 
     @staticmethod
+    def arrow(image, start_point, end_point, color, thickness=2):
+        start_point = start_point.coords.xy
+        end_point = end_point.coords.xy
+        start = (int(start_point[0][0]), int(start_point[1][0]))[::-1]
+        end = (int(end_point[0][0]), int(end_point[1][0]))[::-1]
+        # Draw a line with arrow
+        image = cv2.arrowedLine(image, start, end, color, thickness)
+        return image
+    @staticmethod
     def rectangle(image, top_left_point, bottom_right_point, color=Color.black, thickness=2):
         # Define the rectangle coordinates
         x1, y1 = top_left_point
