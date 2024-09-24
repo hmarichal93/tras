@@ -130,7 +130,7 @@ def main(runtime_config_path):
     if selected == Menu.scale and Path(CTX.image_path).exists():
         CTX.units_mode = st.radio(
             "Unit:",
-            ("cm", "mm", "dpi"), horizontal=True, index = scale_index_unit(CTX.units_mode)
+            ("nm",r"$\mu$m","mm", "cm" , "dpi"), horizontal=True, index = scale_index_unit(CTX.units_mode)
         )
         if CTX.units_mode == "dpi":
             CTX.dpi = st.number_input("DPI scale:", 1, 2000, CTX.dpi)
@@ -201,11 +201,15 @@ def main(runtime_config_path):
 
 def scale_index_unit(unit):
     if unit == "cm":
-        return 0
+        return 3
     elif unit == "mm":
-        return 1
-    else:
         return 2
+    elif unit == r"$\mu$m":
+        return 1
+    elif unit == r"nm":
+        return 0
+    else:
+        return 4
 
 
 class BackgroundInterface(UserInterface):
