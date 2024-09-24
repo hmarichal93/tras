@@ -19,53 +19,95 @@ from lib.image import Color, Drawing, resize_image_using_pil_lib
 
 from backend.labelme_layer import AL_AnnualRings
 
+class Table:
+    def __init__(self, unit="mm"):
+        self.main_label = "Annual Ring (label)"
+        self.ew_lw_label = "EW/LW label"
+        self.year = "Year"
+
+        self.ring_area = f"Ring Area [{unit}2]"
+        self.cumulative_area = f"Cumulative Area [{unit}2]"
+        self.cumulative_radius = f"Cumulative Annual Radius [{unit}]"
+        self.annual_ring_width = f"Annual Ring Width [{unit}]"
+
+        self.ew_area = f"Area EW [{unit}2]"
+        self.cumulative_ew_area = f"Cumulative R(n-1) + EW(n) Area [{unit}2]"
+        self.cumulative_ew_radius = f"Cumulative EW Radius [{unit}]"
+        self.ew_width = f"EW Width [{unit}]"
+
+        self.lw_area = f"Area LW [{unit}2]"
+        self.lw_width = f"LW Width [{unit}]"
+        self.lw_ratio = f"Area LW/(LW +EW) (-)"
+        self.lw_width_ratio = f"Width LW/(LW +EW) (-)"
+
+        self.eccentricity_module = f"Eccentricity Module [{unit}]"
+        self.eccentricity_phase = f"Eccentricity Phase [°]"
+        self.perimeter = f"Perimeter [{unit}]"
+        self.ring_similarity_factor = f"Ring Similarity Factor [0-1]"
+
+
 
 def fill_df(annual_ring_label_list, year_list, ew_lw_label_list, ring_area_list, ew_area_list, eccentricity_module_list,
-            eccentricity_phase_list, ring_perimeter_list, pixels_millimeter_relation):
+            eccentricity_phase_list, ring_perimeter_list, pixels_millimeter_relation, unit):
 
-    df = pd.DataFrame(columns=["Annual Ring (label)", "EW/LW label", "Year",  # metadata
-                               "Ring Area [mm2]",  # ring properties
-                               "Cumulative Area [mm2]", "Cumulative Annual Radius [mm]", "Annual Ring Width [mm]",
+    # df = pd.DataFrame(columns=[table.main_label, "EW/LW label", "Year",  # metadata
+    #                            "Ring Area [mm2]",  # ring properties
+    #                            "Cumulative Area [mm2]", "Cumulative Annual Radius [mm]", "Annual Ring Width [mm]",
+    #                            # math operations on ring properties
+    #                            "Area EW [mm2]",  # ring properties
+    #                            "Cumulative R(n-1) + EW(n) Area [mm2]", "Cumulative EW Radius [mm]", "EW Width [mm]",
+    #                            # math operations on ring properties
+    #                            "Area LW [mm2]",  # ring properties
+    #                            "LW Width [mm]",  # math operations on ring properties
+    #                            "Area LW/(LW +EW) (-)", "Width LW/(LW +EW) (-)",  # math operations on ring properties
+    #                            "Eccentricity Module [mm]", "Eccentricity Phase [°]",  # ring properties
+    #                            "Perimeter [mm]",  # ring properties
+    #                            "Ring Similarity Factor [0-1]"]  # math operations on ring properties
+    #                   )
+    table = Table(unit=unit)
+    df = pd.DataFrame(columns=[table.main_label, table.ew_lw_label, table.year,  # metadata
+                               table.ring_area,  # ring properties
+                               table.cumulative_area, table.cumulative_radius, table.annual_ring_width,
                                # math operations on ring properties
-                               "Area EW [mm2]",  # ring properties
-                               "Cumulative R(n-1) + EW(n) Area [mm2]", "Cumulative EW Radius [mm]", "EW Width [mm]",
+                               table.ew_area,  # ring properties
+                               table.cumulative_ew_area, table.cumulative_ew_radius, table.ew_width,
                                # math operations on ring properties
-                               "Area LW [mm2]",  # ring properties
-                               "LW Width [mm]",  # math operations on ring properties
-                               "Area LW/(LW +EW) (-)", "Width LW/(LW +EW) (-)",  # math operations on ring properties
-                               "Eccentricity Module [mm]", "Eccentricity Phase [°]",  # ring properties
-                               "Perimeter [mm]",  # ring properties
-                               "Ring Similarity Factor [0-1]"]  # math operations on ring properties
+                               table.lw_area,  # ring properties
+                               table.lw_width,  # math operations on ring properties
+                               table.lw_ratio, table.lw_width_ratio,  # math operations on ring properties
+                               table.eccentricity_module, table.eccentricity_phase,  # ring properties
+                               table.perimeter,  # ring properties
+                               table.ring_similarity_factor]  # math operations on ring properties
                       )
 
-    df["Annual Ring (label)"] = annual_ring_label_list
-    df["EW/LW label"] = ew_lw_label_list
-    df["Year"] = year_list
+    df[table.main_label] = annual_ring_label_list
+    df[table.ew_lw_label] = ew_lw_label_list
+    df[table.year] = year_list
 
-    df["Ring Area [mm2]"] = np.array(ring_area_list) * (pixels_millimeter_relation ** 2)
-    df["Cumulative Area [mm2]"] = df["Ring Area [mm2]"].cumsum()
-    df["Cumulative Annual Radius [mm]"] = np.sqrt(df["Cumulative Area [mm2]"] / np.pi)
-    annual_ring_width_list = df["Cumulative Annual Radius [mm]"].diff()
-    annual_ring_width_list[0] = df["Cumulative Annual Radius [mm]"].iloc[0]
-    df["Annual Ring Width [mm]"] = np.array(annual_ring_width_list)
+    df[table.ring_area] = np.array(ring_area_list) * (pixels_millimeter_relation ** 2)
+    df[table.cumulative_area] = df[table.ring_area].cumsum()
+    df[table.cumulative_radius] = np.sqrt(df[table.cumulative_area] / np.pi)
+    annual_ring_width_list = df[table.cumulative_radius].diff()
+    annual_ring_width_list[0] = df[table.cumulative_radius].iloc[0]
+    df[table.annual_ring_width] = np.array(annual_ring_width_list)
 
-    df["Area EW [mm2]"] = np.array(ew_area_list) * (pixels_millimeter_relation ** 2)
-    df["Cumulative R(n-1) + EW(n) Area [mm2]"] = (df["Cumulative Area [mm2]"].shift(1) + df["Area EW [mm2]"]).fillna(0)
-    df["Cumulative EW Radius [mm]"] = np.sqrt(df["Cumulative R(n-1) + EW(n) Area [mm2]"] / np.pi)
-    ew_ring_width_list = (df["Cumulative EW Radius [mm]"] - df["Cumulative Annual Radius [mm]"].shift(1)).fillna(0)
-    df["EW Width [mm]"] = np.array(ew_ring_width_list)
+    df[table.ew_area] = np.array(ew_area_list) * (pixels_millimeter_relation ** 2)
+    df[table.cumulative_ew_area] = (df[table.cumulative_area].shift(1) + df[table.ew_area]).fillna(0)
+    df[table.cumulative_ew_radius] = np.sqrt(df[table.cumulative_ew_area] / np.pi)
+    ew_ring_width_list = (df[table.cumulative_ew_radius] - df[table.cumulative_radius].shift(1)).fillna(0)
+    df[table.ew_width] = np.array(ew_ring_width_list)
 
-    df["Area LW [mm2]"] = df["Ring Area [mm2]"] - df["Area EW [mm2]"]
-    df["LW Width [mm]"] = df["Annual Ring Width [mm]"] - df["EW Width [mm]"]
-    df["Area LW/(LW +EW) (-)"] = df["Area LW [mm2]"] / df["Ring Area [mm2]"]
-    df["Width LW/(LW +EW) (-)"] = df["LW Width [mm]"] / df["Annual Ring Width [mm]"]
-    df["Eccentricity Module [mm]"] = np.array(eccentricity_module_list) * pixels_millimeter_relation
-    df["Eccentricity Phase [°]"] = np.array(eccentricity_phase_list)
-    df["Perimeter [mm]"] = np.array(ring_perimeter_list) * pixels_millimeter_relation
-    df["Ring Similarity Factor [0-1]"] = 1 - (df["Perimeter [mm]"] - 2 * np.pi * df["Cumulative Annual Radius [mm]"]) / \
-                                         df["Perimeter [mm]"]
+    df[table.lw_area] = df[table.ring_area] - df[table.ew_area]
+    df[table.lw_width] = df[table.annual_ring_width] - df[table.ew_width]
+    df[table.lw_ratio] = df[table.lw_area] / df[table.ring_area]
+    df[table.lw_width_ratio] = df[table.lw_width] / df[table.annual_ring_width]
+    df[table.eccentricity_module] = np.array(eccentricity_module_list) * pixels_millimeter_relation
+    df[table.eccentricity_phase] = np.array(eccentricity_phase_list)
+    df[table.perimeter] = np.array(ring_perimeter_list) * pixels_millimeter_relation
+    df[table.ring_similarity_factor] = 1 - (df[table.perimeter] - 2 * np.pi * df[table.cumulative_radius]) / \
+                                         df[table.perimeter]
     df = df.round(2)
-    return df
+    return df, table
 
 def compute_angle(vector):
     x, y = vector
@@ -165,6 +207,8 @@ def export_results( labelme_latewood_path : str = None, labelme_earlywood_path :
 
     pixels_millimeter_relation = float(metadata["pixels_millimeter_relation"])
 
+    unit = metadata.get("unit", "mm")
+
     al_annual_rings = AL_AnnualRings(late_wood_path=Path(labelme_latewood_path),
                                      early_wood_path=Path(labelme_earlywood_path) if labelme_earlywood_path else None)
     annual_rings_list = al_annual_rings.read()
@@ -172,25 +216,25 @@ def export_results( labelme_latewood_path : str = None, labelme_earlywood_path :
     (annual_ring_label_list, year_list, ew_lw_label_list, ring_area_list, ew_area_list, eccentricity_module_list,
      eccentricity_phase_list, ring_perimeter_list) = extract_ring_properties(annual_rings_list, year, plantation_date)
 
-    df = fill_df(
+    df, table = fill_df(
         annual_ring_label_list, year_list, ew_lw_label_list, ring_area_list, ew_area_list,
-        eccentricity_module_list, eccentricity_phase_list, ring_perimeter_list, pixels_millimeter_relation
+        eccentricity_module_list, eccentricity_phase_list, ring_perimeter_list, pixels_millimeter_relation, unit
     )
 
     df.to_csv(f"{output_dir}/measurements.csv", index=False)
     if draw:
         debug_images(annual_rings_list, df, image_path, output_dir)
 
-    generate_plots(df, output_dir)
+    generate_plots(table, df, output_dir)
     generate_pdf(df, output_dir)
     return
 
-def generate_plots(df, output_dir):
+def generate_plots(table, df, output_dir):
     #pass
     #Area bar plot
-    lw_area = df["Area LW [mm2]"]
-    ew_area = df["Area EW [mm2]"]
-    ring_area = df["Ring Area [mm2]"]
+    lw_area = df[table.lw_area]
+    ew_area = df[table.ew_area]
+    ring_area = df[table.ring_area]
     year = df["Year"]
     #convert year to int
     year = year.astype(int)
@@ -206,16 +250,16 @@ def generate_plots(df, output_dir):
     #rotate xticks 90 degrees
     plt.xticks(rotation=90)
     plt.xlabel("Year")
-    plt.ylabel("Area [mm2]")
+    plt.ylabel(f"Area [{table.unit}2]")
     plt.legend()
     plt.title("Ring Area Distribution")
     plt.savefig(f"{output_dir}/area_bar_plot.png")
     plt.close()
 
     #ring width bar plot
-    lw_width = df["LW Width [mm]"]
-    ew_width = df["EW Width [mm]"]
-    ring_width = df["Annual Ring Width [mm]"]
+    lw_width = df[table.lw_width]
+    ew_width = df[table.ew_width]
+    ring_width = df[table.annual_ring_width]
     plt.figure()
     plt.bar(year - bar_width/2.1, ew_width,  label="Earlywood", width=bar_width)
     plt.bar(year - bar_width/2.1, lw_width, bottom=ew_width, label="Latewood", width=bar_width)
@@ -226,14 +270,14 @@ def generate_plots(df, output_dir):
     #rotate xticks 90 degrees
     plt.xticks(rotation=90)
     plt.xlabel("Year")
-    plt.ylabel("Width [mm]")
+    plt.ylabel(f"Width [{table.unit}]")
     plt.legend()
     plt.title("Ring Width Distribution")
     plt.savefig(f"{output_dir}/width_bar_plot.png")
     plt.close()
 
     #ring cummulatives plot
-    ring_width = df["Cumulative Annual Radius [mm]"]
+    ring_width = df[table.cumulative_radius]
     plt.figure()
     plt.plot(year, ring_width)
     plt.xticks(year)
@@ -241,7 +285,7 @@ def generate_plots(df, output_dir):
     #rotate xticks 90 degrees
     plt.xticks(rotation=90)
     plt.xlabel("Year")
-    plt.ylabel("Radius [mm]")
+    plt.ylabel(f"Radius [{table.unit}]")
     plt.title("Ring Cumulative Radius")
     plt.savefig(f"{output_dir}/radius_plot.png")
     plt.close()
@@ -300,7 +344,8 @@ def main():
     metadata = {
         "year": 2007,
         "plantation_date": True,
-        "pixels_millimeter_relation": 1#10 / 52
+        "pixels_millimeter_relation": 1,#10 / 52,
+        "unit": "cm"
     }
     output_dir = f"./output/{folder_name}"
     Path(output_dir).mkdir(parents=True, exist_ok=True)
