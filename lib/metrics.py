@@ -15,7 +15,7 @@ from pathlib import Path
 import pandas as pd
 from shapely.geometry import Polygon, Point
 
-from lib.image import Color, Drawing
+from lib.image import Color, Drawing, resize_image_using_pil_lib
 
 from backend.labelme_layer import AL_AnnualRings
 
@@ -148,8 +148,10 @@ def debug_images(annual_rings_list, df, image_path, output_dir):
             #draw arrow from centroid to pith
             image_debug = Drawing.arrow(image_debug, pith, ring_centroid, Color.red, thickness=3)
         output_name = f"{output_dir}/{idx}_ring_properties_label_{ring.main_label}.png"
+        image_debug = resize_image_using_pil_lib(image_debug, 640, 640)
         cv2.imwrite(output_name, image_debug)
 
+    image_full = resize_image_using_pil_lib(image_full, 640, 640)
     cv2.imwrite(f"{output_dir}/rings.png", image_full)
 
     return
@@ -178,7 +180,7 @@ def export_results( labelme_latewood_path : str, labelme_earlywood_path : str, i
         debug_images(annual_rings_list, df, image_path, output_dir)
 
     generate_plots(df, output_dir)
-
+    generate_pdf(df, output_dir)
     return
 
 def generate_plots(df, output_dir):
@@ -206,6 +208,83 @@ def generate_plots(df, output_dir):
     plt.legend()
     plt.title("Ring Area Distribution")
     plt.savefig(f"{output_dir}/area_bar_plot.png")
+    plt.close()
+
+    #ring width bar plot
+    lw_width = df["LW Width [mm]"]
+    ew_width = df["EW Width [mm]"]
+    ring_width = df["Annual Ring Width [mm]"]
+    plt.figure()
+    plt.bar(year - bar_width/2.1, ew_width,  label="Earlywood", width=bar_width)
+    plt.bar(year - bar_width/2.1, lw_width, bottom=ew_width, label="Latewood", width=bar_width)
+    plt.bar(year + bar_width/2.1, ring_width,  label="Ring", width=bar_width)
+
+    plt.xticks(year)
+    plt.grid(True)
+    #rotate xticks 90 degrees
+    plt.xticks(rotation=90)
+    plt.xlabel("Year")
+    plt.ylabel("Width [mm]")
+    plt.legend()
+    plt.title("Ring Width Distribution")
+    plt.savefig(f"{output_dir}/width_bar_plot.png")
+    plt.close()
+
+    #ring cummulatives plot
+    ring_width = df["Cumulative Annual Radius [mm]"]
+    plt.figure()
+    plt.plot(year, ring_width)
+    plt.xticks(year)
+    plt.grid(True)
+    #rotate xticks 90 degrees
+    plt.xticks(rotation=90)
+    plt.xlabel("Year")
+    plt.ylabel("Radius [mm]")
+    plt.title("Ring Cumulative Radius")
+    plt.savefig(f"{output_dir}/radius_plot.png")
+    plt.close()
+    return
+
+def generate_pdf(df, output_dir):
+    #generate pdf with plots
+    from fpdf import FPDF
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+    pdf.image(f"{output_dir}/rings.png", x=10, y=30, w=180)
+    pdf.add_page()
+    # pdf.set_font("Arial", size=12)
+    # pdf.cell(200, 10, txt="Annual Ring Metrics", ln=True, align="C")
+    pdf.set_font("Arial", size=10)
+    pdf.cell(200, 10, txt="Ring Area Distribution", ln=True, align="L")
+    pdf.image(f"{output_dir}/area_bar_plot.png", x=10, y=30, w=180)
+    pdf.add_page()
+
+
+    pdf.image(f"{output_dir}/width_bar_plot.png", x=10, y=30, w=180)
+    pdf.add_page()
+
+    pdf.image(f"{output_dir}/radius_plot.png", x=10, y=30, w=180)
+    pdf.add_page()
+
+    #extra pages for more details
+    #add page title
+    pdf.set_font("Arial", size=12)
+    pdf.cell(200, 10, txt="Ring Details", ln=True, align="C")
+
+    images_list = [f"{output_dir}/{idx}_ring_properties_label_{df.iloc[idx]["Annual Ring (label)"]}.png" for idx in range(df.shape[0])]
+    for idx, image in enumerate(images_list):
+        #add title "Ring idx"
+        pdf.set_font("Arial", size=10)
+        pdf.cell(200, 10, txt=f"Ring {df.iloc[idx]['Annual Ring (label)']}", ln=True, align="L")
+        pdf.image(image, x=10, y=30, w=180)
+        pdf.add_page()
+
+
+
+    pdf.output(f"{output_dir}/metrics.pdf")
+
+
 
 
 def main():
@@ -217,7 +296,7 @@ def main():
         "year": 1993,
         "pixels_millimeter_relation": 10 / 52
     }
-    export_results(labelme_latewood_path, labelme_earlywood_path, image_path, metadata)
+    export_results(labelme_latewood_path, labelme_earlywood_path, image_path, metadata, draw=True)
 
 
 
