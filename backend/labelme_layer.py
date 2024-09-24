@@ -163,7 +163,7 @@ class AL_AnnualRings:
             early_structures = self.al_earlywood.read()
 
         else:
-            early_structures = [None]*len(late_structures)
+            early_structures = None
 
         idx = 0
         previous = None
@@ -172,7 +172,7 @@ class AL_AnnualRings:
         image = np.zeros((height, width, 3), dtype=np.uint8)
         for late in late_structures:
             try:
-                early = self.get_early_ring_within_late_rings(late, previous, early_structures, image.copy())
+                early = self.get_early_ring_within_late_rings(late, previous, early_structures, image.copy()) if early_structures is not None else None
 
 
                 if idx == 0:
