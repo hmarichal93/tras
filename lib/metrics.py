@@ -51,20 +51,6 @@ class Table:
 def fill_df(annual_ring_label_list, year_list, ew_lw_label_list, ring_area_list, ew_area_list, eccentricity_module_list,
             eccentricity_phase_list, ring_perimeter_list, pixels_millimeter_relation, unit):
 
-    # df = pd.DataFrame(columns=[table.main_label, "EW/LW label", "Year",  # metadata
-    #                            "Ring Area [mm2]",  # ring properties
-    #                            "Cumulative Area [mm2]", "Cumulative Annual Radius [mm]", "Annual Ring Width [mm]",
-    #                            # math operations on ring properties
-    #                            "Area EW [mm2]",  # ring properties
-    #                            "Cumulative R(n-1) + EW(n) Area [mm2]", "Cumulative EW Radius [mm]", "EW Width [mm]",
-    #                            # math operations on ring properties
-    #                            "Area LW [mm2]",  # ring properties
-    #                            "LW Width [mm]",  # math operations on ring properties
-    #                            "Area LW/(LW +EW) (-)", "Width LW/(LW +EW) (-)",  # math operations on ring properties
-    #                            "Eccentricity Module [mm]", "Eccentricity Phase [°]",  # ring properties
-    #                            "Perimeter [mm]",  # ring properties
-    #                            "Ring Similarity Factor [0-1]"]  # math operations on ring properties
-    #                   )
     table = Table(unit=unit)
     df = pd.DataFrame(columns=[table.main_label, table.ew_lw_label, table.year,  # metadata
                                table.ring_area,  # ring properties
