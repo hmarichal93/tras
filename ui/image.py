@@ -38,6 +38,7 @@ class ViewContext(Context):
         self.pixels_length = config["scale"]["pixels_length"]
         self.know_distance = config["scale"]["know_distance"]
         self.dpi = config["scale"]["dpi"]
+        self.scale_status = config["scale"]["status"]
 
 
         self.tree_planting_date = config["metadata"]["tree_planting_date"]
@@ -70,6 +71,7 @@ class ViewContext(Context):
         config["scale"]["pixels_length"] = self.pixels_length
         config["scale"]["know_distance"] = self.know_distance
         config["scale"]["dpi"] = self.dpi
+        config["scale"]["status"] = self.scale_status
 
 
         config["metadata"]["tree_planting_date"] = self.tree_planting_date
@@ -141,6 +143,7 @@ def main(runtime_config_path):
 
         CTX.bg_image = st.file_uploader("Image:", type=["png", "jpg"])
         if CTX.bg_image is not None:
+            CTX.scale_status = False
             CTX.bg_image_pil = Image.open(CTX.bg_image)
             CTX.bg_image_pil.save(CTX.image_path)
             bg_image_pil_display = CTX.bg_image_pil.resize((CTX.display_image_size, CTX.display_image_size),
@@ -185,7 +188,10 @@ def main(runtime_config_path):
             if Path(CTX.image_no_background_path).exists():
                 resize_image(CTX.image_no_background_path, resize_factor)
 
-            st.write("Image resized")
+
+            CTX.scale_status = False
+
+            st.write("Image resized. Please set the scale again")
 
     if selected == Menu.scale and Path(CTX.image_path).exists():
         CTX.units_mode = st.radio(
@@ -193,14 +199,24 @@ def main(runtime_config_path):
             ("nm", r"$\mu$m", "mm", "cm", "dpi"), horizontal=True, index=scale_index_unit(CTX.units_mode)
         )
         if CTX.units_mode == "dpi":
-            CTX.dpi = st.number_input("DPI scale:", 1, 2000, CTX.dpi)
+            dpi = st.number_input("DPI scale:", 1, 2000, CTX.dpi)
+            if CTX.dpi != dpi:
+                CTX.scale_status = True
+                CTX.dpi = dpi
 
         else:
             button = st.button("Set Distance in Pixels")
             if button:
                 CTX.pixels_length = set_scale(CTX)
-            CTX.pixels_length = st.number_input("Distance in Pixels", 1, 10000, CTX.pixels_length)
-            CTX.know_distance = st.number_input("Know distance", 1, 100, CTX.know_distance)
+                CTX.scale_status = True
+            pixels_length = st.number_input("Distance in Pixels", 1, 10000, CTX.pixels_length)
+            if pixels_length != CTX.pixels_length:
+                CTX.scale_status = True
+                CTX.pixels_length = pixels_length
+            know_distance = st.number_input("Know distance", 1, 100, CTX.know_distance)
+            if know_distance != CTX.know_distance:
+                CTX.scale_status = True
+                CTX.know_distance = know_distance
 
     if selected == Menu.metadata and Path(CTX.image_path).exists():
 

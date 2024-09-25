@@ -22,6 +22,7 @@ class ViewContext(Context):
         config = self.config["image"]
         self.image_path = self.output_dir / config["image_path"]
         self.units_mode = config["scale"]["unit"]
+        self.scale_status = config["scale"]["status"]
         self.pixels_length = config["scale"]["pixels_length"]
         self.know_distance = config["scale"]["know_distance"]
         self.dpi = config["scale"]["dpi"]
@@ -208,8 +209,14 @@ class UI:
 
 
     def run_metrics(self):
-        enabled = self.CTX.lw_annotation_file is not None
+        if not self.CTX.scale_status:
+            os.system(f"rm -rf {self.CTX.output_dir_metrics}")
+            st.warning("Please set the scale")
+        enabled = self.CTX.lw_annotation_file is not None and self.CTX.scale_status
         run_button = st.button("Run", disabled = not enabled)
+
+
+
         if run_button:
             metadata = dict(
                 unit = self.CTX.units_mode,
