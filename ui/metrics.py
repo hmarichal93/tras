@@ -264,10 +264,11 @@ class UI:
         #st.image(str(rings_image_path), caption="Rings Image")
 
         self.df = pd.read_csv(self.dataframe_file)
-        self.df['Year'] = self.df['Year'].astype(int)
+        #self.df['Year'] = self.df['Year'].astype(int)
 
         #select columns to display
-        columns = select_columns_to_display(self.CTX, Table(self.CTX.units_mode))
+        table =  Table(self.CTX.units_mode)
+        columns = select_columns_to_display(self.CTX, table)
         self.df = self.df[columns]
 
         ring_images = [str(image_path) for image_path in self.CTX.output_dir_metrics.glob("*_ring_properties*.png")]
@@ -301,14 +302,41 @@ class UI:
 
         image_zoom(image, mode="scroll", size=(800, 600), keep_aspect_ratio=True, zoom_factor=4.0, increment=0.2)
 
-        area_bar_plot_filepath = self.CTX.output_dir_metrics / "area_bar_plot.png"
-        st.image(str(area_bar_plot_filepath), caption="Area Bar Plot")
 
-        width_bar_plot_filepath = self.CTX.output_dir_metrics / "width_bar_plot.png"
-        st.image(str(width_bar_plot_filepath), caption="Width Bar Plot")
+        import altair as alt
+        #tab1, tab2 = st.tabs(["Line plot", "Bar plot"])
 
-        radius_plot_filepath = self.CTX.output_dir_metrics / "radius_plot.png"
-        st.image(str(radius_plot_filepath), caption="Radius Plot")
+        df_columns = self.df.columns.tolist()
+        df_columns.remove('image')
+        df_columns.remove(table.ew_lw_label)
+        df_columns.remove(table.main_label)
+        index_year = df_columns.index(table.year)
+        index_radius_width = df_columns.index(table.cumulative_radius)
+        x_axis = st.selectbox("Select x-axis", df_columns, index=index_year)
+        y_axis = st.selectbox("Select y-axis", df_columns, index=index_radius_width)
+
+        if x_axis == y_axis:
+            st.error("Please select different columns for x and y axis")
+            return
+
+        x_axis_values = self.df[x_axis].values
+        y_axis_values = self.df[y_axis].values
+        x_axis = x_axis.split("[")[0]
+        y_axis = y_axis.split("[")[0]
+        df = pd.DataFrame(data={x_axis: x_axis_values, y_axis: y_axis_values}, columns=[x_axis, y_axis])
+
+        chart = alt.Chart(df).mark_line(color="#FF5733").encode(
+            x=x_axis,
+            y=y_axis
+        ).properties(
+            width=800,
+            height=400,
+            title=alt.TitleParams(f"Measurement Unit: {self.CTX.units_mode}", anchor='middle', offset=20)
+        )
+
+        st.altair_chart(chart)
+        return
+
 
 
 
