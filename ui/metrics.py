@@ -308,10 +308,10 @@ class UI:
 
         df_columns = self.df.columns.tolist()
         df_columns.remove('image')
-        df_columns.remove(table.ew_lw_label)
-        df_columns.remove(table.main_label)
-        index_year = df_columns.index(table.year)
-        index_radius_width = df_columns.index(table.cumulative_radius)
+        #df_columns.remove(table.ew_lw_label)
+        #df_columns.remove(table.main_label)
+        index_year = 0#df_columns.index(table.year)
+        index_radius_width = 1#df_columns.index(table.cumulative_radius)
         x_axis = st.selectbox("Select x-axis", df_columns, index=index_year)
         y_axis = st.selectbox("Select y-axis", df_columns, index=index_radius_width)
 
