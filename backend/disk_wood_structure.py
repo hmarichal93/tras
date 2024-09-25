@@ -58,6 +58,8 @@ class AnnualRing(DiskWoodStructure):
                                         secondary_label=secondary_label)
             self.early_wood = AnnualRing(late_early_wood_boundary, hole, main_label=f"{self.main_label}_early_wood",
                                         secondary_label=secondary_label)
+        else:
+            self.late_wood = self
 
 
 
