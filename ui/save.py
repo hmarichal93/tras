@@ -35,12 +35,6 @@ class ViewContext(Context):
     def init_specific_ui_components(self):
         pass
 
-
-
-
-        return
-
-
     def update_config(self):
         pass
 

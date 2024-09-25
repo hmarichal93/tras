@@ -4,8 +4,8 @@
            },
   "image": {
            "image_path": "image.png" , "mode":"cross-section",
-           "scale": {"unit":"cm", "dpi": 300, "pixels_length":1, "know_distance": 2, "json_path":  "scale.json"},
-           "background": {"image_path": "background.png", "json_path":  "background.json"},
+           "scale": {"unit":"cm", "dpi": 300, "pixels_length":1, "know_distance": 2, "json_path":  "scale.json", "status": false},
+           "background": {"image_path": "background.png", "json_path":  "background.json", "resize_factor":1.0},
            "metadata" : {
                     "tree_planting_date":  {"year":  1993, "month":  1, "day":  1},"harvest_date": {"year":  1993, "month":  1, "day":  1},
                     "location":  "Montevideo, Uruguay",
@@ -26,5 +26,26 @@
       "Late Wood": {"shapes_list":[], "thickness": 10, "color": "red", "stroke": true, "fill": true, "opacity":0.5},
       "Knot": {"shapes_list":[], "thickness": 10, "color": "red", "stroke": true, "fill": true, "opacity":0.5},
       "Compression Wood": {"shapes_list":[], "thickness": 10, "color": "red", "stroke": true, "fill": true, "opacity":0.5}}
+  },
+  "metric":{
+    "main_label": true,
+    "ring_area": true, 
+    "ew_area":true,
+    "lw_area": true,
+    "eccentricity_module": true,
+    "perimeter": true,
+    "ew_lw_label": true, 
+    "cumulative_area": true, 
+    "cumulative_ew_area": true, 
+    "lw_width": true,
+    "eccentricity_phase": true,
+    "ring_similarity_factor": true,
+    "year": true,
+    "cumulative_radius": true,
+    "cumulative_ew_radius": true,
+    "lw_ratio": true,
+    "annual_ring_width": true,
+    "ew_width": true,
+    "lw_width_ratio": true
   }
 }
