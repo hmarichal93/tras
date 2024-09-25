@@ -7,7 +7,7 @@ from PIL import Image
 from streamlit_option_menu import option_menu
 from pathlib import Path
 
-from lib.image import LabelMeInterface as UserInterface
+from lib.image import LabelMeInterface as UserInterface, resize_image_using_pil_lib
 from lib.io import load_json
 from ui.common import Context
 
@@ -51,6 +51,7 @@ class ViewContext(Context):
 
         self.image_no_background_path = self.output_dir / config["background"]["image_path"]
         self.background_json_path = self.output_dir / config["background"]["json_path"]
+        self.resize_factor = config["background"]["resize_factor"]
 
         #runtime variables
         self.bg_image = None
@@ -80,6 +81,8 @@ class ViewContext(Context):
         config["metadata"]["observations"] = self.observations
         config["metadata"]["code"] = self.code
 
+        config["background"]["resize_factor"] = self.resize_factor
+
         return
 
         # config["background"]["image_path"] = self.image_no_background_path
@@ -89,7 +92,7 @@ class ViewContext(Context):
 class Menu:
     image = "Upload Image"
     scale = "Set Scale"
-    background  = "Remove Background"
+    preprocess  = "Preprocess"
     metadata = "Metadata"
 
 
@@ -104,6 +107,17 @@ def set_date_input(dictionary_date, text="Tree planting date"):
     dictionary_date['month'] = input_date.month
     dictionary_date['day'] = input_date.day
     return dictionary_date
+
+def resize_image(image_path, resize_factor):
+    image = cv2.imread(image_path)
+    H, W = image.shape[:2]
+    H_new = int(H  / resize_factor)
+    W_new = int(W  / resize_factor)
+    image = resize_image_using_pil_lib(image,  H_new, W_new)
+    cv2.imwrite(image_path, image)
+    return
+
+
 def main(runtime_config_path):
     global CTX
     CTX = ViewContext(runtime_config_path)
@@ -116,7 +130,7 @@ def main(runtime_config_path):
         """
     )
 
-    selected = option_menu(None, [Menu.image, Menu.scale, Menu.background, Menu.metadata],
+    selected = option_menu(None, [Menu.image, Menu.preprocess, Menu.scale,  Menu.metadata],
                            menu_icon="cast", default_index=0, orientation="horizontal")
 
 
@@ -126,7 +140,7 @@ def main(runtime_config_path):
                                                 else 1 )
 
         CTX.bg_image = st.file_uploader("Image:", type=["png", "jpg"])
-        if CTX.bg_image:
+        if CTX.bg_image is not None:
             CTX.bg_image_pil = Image.open(CTX.bg_image)
             CTX.bg_image_pil.save(CTX.image_path)
             bg_image_pil_display = CTX.bg_image_pil.resize((CTX.display_image_size, CTX.display_image_size),
@@ -140,22 +154,7 @@ def main(runtime_config_path):
             st.image(bg_image_pil_display)
 
 
-    if selected == Menu.scale and Path(CTX.image_path).exists():
-        CTX.units_mode = st.radio(
-            "Unit:",
-            ("nm",r"$\mu$m","mm", "cm" , "dpi"), horizontal=True, index = scale_index_unit(CTX.units_mode)
-        )
-        if CTX.units_mode == "dpi":
-            CTX.dpi = st.number_input("DPI scale:", 1, 2000, CTX.dpi)
-
-        else:
-            button = st.button("Set Distance in Pixels")
-            if button:
-                CTX.pixels_length  = set_scale(CTX)
-            CTX.pixels_length = st.number_input("Distance in Pixels", 1, 10000, CTX.pixels_length)
-            CTX.know_distance = st.number_input("Know distance", 1, 100, CTX.know_distance)
-
-    if selected == Menu.background and Path(CTX.image_path).exists():
+    if selected == Menu.preprocess and Path(CTX.image_path).exists():
         if st.button("Remove Background"):
             interface = BackgroundInterface(CTX.image_path, CTX.background_json_path, CTX.image_no_background_path)
             interface.interface()
@@ -164,7 +163,7 @@ def main(runtime_config_path):
                 CTX.bg_image_pil_no_background = interface.remove_background()
                 CTX.bg_image_pil_no_background = CTX.bg_image_pil_no_background.resize((CTX.display_image_size,
                                                                 CTX.display_image_size), Image.Resampling.LANCZOS)
-                st.image(CTX.bg_image_pil_no_background)
+                #st.image(CTX.bg_image_pil_no_background)
 
         if Path(CTX.image_no_background_path).exists():
             CTX.bg_image_pil_no_background = Image.open(CTX.image_no_background_path)
@@ -172,6 +171,27 @@ def main(runtime_config_path):
                                                                                     CTX.display_image_size),
                                                                                    Image.Resampling.LANCZOS)
             st.image(CTX.bg_image_pil_no_background)
+
+        resize_factor = st.slider("Resize Factor", 0.0, 10.0, CTX.resize_factor , help="Resize factor for the image")
+        if resize_factor != CTX.resize_factor and resize_factor > 0:
+            CTX.resize_factor = resize_factor
+            resize_image(CTX.image_path, resize_factor)
+            resize_image(CTX.image_no_background_path, resize_factor)
+
+    if selected == Menu.scale and Path(CTX.image_path).exists():
+        CTX.units_mode = st.radio(
+            "Unit:",
+            ("nm", r"$\mu$m", "mm", "cm", "dpi"), horizontal=True, index=scale_index_unit(CTX.units_mode)
+        )
+        if CTX.units_mode == "dpi":
+            CTX.dpi = st.number_input("DPI scale:", 1, 2000, CTX.dpi)
+
+        else:
+            button = st.button("Set Distance in Pixels")
+            if button:
+                CTX.pixels_length = set_scale(CTX)
+            CTX.pixels_length = st.number_input("Distance in Pixels", 1, 10000, CTX.pixels_length)
+            CTX.know_distance = st.number_input("Know distance", 1, 100, CTX.know_distance)
 
     if selected == Menu.metadata and Path(CTX.image_path).exists():
 
