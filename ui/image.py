@@ -41,6 +41,7 @@ class ViewContext(Context):
 
 
         self.tree_planting_date = config["metadata"]["tree_planting_date"]
+        self.harvest_date = config["metadata"]["harvest_date"]
         self.location = config["metadata"]["location"]
         self.species = config["metadata"]["species"]
         self.observations = config["metadata"]["observations"]
@@ -71,6 +72,7 @@ class ViewContext(Context):
 
 
         config["metadata"]["tree_planting_date"] = self.tree_planting_date
+        config["metadata"]["harvest_date"] = self.harvest_date
         config["metadata"]["location"] = self.location
         config["metadata"]['latitude'] = self.latitude
         config['metadata']['longitude'] = self.longitude
@@ -91,6 +93,17 @@ class Menu:
     metadata = "Metadata"
 
 
+
+def set_date_input(dictionary_date, text="Tree planting date"):
+    year, month, day = (dictionary_date['year'], dictionary_date['month'],
+                        dictionary_date['day'])
+    input_date = st.date_input( text, datetime.date(year, month, day),
+                                min_value = datetime.date(1500, 1, 1),
+                                max_value = datetime.date(3000, 1, 1))
+    dictionary_date['year'] = input_date.year
+    dictionary_date['month'] = input_date.month
+    dictionary_date['day'] = input_date.day
+    return dictionary_date
 def main(runtime_config_path):
     global CTX
     CTX = ViewContext(runtime_config_path)
@@ -165,16 +178,9 @@ def main(runtime_config_path):
         code = st.text_input("Code", value = CTX.code)
         CTX.code = code
 
-        year, month, day = (CTX.tree_planting_date['year'], CTX.tree_planting_date['month'],
-                            CTX.tree_planting_date['day'])
-        input_date = st.date_input( "Tree planting date", datetime.date(year, month, day),
-                                    min_value = datetime.date(1500, 1, 1),
-                                    max_value = datetime.date(3000, 1, 1))
-        CTX.tree_planting_date = {}
-        CTX.tree_planting_date['year'] = input_date.year
-        CTX.tree_planting_date['month'] = input_date.month
-        CTX.tree_planting_date['day'] = input_date.day
-
+        ##tree planting date
+        CTX.tree_planting_date = set_date_input(CTX.tree_planting_date, "Tree planting date")
+        CTX.harvest_date = set_date_input(CTX.tree_planting_date, "Harvest date")
 
         location = st.text_input("Location", value = CTX.location)
         CTX.location = location
