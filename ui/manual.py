@@ -14,8 +14,6 @@ from lib.io import load_json, write_json, bytesio_to_dict
 
 
 
-
-
 class VisualizationShape:
     def __init__(self, shapes_list, thickness, color, stroke, fill, opacity):
         self.shapes_list = shapes_list
@@ -65,6 +63,8 @@ class ViewContext(Context):
             shapes_list = shape_visualization["shapes_list"]
             thickness = shape_visualization["thickness"]
             color = shape_visualization["color"]
+            #convert string "(R,G,B)" to integer tuple (R,G,B)
+            color = tuple(map(int, color.strip('()').split(',')))
             stroke = shape_visualization["stroke"]
             fill = shape_visualization["fill"]
             opacity = shape_visualization["opacity"]
@@ -107,7 +107,7 @@ class ViewContext(Context):
             shape_visualization_config = config_manual["advanced_settings"][shape]
             shape_visualization_config["shapes_list"] = shape_settings_memory.shapes_list
             shape_visualization_config["thickness"] = shape_settings_memory.thickness
-            shape_visualization_config["color"] =  shape_settings_memory.color
+            shape_visualization_config["color"] = str(shape_settings_memory.color)
             shape_visualization_config["stroke"] = shape_settings_memory.stroke
             shape_visualization_config["fill"] = shape_settings_memory.fill
             shape_visualization_config["opacity"] = shape_settings_memory.opacity
@@ -285,11 +285,18 @@ class UI:
         if not is_disabled:
             params.thickness = thickness
 
-        color_list = [Color.red, Color.black, Color.white, Color.blue, Color.green, Color.yellow]
-        color = st.radio("Color", color_list,
-                         index=color_list.index(params.color),
-                         horizontal=True, disabled = is_disabled)
+        # color_list = [Color.red, Color.black, Color.white, Color.blue, Color.green, Color.yellow]
+        # color = st.radio("Color", color_list,
+        #                  index=color_list.index(params.color),
+        #                  horizontal=True, disabled = is_disabled)
+        color_hex = '#%02x%02x%02x' % params.color
+        color = st.color_picker("Pick A Color", color_hex, disabled=is_disabled)
+
         if not is_disabled:
+            #convert color to BGR
+            color = color.lstrip('#')
+            color = tuple(int(color[i:i + 2], 16) for i in (0, 2, 4))
+            #switch to RGB
             params.color = color
 
         col1, col2, col3, col4 = st.columns(4)
@@ -373,7 +380,8 @@ class UI:
                 #get visualization settings
                 visualization_shape = self.CTX.shape_visualization_settings[shape]
                 thickness = visualization_shape.thickness
-                color = getattr(ColorCV2, visualization_shape.color)
+                color = visualization_shape.color # getattr(ColorCV2, visualization_shape.color)
+                color = color[::-1] #switch to BGR
                 stroke = visualization_shape.stroke
                 fill = visualization_shape.fill
                 opacity = visualization_shape.opacity
