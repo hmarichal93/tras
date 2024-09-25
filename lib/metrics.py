@@ -175,7 +175,7 @@ def debug_images(annual_rings_list, df, image_path, output_dir):
             aux_poly = Polygon(inner_points)
             image_debug = Drawing.curve(aux_poly.exterior.coords, image_debug, Color.black, thickness)
             #draw arrow from centroid to pith
-            image_debug = Drawing.arrow(image_debug, pith, ring_centroid, Color.red, thickness=3)
+        image_debug = Drawing.arrow(image_debug, pith, ring_centroid, Color.red, thickness=3)
         output_name = f"{output_dir}/{idx}_ring_properties_label_{ring.main_label}.png"
         image_debug = resize_image_using_pil_lib(image_debug, 640, 640)
         cv2.imwrite(output_name, image_debug)
@@ -325,19 +325,20 @@ def main():
     folder_name = "W_F09_T_S2"
     folder_name = "W_F12_T_S4"
     root = f"./input/{folder_name}/"
-    image_path = f"{root}image.jpg"
+    root = "./output/"
+    image_path = f"{root}image.png"
     labelme_latewood_path = f"{root}latewood.json"
     labelme_earlywood_path = f"{root}earlywood.json"
     metadata = {
         "year": 2007,
         "plantation_date": True,
-        "pixels_millimeter_relation": 1,#10 / 52,
-        "unit": "cm"
+        "pixels_millimeter_relation": 1/2.26,#10 / 52,
+        "unit": "micrometer"
     }
     output_dir = f"./output/{folder_name}"
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     #export_results(labelme_latewood_path, labelme_earlywood_path, image_path, metadata, draw=True, output_dir=output_dir)
-    export_results(labelme_latewood_path = labelme_latewood_path, image_path= image_path, metadata=metadata, draw=False, output_dir=output_dir)
+    export_results(labelme_latewood_path = labelme_latewood_path, image_path= image_path, metadata=metadata, draw=True, output_dir=output_dir)
 
 
 
