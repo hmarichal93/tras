@@ -232,7 +232,8 @@ class UI:
                                         Shapes.knot: self.CTX.knot_annotation_file,
                                         Shapes.compresionwood : self.CTX.cw_annotation_file
         }
-        self.enabled_main_shape = Path(self.annotations_files_dict[self.CTX.main_shape]).exists() or self.CTX.annotate_from_scratch
+        self.enabled_main_shape = (Path(self.annotations_files_dict[self.CTX.main_shape]).exists() or
+                                   self.CTX.annotate_from_scratch)
 
 
 

@@ -1,12 +1,16 @@
 {
-  "general": {"output_dir": "./output", "display_image_size": 256 },
+  "general": {
+            "output_dir": "./output", "display_image_size": 256
+           },
   "image": {
            "image_path": "image.png" , "mode":"cross-section",
            "scale": {"unit":"cm", "dpi": 300, "pixels_length":1, "know_distance": 2, "json_path":  "scale.json"},
            "background": {"image_path": "background.png", "json_path":  "background.json"},
-           "metadata" : {"tree_planting_date":  {"year":  1993, "month":  1, "day":  1}, "location":  "Montevideo, Uruguay",
-                        "species":  "Pinus taeda", "observations":  "None", "code" : "AAA-1234",
-                        "latitude": -34.83794967897183, "longitude": -56.189290811877314
+           "metadata" : {
+                    "tree_planting_date":  {"year":  1993, "month":  1, "day":  1},"harvest_date": {"year":  1993, "month":  1, "day":  1},
+                    "location":  "Montevideo, Uruguay",
+                    "species":  "Pinus taeda", "observations":  "None", "code" : "AAA-1234",
+                    "latitude": -34.83794967897183, "longitude": -56.189290811877314
            }
   },
   "manual": {
@@ -15,6 +19,7 @@
     "annotations_files": {
        "early_wood": [], "late_wood": [], "knot": [], "compression_wood" : []
     },
+    "annotate_from_scratch": true,
     "show_advanced_settings": true, 
     "advanced_settings": {
       "Early Wood": {"shapes_list":[], "thickness": 10, "color": "red", "stroke": true, "fill": true, "opacity":0.5},
