@@ -2,6 +2,7 @@ import streamlit as st
 import numpy as np
 import cv2
 import datetime
+import os
 
 from PIL import Image
 from streamlit_option_menu import option_menu
@@ -143,7 +144,10 @@ def main(runtime_config_path):
 
         CTX.bg_image = st.file_uploader("Image:", type=["png", "jpg"])
         if CTX.bg_image is not None:
+            os.system(f"rm -rf {CTX.output_dir}")
+            Path(CTX.output_dir).mkdir(parents=True, exist_ok=True)
             CTX.scale_status = False
+
             CTX.bg_image_pil = Image.open(CTX.bg_image)
             CTX.bg_image_pil.save(CTX.image_path)
             bg_image_pil_display = CTX.bg_image_pil.resize((CTX.display_image_size, CTX.display_image_size),
@@ -191,7 +195,7 @@ def main(runtime_config_path):
 
             CTX.scale_status = False
 
-            st.write("Image resized. Please set the scale again")
+            st.warning("Image resized. Please set the scale again")
 
     if selected == Menu.scale and Path(CTX.image_path).exists():
         CTX.units_mode = st.radio(
