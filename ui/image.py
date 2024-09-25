@@ -175,8 +175,14 @@ def main(runtime_config_path):
         resize_factor = st.slider("Resize Factor", 0.0, 10.0, CTX.resize_factor , help="Resize factor for the image")
         if resize_factor != CTX.resize_factor and resize_factor > 0:
             CTX.resize_factor = resize_factor
+
+        if st.button("Resize Image"):
             resize_image(CTX.image_path, resize_factor)
-            resize_image(CTX.image_no_background_path, resize_factor)
+
+            if Path(CTX.image_no_background_path).exists():
+                resize_image(CTX.image_no_background_path, resize_factor)
+
+            st.write("Image resized")
 
     if selected == Menu.scale and Path(CTX.image_path).exists():
         CTX.units_mode = st.radio(
