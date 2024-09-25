@@ -172,7 +172,10 @@ def main(runtime_config_path):
                                                                                    Image.Resampling.LANCZOS)
             st.image(CTX.bg_image_pil_no_background)
 
-        resize_factor = st.slider("Resize Factor", 0.0, 10.0, CTX.resize_factor , help="Resize factor for the image")
+        resize_factor = st.slider("Resize Factor", 0.0, 10.0, CTX.resize_factor , help="Resize factor for the image.\n"
+                                                                                       "Be aware that the image will \n"
+                                                                                       "be resized, which means that metrics\n"
+                                                                                       "will be affected")
         if resize_factor != CTX.resize_factor and resize_factor > 0:
             CTX.resize_factor = resize_factor
 
