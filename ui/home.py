@@ -27,6 +27,13 @@ def main(default_config_path, runtime_config_path):
     reset = st.button("Clearing Previous Experiments")
     if reset:
         delete_cache_folder(config["general"]["output_dir"])
+        script_path = os.path.abspath(__file__)
+        root = Path(script_path).parent.parent
+        static_files_dir = Path(root) / "static"
+        delete_cache_folder(str(static_files_dir))
+        metric_dir = Path(config["general"]["output_dir"]) / "metrics"
+        delete_cache_folder(str(metric_dir))
+
         reset_runtime_config(runtime_config_path, default_config_path)
 
     folder_picker = st.button("Select Output folder")
