@@ -71,14 +71,14 @@ class UI:
                 year = self.CTX.tree_planting_date['year']
 
             )
-            if self.CTX.lw_annotation_file is not None:
+            if Path(self.CTX.lw_annotation_file).exists():
                 lw_file_path = self.CTX.output_dir_metrics / "latewood_read.json"
                 os.system(f"cp {self.CTX.lw_annotation_file} {lw_file_path}")
                 lw_file_path = self.CTX.output_dir_metrics / "latewood.json"
             else:
                 lw_file_path = None
 
-            if self.CTX.ew_annotation_file is not None:
+            if Path(self.CTX.ew_annotation_file).exists():
                 ew_file_path = self.CTX.output_dir_metrics / "earlywood_read.json"
                 os.system(f"cp {self.CTX.ew_annotation_file} {ew_file_path}")
                 ew_file_path = self.CTX.output_dir_metrics / "earlywood.json"
