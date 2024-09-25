@@ -56,6 +56,7 @@ class ViewContext(Context):
         self.cw_annotation_file = config_manual["annotations_files"]["compression_wood"]
         self.cw_annotation_file = None if len(self.cw_annotation_file)==0 else self.cw_annotation_file
 
+        self.annotate_from_scratch = config_manual["annotate_from_scratch"]
         self.show_advanced_settings = config_manual["show_advanced_settings"]
 
         self.shape_visualization_settings = {}
@@ -111,6 +112,7 @@ class ViewContext(Context):
             shape_visualization_config["fill"] = shape_settings_memory.fill
             shape_visualization_config["opacity"] = shape_settings_memory.opacity
 
+        config_manual["annotate_from_scratch"] = self.annotate_from_scratch
 
         return
 
@@ -138,10 +140,6 @@ class ShapeInterface(UserInterface):
         return data
 
 
-
-
-
-
     def parse_output(self):
         try:
             data = load_json(self.output_path)
@@ -149,8 +147,6 @@ class ShapeInterface(UserInterface):
             st.write("No json file found")
             data = {}
         return data
-
-
 
 
 
@@ -207,6 +203,10 @@ class UI:
 
     def annotations_files(self):
         st.write("Upload the annotations files for the shapes you want to edit or visualize")
+        #add checkbox
+        show_advanced_settings = st.checkbox("Annotate from scratch", self.CTX.annotate_from_scratch)
+        if show_advanced_settings:
+            self.CTX.annotate_from_scratch = True
 
 
         self.CTX.knot_annotation_file = self.file_uploader( self.bold_text_depending_on_main_shape(Shapes.knot,
@@ -219,7 +219,7 @@ class UI:
 
         self.CTX.ew_annotation_file = self.file_uploader( self.bold_text_depending_on_main_shape(Shapes.earlywood,
                          f"Choose {Shapes.earlywood} annotations file"),
-                              self.CTX.output_dir / "earlywood.json", "json")
+                              self.CTX.output_dir / "earlywood_read.json", "json")
 
         self.CTX.lw_annotation_file = self.file_uploader(self.bold_text_depending_on_main_shape(Shapes.latewood,
                             f"Choose {Shapes.latewood} annotations file"),
@@ -230,14 +230,17 @@ class UI:
                                         Shapes.knot: self.CTX.knot_annotation_file,
                                         Shapes.compresionwood : self.CTX.cw_annotation_file
         }
-        self.enabled_main_shape = self.annotations_files_dict[self.CTX.main_shape] is not None
+        self.enabled_main_shape = self.annotations_files_dict[self.CTX.main_shape] is not None or self.CTX.annotate_from_scratch
+
+
 
     def file_uploader(self, label, output_file, extension):
         uploaded_cw_annotation_file = st.file_uploader(label, type=[extension])
         if uploaded_cw_annotation_file:
             self.save_annotation_file_locally(output_file, uploaded_cw_annotation_file)
-            return output_file
-        return None
+
+        return output_file
+        #return None
 
     def show_advanced_settings(self, value= None):
         st.write("Shapes Visualization Settings")
@@ -339,10 +342,17 @@ class UI:
     def edition(self):
         enabled = self.enabled_main_shape and self.CTX.output_dir is not None
         edit_button = st.button("Edit", disabled = not enabled)
-        output_name = self.CTX.main_shape.lower().replace(" ", "_") + "_edited.json"
-        output_path = self.CTX.output_dir / output_name
+
         if edit_button:
             image_annotations_path = self.annotations_files_dict[self.CTX.main_shape]
+            output_path = image_annotations_path
+            if self.CTX.annotate_from_scratch:
+                image_annotations_path = False
+            else:
+                output_name = self.CTX.main_shape.lower().replace(" ", "_") + "_backup.json"
+                backup_path = self.CTX.output_dir / output_name
+                os.system(f"cp {image_annotations_path} {backup_path}")
+
             image_with_drawable_shapes_path = self.draw_shapes_over_image(self.CTX.image_path, self.CTX.drawable_shapes)
             shape_edition = ShapeInterface(image_with_drawable_shapes_path, output_path, image_annotations_path)
             shape_edition.parse_input()
