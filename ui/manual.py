@@ -204,9 +204,11 @@ class UI:
     def annotations_files(self):
         st.write("Upload the annotations files for the shapes you want to edit or visualize")
         #add checkbox
-        show_advanced_settings = st.checkbox("Annotate from scratch", self.CTX.annotate_from_scratch)
-        if show_advanced_settings:
+        annotate_from_scratch = st.checkbox("Annotate from scratch", self.CTX.annotate_from_scratch)
+        if annotate_from_scratch:
             self.CTX.annotate_from_scratch = True
+        else:
+            self.CTX.annotate_from_scratch = False
 
 
         self.CTX.knot_annotation_file = self.file_uploader( self.bold_text_depending_on_main_shape(Shapes.knot,
@@ -230,7 +232,7 @@ class UI:
                                         Shapes.knot: self.CTX.knot_annotation_file,
                                         Shapes.compresionwood : self.CTX.cw_annotation_file
         }
-        self.enabled_main_shape = self.annotations_files_dict[self.CTX.main_shape] is not None or self.CTX.annotate_from_scratch
+        self.enabled_main_shape = Path(self.annotations_files_dict[self.CTX.main_shape]).exists() or self.CTX.annotate_from_scratch
 
 
 
