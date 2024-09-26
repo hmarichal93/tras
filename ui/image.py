@@ -213,7 +213,9 @@ def main(runtime_config_path):
             if button:
                 CTX.pixels_length = set_scale(CTX)
                 CTX.scale_status = True
-            pixels_length = st.number_input("Distance in Pixels", 1, 10000, CTX.pixels_length)
+            pixels_length = st.number_input("Distance in Pixels", 1.0, 10000.0, float(CTX.pixels_length))
+            #input float number
+
             if pixels_length != CTX.pixels_length:
                 CTX.scale_status = True
                 CTX.pixels_length = pixels_length
