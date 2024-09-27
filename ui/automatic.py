@@ -4,6 +4,8 @@ from streamlit_option_menu import option_menu
 from pathlib import Path
 
 from lib.image import LabelMeInterface as UserInterface
+from lib.io import load_json, write_json, bytesio_to_dict
+
 from ui.common import Context
 
 class LatewoodMethods:
@@ -45,11 +47,15 @@ class ViewContext(Context):
         if Path(self.image_no_background_path).exists():
             self.image_path = self.image_no_background_path
 
+        self.inbd_models = self.config["automatic"]["inbd_models"]
+        self.model_path = self.config["automatic"]["model_path"]
+        self.upload_model = self.config["automatic"]["upload_model"]
 
         return
 
     def update_config(self):
-
+        self.config["automatic"]["model_path"] = str(self.model_path)
+        self.config["automatic"]["upload_model"] = self.upload_model
 
         return
 
@@ -126,13 +132,24 @@ def main(runtime_config_path):
                     pass
 
         if method_latewood == LatewoodMethods.inbd:
+            output_dir_inbd = CTX.output_dir / "inbd"
+            output_dir_inbd.mkdir(exist_ok=True, parents=True)
+            output_model_path = f"{output_dir_inbd}/model.pt.zip"
+
             st.divider()
             st.subheader("Parameters")
-            model = st.radio("Model", [InbdModels.pinus, InbdModels.eh], horizontal=True)
+            CTX.upload_model = st.checkbox("Upload your own model", value = CTX.upload_model)
+            model = st.radio("Model", [InbdModels.pinus, InbdModels.eh], horizontal=True, disabled =  CTX.upload_model)
+            if CTX.upload_model:
+                output_model_path = file_model_uploader("Choose a file", output_model_path, ".pt.zip")
+                st.warning("Remember that if you do not upload a model, a model uploaded in the pass will be used")
+            else:
+                output_model_path = CTX.inbd_models[model]
 
+            CTX.model_path = output_model_path
             st.divider()
 
-            run_button = st.button("Run", use_container_width=True)
+            run_button = st.button("Run", use_container_width=True, disabled=not Path(CTX.model_path).exists())
             if run_button:
                 # TODO: Implement
                 st.write("Running INBD METHOD")
@@ -147,9 +164,13 @@ def main(runtime_config_path):
 
     return
 
-def annotate_pith():
-    #TODO: Implement
-    pass
+def file_model_uploader(label, output_file, extension):
+    uploaded_cw_annotation_file = st.file_uploader(label, type=[extension])
+    if uploaded_cw_annotation_file:
+        with open(output_file, "wb") as f:
+            f.write(uploaded_cw_annotation_file.read())
+
+    return output_file
 
 
 
