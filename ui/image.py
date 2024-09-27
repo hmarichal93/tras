@@ -251,10 +251,6 @@ def main(runtime_config_path):
         CTX.observations = observations
 
 
-
-
-
-
     #save status
     CTX.save_config()
 
