@@ -13,6 +13,12 @@
                     "latitude": -34.83794967897183, "longitude": -56.189290811877314
            }
   },
+  "automatic":{
+    "model_path":"",
+    "inbd_models":{"Pinus Taeda":"models/inbd/model.update.pt.zip", "INBD-EH":"models/inbd/model_eh.update.pt.zip"},
+    "upload_model": false
+  }
+  ,
   "manual": {
     "main_shape": "Late Wood",
     "drawable_shapes": {"Early Wood": false, "Late Wood": false, "Knot": false, "Compression Wood": false}, 

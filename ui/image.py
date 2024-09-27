@@ -144,7 +144,6 @@ def main(runtime_config_path):
 
         CTX.bg_image = st.file_uploader("Image:", type=["png", "jpg"])
         if CTX.bg_image is not None:
-            os.system(f"rm -rf {CTX.output_dir}/image.png")
             os.system(f"rm -rf {CTX.output_dir}/*.png")
             os.system(f"rm -rf {CTX.output_dir}/*.json")
             os.system(f"rm -rf {CTX.output_dir}/metrics")
