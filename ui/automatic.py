@@ -1,10 +1,14 @@
 import streamlit as st
+import numpy as np
+import cv2
 
+from shapely.geometry import Polygon, Point
 from streamlit_option_menu import option_menu
 from pathlib import Path
 
-from lib.image import LabelMeInterface as UserInterface
+from lib.image import LabelMeInterface as UserInterface, Drawing, Color
 from lib.io import load_json, write_json, bytesio_to_dict
+from backend.labelme_layer import LabelmeShapeType, LoadLabelmeObject
 
 from ui.common import Context
 
@@ -36,6 +40,54 @@ def annotate_pith():
 
 
     return
+
+
+class PithInterface(UserInterface):
+    def __init__(self, image_path, output_json_path, output_image_path, pith_model=None):
+        super().__init__(image_path, output_json_path)
+        self.output_image_path = output_image_path
+        self.pith_model = pith_model
+
+    def parse_output(self):
+
+        object = LoadLabelmeObject(self.output_path)
+        if len(object.shapes) > 1:
+            st.error("More than one shape found. Add only one shape")
+            return None
+
+        shape = object.shapes[0]
+        if shape.shape_type != LabelmeShapeType.point and self.pith_model == Pith.pixel:
+            st.error("Shape is not a point. Remember that you are using the pixel model")
+            return None
+
+        if shape.shape_type != LabelmeShapeType.polygon and self.pith_model == Pith.boundary:
+            st.error("Shape is not a polygon")
+            return None
+
+        if shape.shape_type == LabelmeShapeType.point:
+            return Point(shape.points[0])
+
+        if shape.shape_type == LabelmeShapeType.polygon:
+            return Polygon(shape.points)
+
+        return None
+
+    def generate_center_mask(self, output_path, results):
+        if self.pith_model == Pith.pixel:
+            mask = np.zeros(cv2.imread(self.image_path).shape[:2], dtype=np.uint8)
+            x,y = results.xy
+            x = int(x[0])
+            y = int(y[0])
+            mask[int(x), int(y)] = 255
+            cv2.imwrite(output_path, mask)
+            return
+
+        image = cv2.imread(self.image_path)
+        mask = np.zeros(image.shape, dtype=np.uint8)
+        mask = Drawing.fill(results.exterior, mask, Color.white, opacity=1)
+        cv2.imwrite(output_path, mask)
+        return
+
 
 
 class ViewContext(Context):
@@ -78,7 +130,6 @@ def main(runtime_config_path):
     st.divider()
 
 
-
     if selected == Shapes.pith:
         selected = st.radio("Model", [Pith.pixel, Pith.boundary], horizontal=True)
         if selected == Pith.pixel:
@@ -86,7 +137,13 @@ def main(runtime_config_path):
             if pith_method == Pith.manual:
                 annotate = st.button("Annotate")
                 if annotate:
-                    annotate_pith()
+                    interface = PithInterface(CTX.image_path, CTX.output_dir / "pith.json", CTX.output_dir / "pith.png",
+                                              pith_model=Pith.pixel)
+                    interface.interface()
+                    results = interface.parse_output()
+                    if results is None:
+                        return
+                    interface.generate_center_mask(CTX.output_dir / "pith_mask.png", results)
 
             if pith_method == Pith.automatic:
                 selected = st.radio("Method", [Pith.apd, Pith.apd_pl, Pith.apd_dl], horizontal=True)
@@ -96,9 +153,17 @@ def main(runtime_config_path):
                     pass
 
         if selected == Pith.boundary:
-            annotate = st.button("Annotate")
-            if annotate:
-                annotate_pith()
+            pith_method = st.radio("Method", [Pith.manual, Pith.automatic], horizontal=True)
+            if pith_method == Pith.manual:
+                annotate = st.button("Annotate")
+                if annotate:
+                    interface = PithInterface(CTX.image_path, CTX.output_dir / "pith.json", CTX.output_dir / "pith.png",
+                                              pith_model=Pith.boundary)
+                    interface.interface()
+                    results = interface.parse_output()
+                    if results is None:
+                        return
+                    interface.generate_center_mask(CTX.output_dir / "pith_mask.png", results)
 
 
     if selected == Shapes.knot:
