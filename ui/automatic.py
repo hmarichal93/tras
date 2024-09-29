@@ -102,12 +102,14 @@ class ViewContext(Context):
         self.inbd_models = self.config["automatic"]["inbd_models"]
         self.model_path = self.config["automatic"]["model_path"]
         self.upload_model = self.config["automatic"]["upload_model"]
+        self.pith_mask = self.config["automatic"]["pith_mask"]
 
         return
 
     def update_config(self):
         self.config["automatic"]["model_path"] = str(self.model_path)
         self.config["automatic"]["upload_model"] = self.upload_model
+        self.config["automatic"]["pith_mask"] = str(self.pith_mask)
 
         return
 
@@ -144,6 +146,7 @@ def main(runtime_config_path):
                     if results is None:
                         return
                     interface.generate_center_mask(CTX.output_dir / "pith_mask.png", results)
+                    CTX.pith_mask = CTX.output_dir / "pith_mask.png"
 
             if pith_method == Pith.automatic:
                 selected = st.radio("Method", [Pith.apd, Pith.apd_pl, Pith.apd_dl], horizontal=True)
@@ -164,6 +167,7 @@ def main(runtime_config_path):
                     if results is None:
                         return
                     interface.generate_center_mask(CTX.output_dir / "pith_mask.png", results)
+                    CTX.pith_mask = CTX.output_dir / "pith_mask.png"
 
 
     if selected == Shapes.knot:
