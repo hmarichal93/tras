@@ -7,7 +7,7 @@ from streamlit_option_menu import option_menu
 from pathlib import Path
 
 from lib.image import LabelMeInterface as UserInterface, Drawing, Color
-from lib.io import load_json
+from lib.io import load_json, write_binary_file
 from lib.inbd import INBD
 from backend.labelme_layer import LabelmeShapeType, LoadLabelmeObject
 from ui.common import Context, download_button
@@ -144,7 +144,7 @@ class UI:
                 results = interface.parse_output()
                 if results is None:
                     return
-                interface.generate_center_mask(CTX.pith_mask, results)
+                interface.generate_center_mask(self.CTX.pith_mask, results)
 
     def shape_pith(self):
         pith_model = st.radio("Model", [Pith.pixel, Pith.boundary], horizontal=True)
@@ -247,8 +247,8 @@ def main(runtime_config_path):
 def file_model_uploader(label, output_file, extension):
     uploaded_cw_annotation_file = st.file_uploader(label, type=[extension])
     if uploaded_cw_annotation_file:
-        with open(output_file, "wb") as f:
-            f.write(uploaded_cw_annotation_file.read())
+        write_binary_file(uploaded_cw_annotation_file.read(), output_file)
+
 
     return output_file
 

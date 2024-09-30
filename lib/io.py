@@ -11,6 +11,12 @@ def load_json(filepath: str) -> dict:
     return data
 
 
+def write_binary_file(binary_content: bytes, output_file:str) -> None:
+
+    with open(output_file, "wb") as f:
+        f.write(binary_content)
+    return
+
 def read_file_as_binary(file_path: str) -> bytes:
     """
     Read file as binary
