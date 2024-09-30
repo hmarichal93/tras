@@ -147,7 +147,7 @@ def extract_ring_properties(annual_rings_list, year, plantation_date):
 
         eccentricity_module_list.append(eccentricity_module)
         eccentricity_phase_list.append(eccentricity_phase)
-        ring_perimeter_list.append(ring.length)
+        ring_perimeter_list.append(ring.exterior.length)
 
         #metadata
         year_list.append( year.year)
@@ -322,10 +322,10 @@ def generate_pdf(df, output_dir):
 
 def main():
     folder_name = "C14"
-    folder_name = "W_F09_T_S2"
-    folder_name = "W_F12_T_S4"
+    #folder_name = "W_F09_T_S2"
+    #folder_name = "W_F12_T_S4"
     root = f"./input/{folder_name}/"
-    root = "./output/"
+    #root = "./output/"
     image_path = f"{root}image.png"
     labelme_latewood_path = f"{root}latewood.json"
     labelme_earlywood_path = f"{root}earlywood.json"
@@ -337,8 +337,8 @@ def main():
     }
     output_dir = f"./output/{folder_name}"
     Path(output_dir).mkdir(parents=True, exist_ok=True)
-    #export_results(labelme_latewood_path, labelme_earlywood_path, image_path, metadata, draw=True, output_dir=output_dir)
-    export_results(labelme_latewood_path = labelme_latewood_path, image_path= image_path, metadata=metadata, draw=True, output_dir=output_dir)
+    export_results(labelme_latewood_path, labelme_earlywood_path, image_path, metadata, draw=True, output_dir=output_dir)
+    #export_results(labelme_latewood_path = labelme_latewood_path, image_path= image_path, metadata=metadata, draw=True, output_dir=output_dir)
 
 
 
