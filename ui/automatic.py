@@ -213,7 +213,7 @@ class UI:
         st.divider()
 
         run_button = st.button("Run", use_container_width=True, disabled=not Path(self.CTX.model_path).exists()
-                if method_latewood == LatewoodMethods.inbd else True )
+                if method_latewood == LatewoodMethods.inbd else False )
 
         if run_button:
             results_path = self.inbd_run() if method_latewood == LatewoodMethods.inbd else self.cstrd_run()
