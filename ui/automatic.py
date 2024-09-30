@@ -8,6 +8,7 @@ from pathlib import Path
 
 from lib.image import LabelMeInterface as UserInterface, Drawing, Color
 from lib.io import load_json, write_json, bytesio_to_dict
+from lib.inbd import INBD
 from backend.labelme_layer import LabelmeShapeType, LoadLabelmeObject
 
 from ui.common import Context
@@ -160,14 +161,16 @@ def main(runtime_config_path):
             if pith_method == Pith.manual:
                 annotate = st.button("Annotate")
                 if annotate:
+                    CTX.pith_mask = CTX.output_dir / "pith_mask"
+                    CTX.pith_mask.mkdir(exist_ok=True, parents=True)
+                    CTX.pith_mask = CTX.output_dir / "pith_mask" / f"{CTX.image_path.stem}.png"
                     interface = PithInterface(CTX.image_path, CTX.output_dir / "pith.json", CTX.output_dir / "pith.png",
                                               pith_model=Pith.boundary)
                     interface.interface()
                     results = interface.parse_output()
                     if results is None:
                         return
-                    interface.generate_center_mask(CTX.output_dir / "pith_mask.png", results)
-                    CTX.pith_mask = CTX.output_dir / "pith_mask.png"
+                    interface.generate_center_mask(CTX.pith_mask, results)
 
 
     if selected == Shapes.knot:
@@ -220,12 +223,17 @@ def main(runtime_config_path):
 
             run_button = st.button("Run", use_container_width=True, disabled=not Path(CTX.model_path).exists())
             if run_button:
-                # TODO: Implement
-                st.write("Running INBD METHOD")
-                save_button = st.button("Download")
-                if save_button:
-                    #TODO: Implement. https://docs.streamlit.io/develop/api-reference/widgets/st.download_button
-                    pass
+                inbd = INBD(CTX.image_path, CTX.pith_mask, Path(CTX.model_path), output_dir_inbd)
+                results_path = inbd.run()
+                st.write("Results saved in: ", results_path)
+                #download results_path (json file). Using thte download button
+                #read json file and convert to binary
+                with open(results_path, "rb") as f:
+                    json_content = f.read()
+
+                st.download_button(label="Download", data=json_content, file_name="results.json", mime="application/json")
+
+
 
     st.divider()
     #save status
