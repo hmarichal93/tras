@@ -103,6 +103,7 @@ class ViewContext(Context):
         self.upload_model = self.config["automatic"]["upload_model"]
         self.pith_mask = self.config["automatic"]["pith_mask"]
         self.number_of_rays = self.config["automatic"]["number_of_rays"]
+        self.inbd_resize_factor = self.config["automatic"]["inbd_resize_factor"]
 
         return
 
@@ -111,6 +112,8 @@ class ViewContext(Context):
         self.config["automatic"]["upload_model"] = self.upload_model
         self.config["automatic"]["pith_mask"] = str(self.pith_mask)
         self.config["automatic"]["number_of_rays"] = self.number_of_rays
+        self.config["automatic"]["inbd_resize_factor"] = self.inbd_resize_factor
+
 
         return
 
@@ -196,11 +199,19 @@ class UI:
             self.CTX.number_of_rays = nr
         self.CTX.model_path = output_model_path
 
+        resize_factor = st.slider("Resize Factor", 0.0, 10.0, float(self.CTX.inbd_resize_factor) , help="Resize factor for the image.\n"
+                                                                                       "Be aware that the image will \n"
+                                                                                       "be resized, which means that the \n"
+                                                                                       "automatic method will work at a \n"
+                                                                                        "lower resolution")
+        if resize_factor != self.CTX.inbd_resize_factor:
+            self.CTX.inbd_resize_factor = resize_factor
+
         return
 
     def inbd_run(self):
         inbd = INBD(self.CTX.image_orig_path, self.CTX.pith_mask, Path(self.CTX.model_path), self.output_dir_inbd,
-                    Nr=self.CTX.number_of_rays)
+                    Nr=self.CTX.number_of_rays, resize_factor=self.CTX.inbd_resize_factor)
         results_path = inbd.run()
         return results_path
 
