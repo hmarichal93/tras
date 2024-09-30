@@ -232,7 +232,8 @@ class UI:
             results_path = self.inbd_run() if method_latewood == LatewoodMethods.inbd else self.cstrd_run()
             st.write("Results saved in: ", results_path)
 
-            download_button(results_path, "Download", "results.json", "application/json")
+            download_button(results_path, "Download", f"{self.CTX.image_orig_path.stem}.json",
+                            "application/json")
 
 
 
