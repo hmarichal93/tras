@@ -173,7 +173,7 @@ class UI:
             width = st.slider("Image Width", 0.0, 1500.0, 3000.0)
 
     def cstrd_run(self):
-        pass
+        return "TODO.json"
 
     def inbd_parameters(self):
         self.output_dir_inbd = self.CTX.output_dir / "inbd"

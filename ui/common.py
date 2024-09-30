@@ -56,6 +56,9 @@ def download_button(file_path: str, label: str, filen_name:str, mime:str)-> None
     :param mime:
     :return:
     """
+    if not Path(file_path).exists():
+        st.error(f"File {file_path} does not exist")
+        return
     file_content = read_file_as_binary(file_path)
     #2.2 download the zip file
     st.download_button(label=label, data=file_content, file_name=filen_name, mime=mime)
