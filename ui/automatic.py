@@ -7,7 +7,7 @@ from streamlit_option_menu import option_menu
 from pathlib import Path
 
 from lib.image import LabelMeInterface as UserInterface, Drawing, Color
-from lib.io import load_json, write_json, bytesio_to_dict
+from lib.io import load_json, write_json, bytesio_to_dict, read_file_as_binary
 from lib.inbd import INBD
 from backend.labelme_layer import LabelmeShapeType, LoadLabelmeObject
 
@@ -235,9 +235,7 @@ def main(runtime_config_path):
                 st.write("Results saved in: ", results_path)
                 #download results_path (json file). Using thte download button
                 #read json file and convert to binary
-                with open(results_path, "rb") as f:
-                    json_content = f.read()
-
+                json_content = read_file_as_binary(results_path)
                 st.download_button(label="Download", data=json_content, file_name="results.json", mime="application/json")
 
 

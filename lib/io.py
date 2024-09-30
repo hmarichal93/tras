@@ -11,6 +11,16 @@ def load_json(filepath: str) -> dict:
     return data
 
 
+def read_file_as_binary(file_path: str) -> bytes:
+    """
+    Read file as binary
+    :param file_path: file path to read
+    :return: binary content
+    """
+    with open(file_path, "rb") as f:
+        content = f.read()
+    return content
+
 def write_json(dict_to_save: dict, filepath: str) -> None:
     """
     Write dictionary to disk

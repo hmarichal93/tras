@@ -10,7 +10,7 @@ from copy import deepcopy
 
 from lib.image import LabelMeInterface as UserInterface, Color as ColorCV2, Drawing, load_image
 from ui.common import Context, Shapes, Color
-from lib.io import load_json, write_json, bytesio_to_dict
+from lib.io import load_json, write_json, bytesio_to_dict, read_file_as_binary
 
 
 
@@ -53,9 +53,7 @@ class UI:
         #1.0 zip the results in self.CTX.output_dir
         os.system(f"cd {self.CTX.output_dir} && zip -r results.zip .")
         #2.0 download the zip file
-        #2.1 read the zip file
-        with open(self.CTX.output_dir / "results.zip", "rb") as f:
-            zip_file = f.read()
+        zip_file = read_file_as_binary(str(self.CTX.output_dir / "results.zip"))
 
         #2.2 download the zip file
         st.download_button(label="Download Results", data=zip_file, file_name="results.zip", mime="application/zip")
