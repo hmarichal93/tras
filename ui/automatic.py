@@ -120,124 +120,127 @@ class ViewContext(Context):
 
 
 
+class UI:
 
-def main(runtime_config_path):
-    global CTX
-    CTX = ViewContext(runtime_config_path)
-    CTX.init_specific_ui_components()
+    def __init__(self, runtime_config_path):
+        CTX = ViewContext(runtime_config_path)
+        CTX.init_specific_ui_components()
+        self.CTX = CTX
 
-    selected = st.selectbox( "Select Shape", (Shapes.pith, Shapes.latewood, Shapes.earlywood, Shapes.knot))
-    reset_button = st.button("Reset Parameters")
-    if reset_button:
-        CTX.reset_parameters()
-    st.divider()
+    def select_shape(self):
+        selected = st.selectbox( "Select Shape", (Shapes.pith, Shapes.latewood, Shapes.earlywood, Shapes.knot))
+        return selected
 
+    def annotate_pith_manual(self, selected):
+            annotate = st.button("Annotate")
+            if annotate:
+                self.CTX.pith_mask = self.CTX.output_dir / "pith_mask"
+                self.CTX.pith_mask.mkdir(exist_ok=True, parents=True)
+                self.CTX.pith_mask = self.CTX.output_dir / "pith_mask" / f"{self.CTX.image_orig_path.stem}.png"
+                interface = PithInterface(self.CTX.image_orig_path, self.CTX.output_dir / "pith.json",
+                                          self.CTX.output_dir / "pith.png",
+                                          pith_model=selected)
+                interface.interface()
+                results = interface.parse_output()
+                if results is None:
+                    return
+                interface.generate_center_mask(CTX.pith_mask, results)
 
-    if selected == Shapes.pith:
-        selected = st.radio("Model", [Pith.pixel, Pith.boundary], horizontal=True)
-        if selected == Pith.pixel:
-            pith_method = st.radio("Method", [Pith.manual, Pith.automatic], horizontal=True)
-            if pith_method == Pith.manual:
-                annotate = st.button("Annotate")
-                if annotate:
-                    interface = PithInterface(CTX.image_path, CTX.output_dir / "pith.json", CTX.output_dir / "pith.png",
-                                              pith_model=Pith.pixel)
-                    interface.interface()
-                    results = interface.parse_output()
-                    if results is None:
-                        return
-                    interface.generate_center_mask(CTX.output_dir / "pith_mask.png", results)
-                    CTX.pith_mask = CTX.output_dir / "pith_mask.png"
+    def shape_pith(self):
+        pith_model = st.radio("Model", [Pith.pixel, Pith.boundary], horizontal=True)
+        pith_method = st.radio("Method", [Pith.manual, Pith.automatic], horizontal=True)
+        if pith_method == Pith.manual:
+            self.annotate_pith_manual(pith_model)
 
-            if pith_method == Pith.automatic:
-                selected = st.radio("Method", [Pith.apd, Pith.apd_pl, Pith.apd_dl], horizontal=True)
-                run_button = st.button("Run")
-                if run_button:
-                    st.write(f"Running {selected} METHOD")
-                    pass
-
-        if selected == Pith.boundary:
-            pith_method = st.radio("Method", [Pith.manual, Pith.automatic], horizontal=True)
-            if pith_method == Pith.manual:
-                annotate = st.button("Annotate")
-                if annotate:
-                    CTX.pith_mask = CTX.output_dir / "pith_mask"
-                    CTX.pith_mask.mkdir(exist_ok=True, parents=True)
-                    CTX.pith_mask = CTX.output_dir / "pith_mask" / f"{CTX.image_orig_path.stem}.png"
-                    interface = PithInterface(CTX.image_orig_path, CTX.output_dir / "pith.json", CTX.output_dir / "pith.png",
-                                              pith_model=Pith.boundary)
-                    interface.interface()
-                    results = interface.parse_output()
-                    if results is None:
-                        return
-                    interface.generate_center_mask(CTX.pith_mask, results)
-
-
-    if selected == Shapes.knot:
-        run_button = st.button("Annotate")
-
-
-    if selected == Shapes.latewood:
-        method_latewood = st.radio("Method", [LatewoodMethods.cstrd, LatewoodMethods.inbd], horizontal=True)
-        if method_latewood == LatewoodMethods.cstrd:
-            st.divider()
-
-            st.subheader("Parameters")
-            sigma = st.slider("Sigma", 1.0, 10.0, 3.0)
-
-            advanced = st.checkbox("Advanced parameters")
-            if advanced:
-                low = st.slider("Gradient threshold low", 0.0, 50.0, 5.0)
-                high = st.slider("Gradient threshold high", 0.0, 50.0, 10.0)
-                height = st.slider("Image Height", 0.0, 1500.0, 3000.0)
-                width = st.slider("Image Width", 0.0, 1500.0, 3000.0)
-
-            st.divider()
-
-            run_button = st.button("Run", use_container_width=True)
+        elif pith_model == Pith.pixel:
+            #Pith model automatic
+            pith_model = st.radio("Method", [Pith.apd, Pith.apd_pl, Pith.apd_dl], horizontal=True)
+            run_button = st.button("Run")
             if run_button:
-                #TODO: Implement
-                st.write("Running CS-TRD METHOD")
-                save_button = st.button("Download")
-                if save_button:
-                    # TODO: Implement. https://docs.streamlit.io/develop/api-reference/widgets/st.download_button
-                    pass
+                # TODO: Implement
+                st.write(f"Running {pith_model} METHOD")
+                pass
+
+    def cstrd_parameters(self):
+        st.subheader("Parameters")
+        sigma = st.slider("Sigma", 1.0, 10.0, 3.0)
+
+        advanced = st.checkbox("Advanced parameters")
+        if advanced:
+            low = st.slider("Gradient threshold low", 0.0, 50.0, 5.0)
+            high = st.slider("Gradient threshold high", 0.0, 50.0, 10.0)
+            height = st.slider("Image Height", 0.0, 1500.0, 3000.0)
+            width = st.slider("Image Width", 0.0, 1500.0, 3000.0)
+
+    def cstrd_run(self):
+        pass
+
+    def inbd_parameters(self):
+        self.output_dir_inbd = self.CTX.output_dir / "inbd"
+        self.output_dir_inbd.mkdir(exist_ok=True, parents=True)
+        output_model_path = f"{self.output_dir_inbd}/model.pt.zip"
+        st.subheader("Parameters")
+        self.CTX.upload_model = st.checkbox("Upload your own model", value=self.CTX.upload_model)
+        model = st.radio("Model", [InbdModels.pinus, InbdModels.eh], horizontal=True, disabled=self.CTX.upload_model)
+        if self.CTX.upload_model:
+            output_model_path = file_model_uploader("Choose a file", output_model_path, ".pt.zip")
+            st.warning("Remember that if you do not upload a model, a model uploaded in the pass will be used")
+        else:
+            output_model_path = self.CTX.inbd_models[model]
+
+        # add input number option
+        nr = st.number_input("Number of rays", 1, 1000, self.CTX.number_of_rays)
+        if nr != self.CTX.number_of_rays:
+            self.CTX.number_of_rays = nr
+        self.CTX.model_path = output_model_path
+
+        return
+
+    def inbd_run(self):
+        inbd = INBD(self.CTX.image_orig_path, self.CTX.pith_mask, Path(self.CTX.model_path), self.output_dir_inbd,
+                    Nr=self.CTX.number_of_rays)
+        results_path = inbd.run()
+        return results_path
+
+    def shape_latewood(self):
+        method_latewood = st.radio("Method", [LatewoodMethods.cstrd, LatewoodMethods.inbd], horizontal=True)
 
         if method_latewood == LatewoodMethods.inbd:
-            output_dir_inbd = CTX.output_dir / "inbd"
-            output_dir_inbd.mkdir(exist_ok=True, parents=True)
-            output_model_path = f"{output_dir_inbd}/model.pt.zip"
+            self.inbd_parameters()
+        else:
+            self.cstrd_parameters()
 
-            st.divider()
-            st.subheader("Parameters")
-            CTX.upload_model = st.checkbox("Upload your own model", value = CTX.upload_model)
-            model = st.radio("Model", [InbdModels.pinus, InbdModels.eh], horizontal=True, disabled =  CTX.upload_model)
-            if CTX.upload_model:
-                output_model_path = file_model_uploader("Choose a file", output_model_path, ".pt.zip")
-                st.warning("Remember that if you do not upload a model, a model uploaded in the pass will be used")
-            else:
-                output_model_path = CTX.inbd_models[model]
+        st.divider()
 
-            #add input number option
-            nr = st.number_input("Number of rays", 1, 1000, CTX.number_of_rays)
-            if nr != CTX.number_of_rays:
-                CTX.number_of_rays = nr
-            CTX.model_path = output_model_path
-            st.divider()
+        run_button = st.button("Run", use_container_width=True, disabled=not Path(self.CTX.model_path).exists()
+                if method_latewood == LatewoodMethods.inbd else True )
 
-            run_button = st.button("Run", use_container_width=True, disabled=not Path(CTX.model_path).exists())
-            if run_button:
-                inbd = INBD(CTX.image_orig_path, CTX.pith_mask, Path(CTX.model_path), output_dir_inbd, Nr=nr)
-                results_path = inbd.run()
-                st.write("Results saved in: ", results_path)
+        if run_button:
+            results_path = self.inbd_run() if method_latewood == LatewoodMethods.inbd else self.cstrd_run()
+            st.write("Results saved in: ", results_path)
 
-                download_button(results_path, "Download", "results.json", "application/json")
+            download_button(results_path, "Download", "results.json", "application/json")
 
 
+
+def main(runtime_config_path):
+    ui = UI(runtime_config_path)
+    selected = ui.select_shape()
+    st.divider()
+
+    if selected == Shapes.pith:
+        ui.shape_pith()
+
+    if selected == Shapes.knot:
+        #TODO: Implement
+        run_button = st.button("Annotate")
+
+    if selected == Shapes.latewood:
+        ui.shape_latewood()
 
     st.divider()
     #save status
-    CTX.save_config()
+    ui.CTX.save_config()
 
     return
 
