@@ -41,10 +41,12 @@ class UI:
 
     def download_results(self):
         #1.0 zip the results in self.CTX.output_dir
-        os.system(f"cd {self.CTX.output_dir} && zip -r results.zip .")
+        zip_file_path = self.CTX.output_dir / "results.zip"
+        if not zip_file_path.exists():
+            os.system(f"cd {self.CTX.output_dir} && zip -r results.zip .")
         #2.0 download the zip file
         args = dict(
-            file_path = str(self.CTX.output_dir / "results.zip"),
+            file_path = str(zip_file_path),
             label = "Download Results",
             filen_name = "results.zip",
             mime = "application/zip"
