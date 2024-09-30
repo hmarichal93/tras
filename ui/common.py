@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-from lib.io import load_json, write_json
+from lib.io import load_json, write_json, read_file_as_binary
 
 
 class Shapes:
@@ -44,3 +44,19 @@ class Context(ABC):
     @abstractmethod
     def update_config(self):
         pass
+
+
+def download_button(file_path: str, label: str, filen_name:str, mime:str)-> None:
+    """
+    Streamlit binary download button
+    :param file_path: file path to read
+    :param label: label to display in the button
+    :param filen_name: name of the file to download
+    :param mime:
+    :return:
+    """
+    file_content = read_file_as_binary(file_path)
+    #2.2 download the zip file
+    st.download_button(label=label, data=file_content, file_name=filen_name, mime=mime)
+
+    return
