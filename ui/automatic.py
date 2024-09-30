@@ -145,6 +145,8 @@ class UI:
                 if results is None:
                     return
                 interface.generate_center_mask(self.CTX.pith_mask, results)
+                #display image mask
+                st.image(cv2.imread(self.CTX.pith_mask), use_column_width=True)
 
     def shape_pith(self):
         pith_model = st.radio("Model", [Pith.pixel, Pith.boundary], horizontal=True)
