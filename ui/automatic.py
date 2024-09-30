@@ -98,12 +98,14 @@ class ViewContext(Context):
         self.image_path = self.output_dir / config["image_path"]
         self.image_no_background_path = self.output_dir / config["background"]["image_path"]
         if Path(self.image_no_background_path).exists():
+            self.image_orig_path = self.image_path
             self.image_path = self.image_no_background_path
 
         self.inbd_models = self.config["automatic"]["inbd_models"]
         self.model_path = self.config["automatic"]["model_path"]
         self.upload_model = self.config["automatic"]["upload_model"]
         self.pith_mask = self.config["automatic"]["pith_mask"]
+        self.number_of_rays = self.config["automatic"]["number_of_rays"]
 
         return
 
@@ -111,6 +113,7 @@ class ViewContext(Context):
         self.config["automatic"]["model_path"] = str(self.model_path)
         self.config["automatic"]["upload_model"] = self.upload_model
         self.config["automatic"]["pith_mask"] = str(self.pith_mask)
+        self.config["automatic"]["number_of_rays"] = self.number_of_rays
 
         return
 
@@ -163,8 +166,8 @@ def main(runtime_config_path):
                 if annotate:
                     CTX.pith_mask = CTX.output_dir / "pith_mask"
                     CTX.pith_mask.mkdir(exist_ok=True, parents=True)
-                    CTX.pith_mask = CTX.output_dir / "pith_mask" / f"{CTX.image_path.stem}.png"
-                    interface = PithInterface(CTX.image_path, CTX.output_dir / "pith.json", CTX.output_dir / "pith.png",
+                    CTX.pith_mask = CTX.output_dir / "pith_mask" / f"{CTX.image_orig_path.stem}.png"
+                    interface = PithInterface(CTX.image_orig_path, CTX.output_dir / "pith.json", CTX.output_dir / "pith.png",
                                               pith_model=Pith.boundary)
                     interface.interface()
                     results = interface.parse_output()
@@ -218,12 +221,16 @@ def main(runtime_config_path):
             else:
                 output_model_path = CTX.inbd_models[model]
 
+            #add input number option
+            nr = st.number_input("Number of rays", 1, 1000, CTX.number_of_rays)
+            if nr != CTX.number_of_rays:
+                CTX.number_of_rays = nr
             CTX.model_path = output_model_path
             st.divider()
 
             run_button = st.button("Run", use_container_width=True, disabled=not Path(CTX.model_path).exists())
             if run_button:
-                inbd = INBD(CTX.image_path, CTX.pith_mask, Path(CTX.model_path), output_dir_inbd)
+                inbd = INBD(CTX.image_orig_path, CTX.pith_mask, Path(CTX.model_path), output_dir_inbd, Nr=nr)
                 results_path = inbd.run()
                 st.write("Results saved in: ", results_path)
                 #download results_path (json file). Using thte download button

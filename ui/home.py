@@ -35,6 +35,8 @@ def main(default_config_path, runtime_config_path):
         delete_cache_folder(str(metric_dir))
         inbd_dir = Path(config["general"]["output_dir"]) / "inbd"
         delete_cache_folder(str(inbd_dir))
+        pith_dir = Path(config["general"]["output_dir"]) / "pith_mask"
+        delete_cache_folder(str(pith_dir))
 
 
         reset_runtime_config(runtime_config_path, default_config_path)
