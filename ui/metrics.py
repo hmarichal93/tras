@@ -338,6 +338,21 @@ class UI:
         st.altair_chart(chart)
         return
 
+    def plot(self, x_axis, y_axis, x_axis_values, y_axis_values):
+        x_axis = x_axis.split("[")[0]
+        y_axis = y_axis.split("[")[0]
+        df = pd.DataFrame(data={x_axis: x_axis_values, y_axis: y_axis_values}, columns=[x_axis, y_axis])
+
+        chart = alt.Chart(df).mark_line(color="#FF5733").encode(
+            x=x_axis,
+            y=y_axis
+        ).properties(
+            width=800,
+            height=400,
+            title=alt.TitleParams(f"Measurement Unit: {self.CTX.units_mode}", anchor='middle', offset=20)
+        )
+
+        st.altair_chart(chart)
     def delineate_path(self):
         #add a button for delineating path
         if not self.CTX.scale_status:
@@ -370,27 +385,15 @@ class UI:
             image = load_image(self.CTX.output_dir / "debug_path.png")
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             image_zoom(image, mode="scroll", size=(800, 600), keep_aspect_ratio=True, zoom_factor=4.0, increment=0.2)
-            x_axis = columns[0]
+            x_axis = "index"
             y_axis = columns[1]
-            x_axis_values = df[x_axis].values
+            x_axis_values = np.arange(df.shape[0]) #df[x_axis].values
             y_axis_values = df[y_axis].values
-            x_axis = x_axis.split("[")[0]
-            y_axis = y_axis.split("[")[0]
-            df = pd.DataFrame(data={x_axis: x_axis_values, y_axis: y_axis_values}, columns=[x_axis, y_axis])
-
-            chart = alt.Chart(df).mark_line(color="#FF5733").encode(
-                x=x_axis,
-                y=y_axis
-            ).properties(
-                width=800,
-                height=400,
-                title=alt.TitleParams(f"Measurement Unit: {self.CTX.units_mode}", anchor='middle', offset=20)
-            )
-
-            st.altair_chart(chart)
-
-
-
+            self.plot(x_axis, y_axis, x_axis_values, y_axis_values)
+            y_axis = columns[2]
+            y_axis_values = df[y_axis].values
+            self.plot(x_axis, y_axis, x_axis_values, y_axis_values)
+            st.warning("Index 0 refers to the pith position")
 
 
 class PathInterface(UserInterface):
@@ -431,11 +434,16 @@ class PathInterface(UserInterface):
                 self.label = label
                 super().__init__([ x, y])
 
+        pith = True
         #compute intersections
         l_intersection = []
         for ring in rings.shapes:
 
             ring_polygon = Polygon(ring.points)
+            if pith:
+                centroid = ring_polygon.centroid
+                pith = False
+                l_intersection.append(PointLabelme(x=centroid.x, y=centroid.y, label="Pith"))
 
             if debug:
                 image = Drawing.curve(ring_polygon.exterior, image, color=ColorCV2.red, thickness=2)
@@ -488,10 +496,19 @@ class PathInterface(UserInterface):
                         "x": [point.x for point in l_intersection],
                         "y": [point.y for point in l_intersection]})
         #add column called, right width where the value is the distance between the points
-        df[f"Width [{unit}]"] = ((df[["x", "y"]] - df[["x", "y"]].shift(1))**2).sum(axis=1).values * scale
+        x = df["x"].values
+        x_shift = df["x"].shift(1).values
+
+        y = df["y"].values
+        y_shift = df["y"].shift(1).values
+        width = np.sqrt(((x - x_shift) ** 2 + (y - y_shift) ** 2)) * scale
+        df[f"Width [{unit}]"] = width
+        df[f"Width [{unit}]"] = df[f"Width [{unit}]"].fillna(0)
+        # commulative width
+        df[f"Cumulative Width [{unit}]"] = df[f"Width [{unit}]"].cumsum()
         df.round(3)
         #save
-        df[["label",f"Width [{unit}]"]].to_csv(output_path, index=False)
+        df[["label", f"Width [{unit}]", f"Cumulative Width [{unit}]"]].to_csv(output_path, index=False)
         return df
 
 

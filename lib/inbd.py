@@ -4,6 +4,7 @@ import os
 import sys
 
 from shapely.geometry import Polygon
+from shapely.errors import TopologicalError
 from typing import List
 from pathlib import Path
 
@@ -123,14 +124,17 @@ class INBD:
 
     def rm_polygons_within_the_background(self, l_poly: List[Polygon]) -> List[Polygon]:
         background = AL_LateWood_EarlyWood(self.background_path, None).read()
-        internal_points = background[0].points
-        image = cv2.imread(self.image_path)
-        H, W, _ = image.shape
-        external_points = [(0, 0), (0, H), (W, H), (W, 0)]
-        background_poly = Polygon(external_points, [internal_points])
-        l_poly = [poly for poly in l_poly if  poly.within(background_poly)]
 
-        return l_poly
+        background_poly = Polygon(background[0].points)
+        l_poly_processed = []
+        for poly in l_poly:
+            try:
+                if poly.within(background_poly):
+                    l_poly_processed.append(poly)
+            except TopologicalError:
+                continue
+
+        return l_poly_processed
 
 
     @staticmethod

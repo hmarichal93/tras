@@ -48,6 +48,8 @@ class LoadLabelmeObject:
         self.version = labelme_json["version"]
         self.flags = labelme_json["flags"]
         self.shapes = [LabelmeShape(shape) for shape in  labelme_json["shapes"]]
+        if self.shapes[0].shape_type == LabelmeShapeType.polygon:
+            self.shapes.sort(key=lambda x: x.area())
         self.imagePath = labelme_json["imagePath"]
         self.imageData = labelme_json["imageData"]
         self.imageHeight = labelme_json["imageHeight"]
