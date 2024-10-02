@@ -9,7 +9,7 @@ from pathlib import Path
 from lib.image import LabelMeInterface as UserInterface, Drawing, Color
 from lib.io import load_json, write_binary_file
 from lib.inbd import INBD
-from backend.labelme_layer import LabelmeShapeType, LoadLabelmeObject
+from backend.labelme_layer import LabelmeShapeType, LoadLabelmeObject, AL_LateWood_EarlyWood
 from ui.common import Context, download_button
 
 class LatewoodMethods:
@@ -233,9 +233,23 @@ class UI:
         if run_button:
             results_path = self.inbd_run() if method_latewood == LatewoodMethods.inbd else self.cstrd_run()
             st.write("Results saved in: ", results_path)
-
+            image_contour_path = Path(results_path).parent / "contours.png" if method_latewood == LatewoodMethods.inbd else None
             download_button(results_path, "Download", f"{self.CTX.image_orig_path.stem}.json",
                             "application/json")
+
+
+            #display image in image_contour_path
+            if image_contour_path is not None:
+                rings_list = AL_LateWood_EarlyWood(results_path, None).read()
+                image = cv2.imread(self.CTX.image_path)
+                #convert image to rgb
+                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                for ring in rings_list:
+                    poly = Polygon(ring.points.tolist())
+                    image = Drawing.curve( poly.exterior.coords, image, Color.red, thickness=5)
+                    #image = Drawing.fill(poly.exterior, image, Color.red, opacity=0.3)
+                st.image(image, use_column_width=True)
+
 
 
 
