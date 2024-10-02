@@ -18,6 +18,8 @@ from backend.disk_wood_structure import AnnualRing
 class LabelmeShapeType:
     polygon = "polygon"
     point = "point"
+    linestrip = "linestrip"
+    line = "line"
 
 
 class LabelmeShape:

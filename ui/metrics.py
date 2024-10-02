@@ -1,20 +1,25 @@
 import os
-
+import base64
 import cv2
 import streamlit as st
 import numpy as np
 import pandas as pd
+import altair as alt
 
+from typing import List
 from streamlit_option_menu import option_menu
 from streamlit_image_zoom import image_zoom
-
 from pathlib import Path
 from copy import deepcopy
+from shapely.geometry import LineString, MultiLineString, Polygon, Point
+from datetime import datetime
 
 from lib.image import LabelMeInterface as UserInterface, Color as ColorCV2, Drawing, load_image
 from ui.common import Context, Shapes, Color
 from lib.io import load_json, write_json, bytesio_to_dict
 from lib.metrics import  export_results, Table
+from backend.labelme_layer import (LabelmeInterface, LabelmeShapeType, AL_LateWood_EarlyWood, LabelmeShape,
+                                   LoadLabelmeObject)
 
 
 class ViewContext(Context):
@@ -65,6 +70,8 @@ class ViewContext(Context):
         self.ew_width = config_metric["ew_width"]
         self.lw_width_ratio = config_metric["lw_width_ratio"]
 
+        self.ring_path = config_metric["ring_path"]
+
 
 
     def update_config(self):
@@ -88,10 +95,10 @@ class ViewContext(Context):
         config_metric["annual_ring_width"] = self.annual_ring_width
         config_metric["ew_width"] = self.ew_width
         config_metric["lw_width_ratio"] = self.lw_width_ratio
+        config_metric["ring_path"] = str(self.ring_path)
 
 
 
-import base64
 
 def encode_image_to_base64(image_path):
     with open(image_path, "rb") as image_file:
@@ -212,10 +219,9 @@ class UI:
         if not self.CTX.scale_status:
             os.system(f"rm -rf {self.CTX.output_dir_metrics}")
             st.warning("Please set the scale")
+
         enabled = self.CTX.lw_annotation_file is not None and self.CTX.scale_status
         run_button = st.button("Run", disabled = not enabled)
-
-
 
         if run_button:
             metadata = dict(
@@ -257,11 +263,7 @@ class UI:
         import cv2
         image = cv2.cvtColor(cv2.imread(rings_image_path), cv2.COLOR_BGR2RGB)
 
-        # Display image with default settings
-        # image_zoom(image)
 
-        # Display image with custom settings
-        #st.image(str(rings_image_path), caption="Rings Image")
 
         self.df = pd.read_csv(self.dataframe_file)
         #self.df['Year'] = self.df['Year'].astype(int)
@@ -303,7 +305,6 @@ class UI:
         image_zoom(image, mode="scroll", size=(800, 600), keep_aspect_ratio=True, zoom_factor=4.0, increment=0.2)
 
 
-        import altair as alt
         #tab1, tab2 = st.tabs(["Line plot", "Bar plot"])
 
         df_columns = self.df.columns.tolist()
@@ -337,7 +338,161 @@ class UI:
         st.altair_chart(chart)
         return
 
+    def delineate_path(self):
+        #add a button for delineating path
+        if not self.CTX.scale_status:
+            os.system(f"rm -rf {self.CTX.output_dir_metrics}")
+            st.warning("Please set the scale")
 
+        enabled = self.CTX.lw_annotation_file is not None and self.CTX.scale_status
+        button = st.button("Delineate Path", disabled= not enabled)
+        if not enabled:
+            st.error("Please upload the latewood annotation file")
+            return
+        output_path = self.CTX.output_dir_metrics / "coorecorder.csv"
+        if button:
+            self.CTX.ring_path = self.CTX.output_dir / "path.json"
+            interface = PathInterface(self.CTX.image_path, self.CTX.ring_path)
+            interface.interface()
+            results = interface.parse_output()
+            object_lw = LoadLabelmeObject(self.CTX.lw_annotation_file)
+            l_intersections = interface.compute_intersections( object_lw, results)
+
+            interface.export_in_coorecorder_format(l_intersections, output_path ,
+                                                   scale= self.CTX.know_distance / self.CTX.pixels_length ,
+                                                   unit=self.CTX.units_mode)
+
+            st.write(f"Results are saved in {self.CTX.output_dir_metrics}")
+        if output_path.exists():
+            df = pd.read_csv(output_path)
+            columns = df.columns.tolist()
+            st.write(df)
+            image = load_image(self.CTX.output_dir / "debug_path.png")
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            image_zoom(image, mode="scroll", size=(800, 600), keep_aspect_ratio=True, zoom_factor=4.0, increment=0.2)
+            x_axis = columns[0]
+            y_axis = columns[1]
+            x_axis_values = df[x_axis].values
+            y_axis_values = df[y_axis].values
+            x_axis = x_axis.split("[")[0]
+            y_axis = y_axis.split("[")[0]
+            df = pd.DataFrame(data={x_axis: x_axis_values, y_axis: y_axis_values}, columns=[x_axis, y_axis])
+
+            chart = alt.Chart(df).mark_line(color="#FF5733").encode(
+                x=x_axis,
+                y=y_axis
+            ).properties(
+                width=800,
+                height=400,
+                title=alt.TitleParams(f"Measurement Unit: {self.CTX.units_mode}", anchor='middle', offset=20)
+            )
+
+            st.altair_chart(chart)
+
+
+
+
+
+class PathInterface(UserInterface):
+    def __init__(self, image_path, output_json_path, output_image_path=None):
+        super().__init__(image_path, output_json_path)
+        self.output_image_path = output_image_path
+
+    def parse_output(self):
+        object = LoadLabelmeObject(self.output_path)
+        if len(object.shapes) > 1:
+            st.error("More than one shape found. Add only one shape")
+            return None
+
+        shape = object.shapes[0]
+        if not(shape.shape_type == LabelmeShapeType.line or  shape.shape_type == LabelmeShapeType.linestrip):
+            st.error("Shape is not a line or linestrip. Remember that you are delineating the ring path")
+            return None
+
+        if shape.shape_type == LabelmeShapeType.line:
+            return LineString(shape.points)
+
+        if shape.shape_type == LabelmeShapeType.linestrip:
+            l_lines = [ LineString(np.concatenate((shape.points[idx].reshape((1,2)), shape.points[idx+1].reshape((1,2)))))
+                       for idx in range(shape.points.shape[0]-1)]
+
+            return MultiLineString(l_lines)
+
+        return None
+
+
+    def compute_intersections(self, rings: LoadLabelmeObject, path: LineString | MultiLineString, debug=True):
+        if debug:
+            image = load_image(self.image_path)
+            debug_image_path = self.image_path.parent / f"debug_path.png"
+
+        class PointLabelme(Point):
+            def __init__(self, x, y, label):
+                self.label = label
+                super().__init__([ x, y])
+
+        #compute intersections
+        l_intersection = []
+        for ring in rings.shapes:
+
+            ring_polygon = Polygon(ring.points)
+
+            if debug:
+                image = Drawing.curve(ring_polygon.exterior, image, color=ColorCV2.red, thickness=2)
+            intersection = path.intersects(ring_polygon)
+            if intersection:
+                #get intersected points
+                intersection_points = ring_polygon.exterior.intersection(path)
+                #check if intersection_points is empty
+                if intersection_points.is_empty:
+                    continue
+
+                x, y = intersection_points.coords.xy
+                l_intersection.append(PointLabelme(x= x[0], y=y[0], label=ring.label))
+
+            if debug:
+                image = Drawing.curve(ring_polygon.exterior, image, color=ColorCV2.red, thickness=2)
+                if isinstance(x, np.ndarray):
+                    for idx in range(len(x)):
+                        image = Drawing.circle(image, (int(y[idx]), int(x[idx])), radius=5,
+                                               color=ColorCV2.blue, thickness=-1)
+                else:
+                    image = Drawing.circle(image, (int(y[0]), int(x[0])), radius=5,
+                                           color=ColorCV2.blue, thickness=-1)
+                    image = Drawing.put_text(ring.label, image, (int(y[0]), int(x[0])), color=ColorCV2.black, fontScale=1.0)
+
+        if debug:
+            cv2.imwrite(str(debug_image_path), image)
+
+        return l_intersection
+
+
+    def export_in_coorecorder_format(self, l_intersection: List, output_path: Path, unit: str, scale: float = 1.0)\
+            -> pd.DataFrame:
+        dpi = 2400.0
+
+        date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        header = (f"#DENDRO (Cybis Dendro program compatible format) Coordinate file written as\n"
+                  f"#Imagefile {self.image_path.name}\n#DPI {dpi}\n#All coordinates in millimeters (mm)\n"
+                  f"SCALE 1\n#C DATED\n#C Written={date};\n#C CooRecorder=;\n#C licensedTo=;\n")
+
+        output_path_pos = str(output_path).replace(".csv",".pos")
+        with open(output_path_pos, "w") as file:
+            file.write(header)
+            for idx, point in enumerate(l_intersection):
+                x = point.x * scale
+                y = point.y * scale
+                file.write(f"{x:.3f}, {y:.3f}\n")
+
+        df = pd.DataFrame( data = {"label": [point.label for point in l_intersection],
+                        "x": [point.x for point in l_intersection],
+                        "y": [point.y for point in l_intersection]})
+        #add column called, right width where the value is the distance between the points
+        df[f"Width [{unit}]"] = ((df[["x", "y"]] - df[["x", "y"]].shift(1))**2).sum(axis=1).values * scale
+        df.round(3)
+        #save
+        df[["label",f"Width [{unit}]"]].to_csv(output_path, index=False)
+        return df
 
 
 
@@ -346,10 +501,19 @@ def main(runtime_config_path):
     ui = UI(runtime_config_path)
 
     st.divider()
-    ui.options()
+    tab1, tab2 = st.tabs(["Area-Based", "Path-Based"])
 
-    st.divider()
-    selected = ui.run_metrics()
+    with tab1:
+        st.header("Area-Based Metrics")
+        ui.options()
+
+        st.divider()
+        selected = ui.run_metrics()
+
+    with tab2:
+        st.header("Path-Based Metrics")
+        ui.delineate_path()
+
     st.divider()
 
 
