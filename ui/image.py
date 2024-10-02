@@ -193,6 +193,7 @@ def main(runtime_config_path):
 
             if Path(CTX.image_no_background_path).exists():
                 resize_image(CTX.image_no_background_path, resize_factor)
+                resize_image(str(CTX.image_no_background_path).replace(".png", "_mask.png"), resize_factor)
 
 
             CTX.scale_status = False
@@ -284,8 +285,9 @@ class BackgroundInterface(UserInterface):
 
     def remove_background(self):
         bg_image_pil = Image.open(self.image_path)
-        bg_image_pil_no_background = self.remove_background_polygon(bg_image_pil, self.background_polygon)
+        bg_image_pil_no_background, mask = self.remove_background_polygon(bg_image_pil, self.background_polygon)
         bg_image_pil_no_background.save(self.output_image_path)
+        cv2.imwrite(str(self.output_image_path).replace(".png", "_mask.png"), mask)
         return bg_image_pil_no_background
 
     def remove_background_polygon(self, bg_image_pil, background_polygon):
@@ -298,7 +300,9 @@ class BackgroundInterface(UserInterface):
         # apply mask
         bg_image[mask != 255] = [255, 255, 255]
         bg_image_pil = Image.fromarray(bg_image)
-        return bg_image_pil
+        #invert mask values
+        mask = cv2.bitwise_not(mask)
+        return bg_image_pil, mask
 
 
 

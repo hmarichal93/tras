@@ -34,7 +34,7 @@ class LabelmeWriter(LabelmeInterface):
 
 
 class INBD:
-    def __init__(self, image_path, pith_mask_path, model_path, output_dir, Nr = 360, resize_factor = 1):
+    def __init__(self, image_path, pith_mask_path, model_path, output_dir, Nr = 360, resize_factor = 1, background_path = None):
         self.image_path = image_path
         self.pith_mask = pith_mask_path
         self.model_path = model_path
@@ -42,6 +42,7 @@ class INBD:
         self.python_path = self._get_python_path()
         self.Nr = Nr
         self.resize_factor = resize_factor
+        self.background_path = background_path
 
     def _get_python_path(self):
         python_path = sys.executable
@@ -108,6 +109,8 @@ class INBD:
         else:
             dt_updated_poly = dt_sampled_poly
 
+        dt_updated_poly = self.rm_polygons_within_the_background(dt_updated_poly)
+
         writer = LabelmeWriter( write_file_path = output_path)
         args = dict(
             image_path=str(self.image_path),
@@ -117,6 +120,18 @@ class INBD:
         )
         writer.write(args)
         return
+
+    def rm_polygons_within_the_background(self, l_poly: List[Polygon]) -> List[Polygon]:
+        background = AL_LateWood_EarlyWood(self.background_path, None).read()
+        internal_points = background[0].points
+        image = cv2.imread(self.image_path)
+        H, W, _ = image.shape
+        external_points = [(0, 0), (0, H), (W, H), (W, 0)]
+        background_poly = Polygon(external_points, [internal_points])
+        l_poly = [poly for poly in l_poly if  poly.within(background_poly)]
+
+        return l_poly
+
 
     @staticmethod
     def sampling_rings(l_shapes: List[LabelmeShape], l_rays, center):

@@ -94,6 +94,7 @@ class ViewContext(Context):
 
         self.image_path = self.output_dir / config["image_path"]
         self.image_no_background_path = self.output_dir / config["background"]["image_path"]
+        self.json_background_path = self.output_dir / config["background"]["json_path"]
         if Path(self.image_no_background_path).exists():
             self.image_orig_path = self.image_path
             self.image_path = self.image_no_background_path
@@ -211,7 +212,8 @@ class UI:
 
     def inbd_run(self):
         inbd = INBD(self.CTX.image_orig_path, self.CTX.pith_mask, Path(self.CTX.model_path), self.output_dir_inbd,
-                    Nr=self.CTX.number_of_rays, resize_factor=self.CTX.inbd_resize_factor)
+                    Nr=self.CTX.number_of_rays, resize_factor=self.CTX.inbd_resize_factor,
+                    background_path=self.CTX.json_background_path)
         results_path = inbd.run()
         return results_path
 
