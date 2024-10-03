@@ -2,22 +2,17 @@
 Module for computing important metrics
 """
 import numpy as np
-import pandas as pd
-
-from shapely.geometry import Polygon, LineString
-
-import numpy as np
 import cv2
-import datetime
+import pandas as pd
 
 from pathlib import Path
-
-import pandas as pd
-from shapely.geometry import Polygon, Point
+from shapely.geometry import Polygon, Point, LineString
+from typing import List
+from datetime import datetime
 
 from lib.image import Color, Drawing, resize_image_using_pil_lib
-
 from backend.labelme_layer import AL_AnnualRings
+
 
 class Table:
     def __init__(self, unit="mm"):
@@ -47,10 +42,8 @@ class Table:
         self.ring_similarity_factor = f"Ring Similarity Factor [0-1]"
 
 
-
 def fill_df(annual_ring_label_list, year_list, ew_lw_label_list, ring_area_list, ew_area_list, eccentricity_module_list,
             eccentricity_phase_list, ring_perimeter_list, pixels_millimeter_relation, unit):
-
     table = Table(unit=unit)
     df = pd.DataFrame(columns=[table.main_label, table.ew_lw_label, table.year,  # metadata
                                table.ring_area,  # ring properties
@@ -92,9 +85,10 @@ def fill_df(annual_ring_label_list, year_list, ew_lw_label_list, ring_area_list,
     df[table.eccentricity_phase] = np.array(eccentricity_phase_list)
     df[table.perimeter] = np.array(ring_perimeter_list) * pixels_millimeter_relation
     df[table.ring_similarity_factor] = 1 - (df[table.perimeter] - 2 * np.pi * df[table.cumulative_radius]) / \
-                                         df[table.perimeter]
+                                       df[table.perimeter]
     df = df.round(2)
     return df, table
+
 
 def compute_angle(vector):
     x, y = vector
@@ -102,6 +96,7 @@ def compute_angle(vector):
     angle_degrees = np.degrees(angle_radians)
     angle_360 = angle_degrees if angle_degrees >= 0 else angle_degrees + 360
     return angle_360
+
 
 def extract_ring_properties(annual_rings_list, year, plantation_date):
     pith = Point(0, 0)
@@ -133,14 +128,16 @@ def extract_ring_properties(annual_rings_list, year, plantation_date):
             eccentricity_phase = 0
         else:
             #change reference y-axis to the opposite direction
-            convert_to_numpy = lambda point: np.multiply(np.array([point.coords.xy[0], point.coords.xy[1]]).squeeze(), np.array([-1, 1]))
+            convert_to_numpy = lambda point: np.multiply(np.array([point.coords.xy[0], point.coords.xy[1]]).squeeze(),
+                                                         np.array([-1, 1]))
             numpy_ring_centroid = convert_to_numpy(ring_centroid).squeeze()
 
             numpy_pith = convert_to_numpy(pith).squeeze()
             #change origin to pith
             numpy_ring_centroid_referenced_to_pith = numpy_ring_centroid - numpy_pith
             #normalize
-            numpy_ring_centroid_referenced_to_pith_normalized = numpy_ring_centroid_referenced_to_pith / np.linalg.norm(numpy_ring_centroid_referenced_to_pith)
+            numpy_ring_centroid_referenced_to_pith_normalized = numpy_ring_centroid_referenced_to_pith / np.linalg.norm(
+                numpy_ring_centroid_referenced_to_pith)
 
             angle = compute_angle(numpy_ring_centroid_referenced_to_pith_normalized)
             eccentricity_phase = angle
@@ -150,13 +147,14 @@ def extract_ring_properties(annual_rings_list, year, plantation_date):
         ring_perimeter_list.append(ring.exterior.length)
 
         #metadata
-        year_list.append( year.year)
+        year_list.append(year.year)
         annual_ring_label_list.append(ring.main_label)
         ew_lw_label_list.append(ring.secondary_label)
         #save results
         year = year + datetime.timedelta(days=366) if plantation_date else year - datetime.timedelta(days=365)
 
     return annual_ring_label_list, year_list, ew_lw_label_list, ring_area_list, ew_area_list, eccentricity_module_list, eccentricity_phase_list, ring_perimeter_list
+
 
 def debug_images(annual_rings_list, df, image_path, output_dir):
     image = cv2.imread(image_path)
@@ -166,8 +164,8 @@ def debug_images(annual_rings_list, df, image_path, output_dir):
         if idx == 0:
             pith = ring.centroid
         ring_centroid = ring.get_centroid()
-        image_full = ring.draw_rings( image_full, thickness=3)
-        thickness= 3
+        image_full = ring.draw_rings(image_full, thickness=3)
+        thickness = 3
         image_debug = ring.draw(image.copy(), full_details=True, opacity=0.1)
         image_debug = Drawing.curve(ring.exterior.coords, image_debug, Color.black, thickness)
         inner_points = np.array([list(interior.coords) for interior in ring.interiors]).squeeze()
@@ -184,8 +182,11 @@ def debug_images(annual_rings_list, df, image_path, output_dir):
     cv2.imwrite(f"{output_dir}/rings.png", image_full)
 
     return
-def export_results( labelme_latewood_path : str = None, labelme_earlywood_path : str =None, image_path : str = None, metadata: dict = None,
-                   output_dir="output",  draw=False):
+
+
+def export_results(labelme_latewood_path: str = None, labelme_earlywood_path: str = None, image_path: str = None,
+                   metadata: dict = None,
+                   output_dir="output", draw=False):
     #metadata
     year = metadata["year"]
     year = datetime.datetime(year, 1, 1)
@@ -216,6 +217,7 @@ def export_results( labelme_latewood_path : str = None, labelme_earlywood_path :
     generate_pdf(df, output_dir)
     return
 
+
 def generate_plots(table, df, output_dir):
     #pass
     #Area bar plot
@@ -228,9 +230,9 @@ def generate_plots(table, df, output_dir):
     from matplotlib import pyplot as plt
     plt.figure()
     bar_width = 0.25
-    plt.bar(year - bar_width/2.1, ew_area,  label="Earlywood", width=bar_width)
-    plt.bar(year - bar_width/2.1, lw_area, bottom=ew_area, label="Latewood", width=bar_width)
-    plt.bar(year + bar_width/2.1, ring_area,  label="Ring", width=bar_width)
+    plt.bar(year - bar_width / 2.1, ew_area, label="Earlywood", width=bar_width)
+    plt.bar(year - bar_width / 2.1, lw_area, bottom=ew_area, label="Latewood", width=bar_width)
+    plt.bar(year + bar_width / 2.1, ring_area, label="Ring", width=bar_width)
 
     plt.xticks(year)
     plt.grid(True)
@@ -248,9 +250,9 @@ def generate_plots(table, df, output_dir):
     ew_width = df[table.ew_width]
     ring_width = df[table.annual_ring_width]
     plt.figure()
-    plt.bar(year - bar_width/2.1, ew_width,  label="Earlywood", width=bar_width)
-    plt.bar(year - bar_width/2.1, lw_width, bottom=ew_width, label="Latewood", width=bar_width)
-    plt.bar(year + bar_width/2.1, ring_width,  label="Ring", width=bar_width)
+    plt.bar(year - bar_width / 2.1, ew_width, label="Earlywood", width=bar_width)
+    plt.bar(year - bar_width / 2.1, lw_width, bottom=ew_width, label="Latewood", width=bar_width)
+    plt.bar(year + bar_width / 2.1, ring_width, label="Ring", width=bar_width)
 
     plt.xticks(year)
     plt.grid(True)
@@ -278,6 +280,7 @@ def generate_plots(table, df, output_dir):
     plt.close()
     return
 
+
 def generate_pdf(df, output_dir):
     #generate pdf with plots
     from fpdf import FPDF
@@ -293,7 +296,6 @@ def generate_pdf(df, output_dir):
     pdf.image(f"{output_dir}/area_bar_plot.png", x=10, y=30, w=180)
     pdf.add_page()
 
-
     pdf.image(f"{output_dir}/width_bar_plot.png", x=10, y=30, w=180)
     pdf.add_page()
 
@@ -305,7 +307,8 @@ def generate_pdf(df, output_dir):
     pdf.set_font("Arial", size=12)
     pdf.cell(200, 10, txt="Ring Details", ln=True, align="C")
 
-    images_list = [f"{output_dir}/{idx}_ring_properties_label_{df.iloc[idx]["Annual Ring (label)"]}.png" for idx in range(df.shape[0])]
+    images_list = [f"{output_dir}/{idx}_ring_properties_label_{df.iloc[idx]["Annual Ring (label)"]}.png" for idx in
+                   range(df.shape[0])]
     for idx, image in enumerate(images_list):
         #add title "Ring idx"
         pdf.set_font("Arial", size=10)
@@ -313,11 +316,64 @@ def generate_pdf(df, output_dir):
         pdf.image(image, x=10, y=30, w=180)
         pdf.add_page()
 
-
-
     pdf.output(f"{output_dir}/metrics.pdf")
 
 
+class PathMetrics:
+    def __init__(self, l_points: List, scale: float, image_name:str, unit: str):
+        self.l_points = l_points
+        self.scale = scale
+        self.image_name = image_name
+        self.unit = unit
+
+    def export_coorecorder_format(self, dpi: float = 2400, output_path: Path = None) -> None:
+        date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        header = (f"#DENDRO (Cybis Dendro program compatible format) Coordinate file written as\n"
+                  f"#Imagefile {self.image_name}\n#DPI {dpi}\n#All coordinates in millimeters (mm)\n"
+                  f"SCALE 1\n#C DATED\n#C Written={date};\n#C CooRecorder=;\n#C licensedTo=;\n")
+
+        with open(str(output_path), "w") as file:
+            file.write(header)
+            for idx, point in enumerate(self.l_points):
+                x = point.x * self.scale
+                y = point.y * self.scale
+                file.write(f"{x:.3f}, {y:.3f}\n")
+
+        return
+
+    def compute_ring_width(self, df):
+        x = df["x"].values
+        x_shift = df["x"].shift(1).values
+
+        y = df["y"].values
+        y_shift = df["y"].shift(1).values
+        width = np.sqrt(((x - x_shift) ** 2 + (y - y_shift) ** 2)) * self.scale
+
+        return width
+    def compute(self, output_path: Path) -> pd.DataFrame:
+        class Columns:
+            x = "x"
+            y = "y"
+            label = "label"
+            width = f"Width [{self.unit}]"
+            cumulative = f"Cumulative Width [{self.unit}]"
+
+        df = pd.DataFrame( data = {
+            Columns.label: [point.label for point in self.l_points],
+            Columns.x: [point.x for point in self.l_points],
+            Columns.y: [point.y for point in self.l_points]}
+        )
+
+        df[Columns.width] = self.compute_ring_width(df)
+        df[Columns.width] = df[Columns.width].fillna(0)
+
+        # commulative width
+        df[Columns.cumulative] = df[Columns.width].cumsum()
+        df.round(3)
+        #save
+        df[[Columns.label, Columns.width, Columns.cumulative]].to_csv(output_path, index=False)
+
+        return df
 
 
 def main():
@@ -332,16 +388,14 @@ def main():
     metadata = {
         "year": 2007,
         "plantation_date": True,
-        "pixels_millimeter_relation": 1/2.26,#10 / 52,
+        "pixels_millimeter_relation": 1 / 2.26,  #10 / 52,
         "unit": "micrometer"
     }
     output_dir = f"./output/{folder_name}"
     Path(output_dir).mkdir(parents=True, exist_ok=True)
-    export_results(labelme_latewood_path, labelme_earlywood_path, image_path, metadata, draw=True, output_dir=output_dir)
+    export_results(labelme_latewood_path, labelme_earlywood_path, image_path, metadata, draw=True,
+                   output_dir=output_dir)
     #export_results(labelme_latewood_path = labelme_latewood_path, image_path= image_path, metadata=metadata, draw=True, output_dir=output_dir)
-
-
-
 
 
 if __name__ == "__main__":
