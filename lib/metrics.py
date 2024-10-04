@@ -341,15 +341,6 @@ class PathMetrics:
 
         return
 
-    def compute_ring_width(self, df):
-        x = df["x"].values
-        x_shift = df["x"].shift(1).values
-
-        y = df["y"].values
-        y_shift = df["y"].shift(1).values
-        width = np.sqrt(((x - x_shift) ** 2 + (y - y_shift) ** 2)) * self.scale
-
-        return width
     def compute(self, output_path: Path) -> pd.DataFrame:
         class Columns:
             x = "x"
@@ -359,12 +350,13 @@ class PathMetrics:
             cumulative = f"Cumulative Width [{self.unit}]"
 
         df = pd.DataFrame( data = {
-            Columns.label: [point.label for point in self.l_points],
-            Columns.x: [point.x for point in self.l_points],
-            Columns.y: [point.y for point in self.l_points]}
+                Columns.label: [point.label for point in self.l_points],
+                Columns.x: [point.x for point in self.l_points],
+                Columns.y: [point.y for point in self.l_points]
+            }
         )
 
-        df[Columns.width] = self.compute_ring_width(df)
+        df[Columns.width] = self._compute_ring_width(df)
         df[Columns.width] = df[Columns.width].fillna(0)
 
         # commulative width
@@ -375,6 +367,15 @@ class PathMetrics:
 
         return df
 
+    def _compute_ring_width(self, df):
+        x = df["x"].values
+        x_shift = df["x"].shift(1).values
+
+        y = df["y"].values
+        y_shift = df["y"].shift(1).values
+        width = np.sqrt(((x - x_shift) ** 2 + (y - y_shift) ** 2)) * self.scale
+
+        return width
 
 def main():
     folder_name = "C14"
