@@ -8,7 +8,7 @@ import pandas as pd
 from pathlib import Path
 from shapely.geometry import Polygon, Point, LineString
 from typing import List
-from datetime import datetime
+import datetime
 
 from lib.image import Color, Drawing, resize_image_using_pil_lib
 from backend.labelme_layer import AL_AnnualRings
@@ -327,7 +327,7 @@ class PathMetrics:
         self.unit = unit
 
     def export_coorecorder_format(self, dpi: float = 2400, output_path: Path = None) -> None:
-        date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         header = (f"#DENDRO (Cybis Dendro program compatible format) Coordinate file written as\n"
                   f"#Imagefile {self.image_name}\n#DPI {dpi}\n#All coordinates in millimeters (mm)\n"
                   f"SCALE 1\n#C DATED\n#C Written={date};\n#C CooRecorder=;\n#C licensedTo=;\n")

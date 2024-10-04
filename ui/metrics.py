@@ -364,7 +364,9 @@ class UI:
         if not enabled:
             st.error("Please upload the latewood annotation file")
             return
+
         output_path = self.CTX.output_dir_metrics / "coorecorder.csv"
+
         if button:
             self.CTX.ring_path = self.CTX.output_dir / "path.json"
             interface = PathInterface(self.CTX.image_path, self.CTX.ring_path)
@@ -373,11 +375,12 @@ class UI:
             object_lw = LoadLabelmeObject(self.CTX.lw_annotation_file)
             l_intersections = interface.compute_intersections( object_lw, results)
 
-            interface.export_in_coorecorder_format(l_intersections, output_path ,
-                                                   scale= self.CTX.know_distance / self.CTX.pixels_length ,
-                                                   unit=self.CTX.units_mode)
+            interface.compute_metrics(l_intersections, output_path,
+                                      scale = self.CTX.know_distance / self.CTX.pixels_length,
+                                      unit = self.CTX.units_mode)
 
             st.write(f"Results are saved in {self.CTX.output_dir_metrics}")
+
         if output_path.exists():
             df = pd.read_csv(output_path)
             columns = df.columns.tolist()
@@ -475,40 +478,18 @@ class PathInterface(UserInterface):
         return l_intersection
 
 
-    def export_in_coorecorder_format(self, l_intersection: List, output_path: Path, unit: str, scale: float = 1.0)\
+    def compute_metrics(self, l_intersection: List, output_path: Path, unit: str, scale: float = 1.0)\
             -> pd.DataFrame:
-        dpi = 2400.0
+        from lib.metrics import PathMetrics
 
-        date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        header = (f"#DENDRO (Cybis Dendro program compatible format) Coordinate file written as\n"
-                  f"#Imagefile {self.image_path.name}\n#DPI {dpi}\n#All coordinates in millimeters (mm)\n"
-                  f"SCALE 1\n#C DATED\n#C Written={date};\n#C CooRecorder=;\n#C licensedTo=;\n")
+        path = PathMetrics(l_intersection, scale, self.image_path.name, unit)
 
-        output_path_pos = str(output_path).replace(".csv",".pos")
-        with open(output_path_pos, "w") as file:
-            file.write(header)
-            for idx, point in enumerate(l_intersection):
-                x = point.x * scale
-                y = point.y * scale
-                file.write(f"{x:.3f}, {y:.3f}\n")
+        output_path_pos = str(output_path).replace(".csv", ".pos")
+        
+        path.export_coorecorder_format( output_path = output_path_pos)
 
-        df = pd.DataFrame( data = {"label": [point.label for point in l_intersection],
-                        "x": [point.x for point in l_intersection],
-                        "y": [point.y for point in l_intersection]})
-        #add column called, right width where the value is the distance between the points
-        x = df["x"].values
-        x_shift = df["x"].shift(1).values
+        df = path.compute(output_path)
 
-        y = df["y"].values
-        y_shift = df["y"].shift(1).values
-        width = np.sqrt(((x - x_shift) ** 2 + (y - y_shift) ** 2)) * scale
-        df[f"Width [{unit}]"] = width
-        df[f"Width [{unit}]"] = df[f"Width [{unit}]"].fillna(0)
-        # commulative width
-        df[f"Cumulative Width [{unit}]"] = df[f"Width [{unit}]"].cumsum()
-        df.round(3)
-        #save
-        df[["label", f"Width [{unit}]", f"Cumulative Width [{unit}]"]].to_csv(output_path, index=False)
         return df
 
 
