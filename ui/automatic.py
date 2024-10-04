@@ -6,7 +6,7 @@ from shapely.geometry import Polygon, Point
 from streamlit_option_menu import option_menu
 from pathlib import Path
 
-from lib.image import LabelMeInterface as UserInterface, Drawing, Color
+from lib.image import LabelMeInterface as UserInterface, Drawing, Color, load_image
 from lib.io import load_json, write_binary_file
 from lib.inbd import INBD
 from backend.labelme_layer import LabelmeShapeType, LoadLabelmeObject, AL_LateWood_EarlyWood
@@ -72,7 +72,7 @@ class PithInterface(UserInterface):
 
     def generate_center_mask(self, output_path, results):
         if self.pith_model == Pith.pixel:
-            mask = np.zeros(cv2.imread(self.image_path).shape[:2], dtype=np.uint8)
+            mask = np.zeros(load_image(self.image_path).shape[:2], dtype=np.uint8)
             x,y = results.xy
             x = int(x[0])
             y = int(y[0])
@@ -80,10 +80,10 @@ class PithInterface(UserInterface):
             cv2.imwrite(output_path, mask)
             return
 
-        image = cv2.imread(self.image_path)
+        image = load_image(self.image_path)
         mask = np.zeros(image.shape, dtype=np.uint8)
         mask = Drawing.fill(results.exterior, mask, Color.white, opacity=1)
-        cv2.imwrite(output_path, mask)
+        cv2.imwrite(str(output_path), mask)
         return
 
 
@@ -150,7 +150,7 @@ class UI:
                     return
                 interface.generate_center_mask(self.CTX.pith_mask, results)
                 #display image mask
-                st.image(cv2.imread(self.CTX.pith_mask), use_column_width=True)
+                st.image(load_image(self.CTX.pith_mask), use_column_width=True)
 
     def shape_pith(self):
         pith_model = st.radio("Model", [Pith.pixel, Pith.boundary], horizontal=True)
@@ -241,7 +241,7 @@ class UI:
             #display image in image_contour_path
             if image_contour_path is not None:
                 rings_list = AL_LateWood_EarlyWood(results_path, None).read()
-                image = cv2.imread(self.CTX.image_path)
+                image = load_image(self.CTX.image_path)
                 #convert image to rgb
                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
                 for ring in rings_list:

@@ -10,7 +10,7 @@ from shapely.geometry import Polygon, Point, LineString
 from typing import List
 import datetime
 
-from lib.image import Color, Drawing, resize_image_using_pil_lib
+from lib.image import Color, Drawing, resize_image_using_pil_lib, load_image
 from backend.labelme_layer import AL_AnnualRings
 
 
@@ -157,7 +157,7 @@ def extract_ring_properties(annual_rings_list, year, plantation_date):
 
 
 def debug_images(annual_rings_list, df, image_path, output_dir):
-    image = cv2.imread(image_path)
+    image = load_image(image_path)
     image_full = image.copy()
     for idx, ring in enumerate(annual_rings_list):
         #eccentricity

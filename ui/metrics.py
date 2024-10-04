@@ -261,7 +261,7 @@ class UI:
 
         rings_image_path = self.CTX.output_dir_metrics / "rings.png"
         import cv2
-        image = cv2.cvtColor(cv2.imread(rings_image_path), cv2.COLOR_BGR2RGB)
+        image = cv2.cvtColor(load_image(rings_image_path), cv2.COLOR_BGR2RGB)
 
 
 

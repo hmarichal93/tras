@@ -8,7 +8,7 @@ from PIL import Image
 from streamlit_option_menu import option_menu
 from pathlib import Path
 
-from lib.image import LabelMeInterface as UserInterface, resize_image_using_pil_lib
+from lib.image import LabelMeInterface as UserInterface, resize_image_using_pil_lib, load_image
 from lib.io import load_json
 from ui.common import Context
 
@@ -112,7 +112,7 @@ def set_date_input(dictionary_date, text="Tree planting date"):
     return dictionary_date
 
 def resize_image(image_path, resize_factor):
-    image = cv2.imread(image_path)
+    image = load_image(image_path)
     H, W = image.shape[:2]
     H_new = int(H  / resize_factor)
     W_new = int(W  / resize_factor)

@@ -14,8 +14,11 @@
            }
   },
   "automatic":{
+    "inbd_resize_factor":1,
+    "number_of_rays":360, 
+    "pith_mask":"",  
     "model_path":"",
-    "inbd_models":{"Pinus Taeda":"models/inbd/model.update.pt.zip", "INBD-EH":"models/inbd/model_eh.update.pt.zip"},
+    "inbd_models":{"Pinus Taeda":"automatic_methods/tree_ring_delineation/mlbrief_inbd/models/model.update.pt.zip", "INBD-EH":"automatic_methods/tree_ring_delineation/mlbrief_inbd/models/model_eh.update.pt.zip"},
     "upload_model": false
   }
   ,
@@ -52,6 +55,7 @@
     "lw_ratio": true,
     "annual_ring_width": true,
     "ew_width": true,
-    "lw_width_ratio": true
+    "lw_width_ratio": true,
+    "ring_path":""
   }
 }
