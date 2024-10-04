@@ -9,6 +9,7 @@ from pathlib import Path
 from lib.image import LabelMeInterface as UserInterface, Drawing, Color, load_image
 from lib.io import load_json, write_binary_file
 from lib.inbd import INBD
+from lib.cstrd import CSTRD
 from backend.labelme_layer import LabelmeShapeType, LoadLabelmeObject, AL_LateWood_EarlyWood
 from ui.common import Context, download_button
 
@@ -106,6 +107,10 @@ class ViewContext(Context):
         self.number_of_rays = self.config["automatic"]["number_of_rays"]
         self.inbd_resize_factor = self.config["automatic"]["inbd_resize_factor"]
 
+        self.sigma = self.config["automatic"]["sigma"]
+        self.th_low = self.config["automatic"]["th_low"]
+        self.th_hight = self.config["automatic"]["th_hight"]
+
         return
 
     def update_config(self):
@@ -114,7 +119,9 @@ class ViewContext(Context):
         self.config["automatic"]["pith_mask"] = str(self.pith_mask)
         self.config["automatic"]["number_of_rays"] = self.number_of_rays
         self.config["automatic"]["inbd_resize_factor"] = self.inbd_resize_factor
-
+        self.config["automatic"]["sigma"] = self.sigma
+        self.config["automatic"]["th_low"] = self.th_low
+        self.config["automatic"]["th_hight"] = self.th_hight
 
         return
 
@@ -169,17 +176,28 @@ class UI:
 
     def cstrd_parameters(self):
         st.subheader("Parameters")
-        sigma = st.slider("Sigma", 1.0, 10.0, 3.0)
-
+        sigma = st.slider("Sigma", 1.0, 10.0, float(self.CTX.sigma))
+        if sigma != self.CTX.sigma:
+            self.CTX.sigma = sigma
         advanced = st.checkbox("Advanced parameters")
         if advanced:
-            low = st.slider("Gradient threshold low", 0.0, 50.0, 5.0)
-            high = st.slider("Gradient threshold high", 0.0, 50.0, 10.0)
-            height = st.slider("Image Height", 0.0, 1500.0, 3000.0)
-            width = st.slider("Image Width", 0.0, 1500.0, 3000.0)
+            low = st.slider("Gradient threshold low", 0.0, 50.0, float(self.CTX.th_low))
+            if low != self.CTX.th_low:
+                self.CTX.th_low = low
+            high = st.slider("Gradient threshold high", 0.0, 50.0, float(self.CTX.th_hight))
+            if high != self.CTX.th_hight:
+                self.CTX.th_hight = high
+
 
     def cstrd_run(self):
-        return "TODO.json"
+        self.output_dir_cstrd = self.CTX.output_dir / "cstrd"
+        self.output_dir_cstrd.mkdir(exist_ok=True, parents=True)
+        method = CSTRD(self.CTX.image_orig_path, self.CTX.pith_mask, Path(self.CTX.model_path), self.output_dir_cstrd,
+                    Nr=self.CTX.number_of_rays, resize_factor=self.CTX.inbd_resize_factor,
+                    background_path=self.CTX.json_background_path, sigma=self.CTX.sigma, th_low=self.CTX.th_low,
+                    th_hight=self.CTX.th_hight)
+        results_path = method.run()
+        return results_path
 
     def inbd_parameters(self):
         self.output_dir_inbd = self.CTX.output_dir / "inbd"
@@ -194,19 +212,8 @@ class UI:
         else:
             output_model_path = self.CTX.inbd_models[model]
 
-        # add input number option
-        nr = st.number_input("Number of rays", 1, 1000, self.CTX.number_of_rays)
-        if nr != self.CTX.number_of_rays:
-            self.CTX.number_of_rays = nr
         self.CTX.model_path = output_model_path
 
-        resize_factor = st.slider("Resize Factor", 0.0, 10.0, float(self.CTX.inbd_resize_factor) , help="Resize factor for the image.\n"
-                                                                                       "Be aware that the image will \n"
-                                                                                       "be resized, which means that the \n"
-                                                                                       "automatic method will work at a \n"
-                                                                                        "lower resolution")
-        if resize_factor != self.CTX.inbd_resize_factor:
-            self.CTX.inbd_resize_factor = resize_factor
 
         return
 
@@ -224,7 +231,18 @@ class UI:
             self.inbd_parameters()
         else:
             self.cstrd_parameters()
+        # add input number option
+        nr = st.number_input("Number of rays", 1, 1000, self.CTX.number_of_rays)
+        if nr != self.CTX.number_of_rays:
+            self.CTX.number_of_rays = nr
 
+        resize_factor = st.slider("Resize Factor", 0.0, 10.0, float(self.CTX.inbd_resize_factor) , help="Resize factor for the image.\n"
+                                                                                       "Be aware that the image will \n"
+                                                                                       "be resized, which means that the \n"
+                                                                                       "automatic method will work at a \n"
+                                                                                        "lower resolution")
+        if resize_factor != self.CTX.inbd_resize_factor:
+            self.CTX.inbd_resize_factor = resize_factor
         st.divider()
 
         run_button = st.button("Run", use_container_width=True, disabled=not Path(self.CTX.model_path).exists()
@@ -233,7 +251,7 @@ class UI:
         if run_button:
             results_path = self.inbd_run() if method_latewood == LatewoodMethods.inbd else self.cstrd_run()
             st.write("Results saved in: ", results_path)
-            image_contour_path = Path(results_path).parent / "contours.png" if method_latewood == LatewoodMethods.inbd else None
+            image_contour_path = Path(results_path).parent / "contours.png" #if method_latewood == LatewoodMethods.inbd else None
             download_button(results_path, "Download", f"{self.CTX.image_orig_path.stem}.json",
                             "application/json")
 
