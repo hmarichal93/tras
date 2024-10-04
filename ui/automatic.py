@@ -1,6 +1,7 @@
 import streamlit as st
 import numpy as np
 import cv2
+import os
 
 from shapely.geometry import Polygon, Point
 from streamlit_option_menu import option_menu
@@ -110,6 +111,8 @@ class ViewContext(Context):
         self.sigma = self.config["automatic"]["sigma"]
         self.th_low = self.config["automatic"]["th_low"]
         self.th_hight = self.config["automatic"]["th_hight"]
+        lw_path = self.config["manual"]["annotations_files"]["late_wood"]
+        self.lw_annotations = self.output_dir / "none.json" if isinstance(lw_path, list) else Path(lw_path)
 
         return
 
@@ -176,7 +179,7 @@ class UI:
 
     def cstrd_parameters(self):
         st.subheader("Parameters")
-        sigma = st.slider("Sigma", 1.0, 10.0, float(self.CTX.sigma))
+        sigma = st.slider("Sigma", 1.0, 10.0, float(self.CTX.sigma), step=0.1, help="Sigma for the gaussian filter")
         if sigma != self.CTX.sigma:
             self.CTX.sigma = sigma
         advanced = st.checkbox("Advanced parameters")
@@ -189,14 +192,19 @@ class UI:
                 self.CTX.th_hight = high
 
 
-    def cstrd_run(self):
+    def cstrd_run(self, lw_annotations=None):
         self.output_dir_cstrd = self.CTX.output_dir / "cstrd"
+        os.system(f"rm -rf {self.output_dir_cstrd}")
         self.output_dir_cstrd.mkdir(exist_ok=True, parents=True)
-        method = CSTRD(self.CTX.image_orig_path, self.CTX.pith_mask, Path(self.CTX.model_path), self.output_dir_cstrd,
+        method = CSTRD(self.CTX.image_no_background_path, self.CTX.pith_mask, Path(self.CTX.model_path), self.output_dir_cstrd,
                     Nr=self.CTX.number_of_rays, resize_factor=self.CTX.inbd_resize_factor,
                     background_path=self.CTX.json_background_path, sigma=self.CTX.sigma, th_low=self.CTX.th_low,
-                    th_hight=self.CTX.th_hight)
+                    th_hight=self.CTX.th_hight,
+                    gt_ring_json=lw_annotations,
+                    include_gt_rings_in_output= True if lw_annotations is not None else False)
+
         results_path = method.run()
+
         return results_path
 
     def inbd_parameters(self):
@@ -218,15 +226,12 @@ class UI:
         return
 
     def inbd_run(self):
-        inbd = INBD(self.CTX.image_orig_path, self.CTX.pith_mask, Path(self.CTX.model_path), self.output_dir_inbd,
+        inbd = INBD(self.CTX.image_no_background_path, self.CTX.pith_mask, Path(self.CTX.model_path), self.output_dir_inbd,
                     Nr=self.CTX.number_of_rays, resize_factor=self.CTX.inbd_resize_factor,
                     background_path=self.CTX.json_background_path)
         results_path = inbd.run()
         return results_path
-
-    def shape_latewood(self):
-        method_latewood = st.radio("Method", [LatewoodMethods.cstrd, LatewoodMethods.inbd], horizontal=True)
-
+    def parameters_latewood(self, method_latewood):
         if method_latewood == LatewoodMethods.inbd:
             self.inbd_parameters()
         else:
@@ -243,30 +248,56 @@ class UI:
                                                                                         "lower resolution")
         if resize_factor != self.CTX.inbd_resize_factor:
             self.CTX.inbd_resize_factor = resize_factor
+        return
+
+    def shape_earlywood(self):
+        method_latewood = st.radio("Method", [LatewoodMethods.cstrd], horizontal=True)
+        self.parameters_latewood(method_latewood)
+        st.divider()
+        disabled = not self.CTX.lw_annotations.exists()
+        run_button = st.button("Run", use_container_width=True, disabled= disabled)
+
+        if run_button:
+            results_path = self.cstrd_run(str(self.CTX.lw_annotations))
+            self.display_results(results_path)
+
+
+
+        return
+
+    def display_results(self, results_path):
+        st.write("Results saved in: ", results_path)
+        image_contour_path = Path(results_path).parent / "contours.png" #if method_latewood == LatewoodMethods.inbd else None
+        download_button(results_path, "Download", f"{self.CTX.image_orig_path.stem}.json",
+                        "application/json")
+
+
+        #display image in image_contour_path
+        if image_contour_path is not None:
+            rings_list = AL_LateWood_EarlyWood(results_path, None).read()
+            image = load_image(self.CTX.image_path)
+            #convert image to rgb
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            for ring in rings_list:
+                poly = Polygon(ring.points.tolist())
+                image = Drawing.curve( poly.exterior.coords, image, Color.red, thickness=5)
+                #image = Drawing.fill(poly.exterior, image, Color.red, opacity=0.3)
+            st.image(image, use_column_width=True)
+        return
+
+    def shape_latewood(self):
+        method_latewood = st.radio("Method", [LatewoodMethods.cstrd, LatewoodMethods.inbd], horizontal=True)
+        self.parameters_latewood(method_latewood)
         st.divider()
 
         run_button = st.button("Run", use_container_width=True, disabled=not Path(self.CTX.model_path).exists()
                 if method_latewood == LatewoodMethods.inbd else False )
 
         if run_button:
-            results_path = self.inbd_run() if method_latewood == LatewoodMethods.inbd else self.cstrd_run()
-            st.write("Results saved in: ", results_path)
-            image_contour_path = Path(results_path).parent / "contours.png" #if method_latewood == LatewoodMethods.inbd else None
-            download_button(results_path, "Download", f"{self.CTX.image_orig_path.stem}.json",
-                            "application/json")
+            results_path = self.inbd_run() if method_latewood == LatewoodMethods.inbd else\
+                self.cstrd_run()
 
-
-            #display image in image_contour_path
-            if image_contour_path is not None:
-                rings_list = AL_LateWood_EarlyWood(results_path, None).read()
-                image = load_image(self.CTX.image_path)
-                #convert image to rgb
-                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                for ring in rings_list:
-                    poly = Polygon(ring.points.tolist())
-                    image = Drawing.curve( poly.exterior.coords, image, Color.red, thickness=5)
-                    #image = Drawing.fill(poly.exterior, image, Color.red, opacity=0.3)
-                st.image(image, use_column_width=True)
+            self.display_results(results_path)
 
 
 
@@ -285,6 +316,9 @@ def main(runtime_config_path):
 
     if selected == Shapes.latewood:
         ui.shape_latewood()
+
+    if selected == Shapes.earlywood:
+        ui.shape_earlywood()
 
     st.divider()
     #save status

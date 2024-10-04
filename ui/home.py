@@ -36,6 +36,9 @@ def main(default_config_path, runtime_config_path):
         inbd_dir = Path(config["general"]["output_dir"]) / "inbd"
         os.system(f"rm -rf {inbd_dir}")
         delete_cache_folder(str(inbd_dir))
+        inbd_dir = Path(config["general"]["output_dir"]) / "cstrd"
+        os.system(f"rm -rf {inbd_dir}")
+        delete_cache_folder(str(inbd_dir))
         pith_dir = Path(config["general"]["output_dir"]) / "pith_mask"
         delete_cache_folder(str(pith_dir))
 
