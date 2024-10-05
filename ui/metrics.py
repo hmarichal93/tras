@@ -14,12 +14,12 @@ from copy import deepcopy
 from shapely.geometry import LineString, MultiLineString, Polygon, Point
 from datetime import datetime
 
-from lib.image import LabelMeInterface as UserInterface, Color as ColorCV2, Drawing, load_image
+from lib.image import LabelMeInterface as UserInterface, Color as ColorCV2, Drawing, load_image, write_image
 from ui.common import Context, Shapes, Color
 from lib.io import load_json, write_json, bytesio_to_dict
 from lib.metrics import  export_results, Table
 from backend.labelme_layer import (LabelmeInterface, LabelmeShapeType, AL_LateWood_EarlyWood, LabelmeShape,
-                                   LoadLabelmeObject)
+                                   LabelmeObject)
 
 
 class ViewContext(Context):
@@ -261,7 +261,7 @@ class UI:
 
         rings_image_path = self.CTX.output_dir_metrics / "rings.png"
         import cv2
-        image = cv2.cvtColor(cv2.imread(rings_image_path), cv2.COLOR_BGR2RGB)
+        image = cv2.cvtColor(load_image(rings_image_path), cv2.COLOR_BGR2RGB)
 
 
 
@@ -372,7 +372,7 @@ class UI:
             interface = PathInterface(self.CTX.image_path, self.CTX.ring_path)
             interface.interface()
             results = interface.parse_output()
-            object_lw = LoadLabelmeObject(self.CTX.lw_annotation_file)
+            object_lw = LabelmeObject(self.CTX.lw_annotation_file)
             l_intersections = interface.compute_intersections( object_lw, results)
 
             interface.compute_metrics(l_intersections, output_path,
@@ -405,7 +405,7 @@ class PathInterface(UserInterface):
         self.output_image_path = output_image_path
 
     def parse_output(self):
-        object = LoadLabelmeObject(self.output_path)
+        object = LabelmeObject(self.output_path)
         if len(object.shapes) > 1:
             st.error("More than one shape found. Add only one shape")
             return None
@@ -427,7 +427,7 @@ class PathInterface(UserInterface):
         return None
 
 
-    def compute_intersections(self, rings: LoadLabelmeObject, path: LineString | MultiLineString, debug=True):
+    def compute_intersections(self, rings: LabelmeObject, path: LineString | MultiLineString, debug=True):
         if debug:
             image = load_image(self.image_path)
             debug_image_path = self.image_path.parent / f"debug_path.png"
@@ -473,7 +473,7 @@ class PathInterface(UserInterface):
                     image = Drawing.put_text(ring.label, image, (int(y[0]), int(x[0])), color=ColorCV2.black, fontScale=1.0)
 
         if debug:
-            cv2.imwrite(str(debug_image_path), image)
+            write_image(str(debug_image_path), image)
 
         return l_intersection
 

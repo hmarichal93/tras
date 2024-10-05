@@ -1,6 +1,6 @@
 {
   "general": {
-            "output_dir": "./output", "display_image_size": 256
+            "output_dir": "/home/henry/Documents/repo/fing/gui_streamlit/output", "display_image_size": 256
            },
   "image": {
            "image_path": "image.png" , "mode":"cross-section",
@@ -14,8 +14,14 @@
            }
   },
   "automatic":{
+    "sigma": 1.1,
+    "th_low": 5,
+    "th_hight": 20,
+    "inbd_resize_factor":1,
+    "number_of_rays":360, 
+    "pith_mask":"",  
     "model_path":"",
-    "inbd_models":{"Pinus Taeda":"models/inbd/model.update.pt.zip", "INBD-EH":"models/inbd/model_eh.update.pt.zip"},
+    "inbd_models":{"Pinus Taeda":"automatic_methods/tree_ring_delineation/mlbrief_inbd/models/model.update.pt.zip", "INBD-EH":"automatic_methods/tree_ring_delineation/mlbrief_inbd/models/model_eh.update.pt.zip"},
     "upload_model": false
   }
   ,
@@ -23,7 +29,7 @@
     "main_shape": "Late Wood",
     "drawable_shapes": {"Early Wood": false, "Late Wood": false, "Knot": false, "Compression Wood": false}, 
     "annotations_files": {
-       "early_wood": [], "late_wood": [], "knot": [], "compression_wood" : []
+       "early_wood": ["early_wood_read.json"], "late_wood": [""], "knot": [], "compression_wood" : []
     },
     "annotate_from_scratch": true,
     "show_advanced_settings": true, 
@@ -52,6 +58,7 @@
     "lw_ratio": true,
     "annual_ring_width": true,
     "ew_width": true,
-    "lw_width_ratio": true
+    "lw_width_ratio": true,
+    "ring_path":""
   }
 }

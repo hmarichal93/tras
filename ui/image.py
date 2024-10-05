@@ -8,9 +8,10 @@ from PIL import Image
 from streamlit_option_menu import option_menu
 from pathlib import Path
 
-from lib.image import LabelMeInterface as UserInterface, resize_image_using_pil_lib
+from lib.image import LabelMeInterface as UserInterface, resize_image_using_pil_lib, load_image, write_image
 from lib.io import load_json
 from ui.common import Context
+from backend.labelme_layer import resize_annotations
 
 
 pixels_length = 1
@@ -111,14 +112,14 @@ def set_date_input(dictionary_date, text="Tree planting date"):
     dictionary_date['day'] = input_date.day
     return dictionary_date
 
-def resize_image(image_path, resize_factor):
-    image = cv2.imread(image_path)
+def resize_image(image_path : Path, resize_factor : float):
+    image = load_image(image_path)
     H, W = image.shape[:2]
     H_new = int(H  / resize_factor)
     W_new = int(W  / resize_factor)
     image = resize_image_using_pil_lib(image,  H_new, W_new)
-    cv2.imwrite(image_path, image)
-    return
+    write_image(str(image_path), image)
+    return str(image_path)
 
 
 def main(runtime_config_path):
@@ -189,11 +190,15 @@ def main(runtime_config_path):
             CTX.resize_factor = resize_factor
 
         if st.button("Resize Image"):
-            resize_image(CTX.image_path, resize_factor)
+            _ = resize_image(CTX.image_path, resize_factor)
 
             if Path(CTX.image_no_background_path).exists():
-                resize_image(CTX.image_no_background_path, resize_factor)
+                backup_image_path = str(CTX.image_no_background_path).replace(".png", "_bkp.png")
+                os.system(f"cp {CTX.image_no_background_path} {backup_image_path}")
+                CTX.image_no_background_path = resize_image(CTX.image_no_background_path, resize_factor)
                 resize_image(str(CTX.image_no_background_path).replace(".png", "_mask.png"), resize_factor)
+                new_annotations_path = resize_annotations(backup_image_path, CTX.image_no_background_path, CTX.background_json_path)
+                os.system(f"cp {new_annotations_path} {CTX.background_json_path}")
 
 
             CTX.scale_status = False
@@ -287,7 +292,7 @@ class BackgroundInterface(UserInterface):
         bg_image_pil = Image.open(self.image_path)
         bg_image_pil_no_background, mask = self.remove_background_polygon(bg_image_pil, self.background_polygon)
         bg_image_pil_no_background.save(self.output_image_path)
-        cv2.imwrite(str(self.output_image_path).replace(".png", "_mask.png"), mask)
+        write_image(str(self.output_image_path).replace(".png", "_mask.png"), mask)
         return bg_image_pil_no_background
 
     def remove_background_polygon(self, bg_image_pil, background_polygon):

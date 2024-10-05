@@ -8,8 +8,8 @@ from streamlit_option_menu import option_menu
 from pathlib import Path
 from copy import deepcopy
 
-from lib.image import LabelMeInterface as UserInterface, Color as ColorCV2, Drawing, load_image
-from ui.common import Context, Shapes, Color
+from lib.image import LabelMeInterface as UserInterface, Color as ColorCV2, Drawing, load_image, write_image
+from ui.common import Context, Shapes, Color, file_uploader
 from lib.io import load_json, write_json, bytesio_to_dict
 
 
@@ -191,10 +191,7 @@ class UI:
 
         return
 
-    @staticmethod
-    def save_annotation_file_locally(filename, file_uploader_instance):
-        config = bytesio_to_dict(file_uploader_instance)
-        write_json(config, filename)
+
 
     def is_bold(self, shape):
         return shape == self.CTX.main_shape
@@ -211,19 +208,19 @@ class UI:
             self.CTX.annotate_from_scratch = False
 
 
-        self.CTX.knot_annotation_file = self.file_uploader( self.bold_text_depending_on_main_shape(Shapes.knot,
+        self.CTX.knot_annotation_file = file_uploader( self.bold_text_depending_on_main_shape(Shapes.knot,
                         f"Choose {Shapes.knot} annotations file"),
                              self.CTX.output_dir / "knot.json", "json")
 
-        self.CTX.cw_annotation_file = self.file_uploader(self.bold_text_depending_on_main_shape(Shapes.compresionwood,
+        self.CTX.cw_annotation_file = file_uploader(self.bold_text_depending_on_main_shape(Shapes.compresionwood,
                         f"Choose {Shapes.compresionwood} annotations file"),
                              self.CTX.output_dir / "compressionwood.json", "json")
 
-        self.CTX.ew_annotation_file = self.file_uploader( self.bold_text_depending_on_main_shape(Shapes.earlywood,
+        self.CTX.ew_annotation_file = file_uploader( self.bold_text_depending_on_main_shape(Shapes.earlywood,
                          f"Choose {Shapes.earlywood} annotations file"),
                               self.CTX.output_dir / "earlywood_read.json", "json")
 
-        self.CTX.lw_annotation_file = self.file_uploader(self.bold_text_depending_on_main_shape(Shapes.latewood,
+        self.CTX.lw_annotation_file = file_uploader(self.bold_text_depending_on_main_shape(Shapes.latewood,
                             f"Choose {Shapes.latewood} annotations file"),
                                  self.CTX.output_dir / "latewood_read.json", "json")
 
@@ -237,12 +234,7 @@ class UI:
 
 
 
-    def file_uploader(self, label, output_file, extension):
-        uploaded_cw_annotation_file = st.file_uploader(label, type=[extension])
-        if uploaded_cw_annotation_file:
-            self.save_annotation_file_locally(output_file, uploaded_cw_annotation_file)
 
-        return output_file
         #return None
 
     def show_advanced_settings(self, value= None):
@@ -397,7 +389,7 @@ class UI:
 
 
         output_image_path = self.CTX.output_dir / output_image_name
-        cv2.imwrite(str(output_image_path), image)
+        write_image(str(output_image_path), image)
 
         return output_image_path
 
