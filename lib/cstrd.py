@@ -50,9 +50,9 @@ class CSTRD(Model):
 
            command += f"--gt_ring_json {gt_path_resized} "
 
-        if self.include_gt_rings_in_output:
-            command += f"--include_gt_rings_in_output 1 "
-        raise
+        #if self.include_gt_rings_in_output:
+        #    command += f"--include_gt_rings_in_output 1 "
+
         print(command)
         os.system(command)
 

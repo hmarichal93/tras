@@ -95,10 +95,10 @@ class Model:
 
         writer = LabelmeWriter( write_file_path = output_path)
         args = dict(
-            image_path=str(self.image_path),
+            imagePath=str(self.image_path),
             imageHeight=height,
             imageWidth=width,
-            structure_list= dt_updated_poly
+            shapes= dt_updated_poly
         )
         writer.write(args)
         return
