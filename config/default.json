@@ -1,6 +1,6 @@
 {
   "general": {
-            "output_dir": "./output", "display_image_size": 256
+            "output_dir": "/home/henry/Documents/repo/fing/gui_streamlit/output", "display_image_size": 256
            },
   "image": {
            "image_path": "image.png" , "mode":"cross-section",
@@ -29,7 +29,7 @@
     "main_shape": "Late Wood",
     "drawable_shapes": {"Early Wood": false, "Late Wood": false, "Knot": false, "Compression Wood": false}, 
     "annotations_files": {
-       "early_wood": [], "late_wood": [], "knot": [], "compression_wood" : []
+       "early_wood": ["early_wood_read.json"], "late_wood": [""], "knot": [], "compression_wood" : []
     },
     "annotate_from_scratch": true,
     "show_advanced_settings": true, 

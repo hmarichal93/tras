@@ -29,6 +29,14 @@ class LabelmeShape:
         self.shape_type = shape['shape_type']
         self.flags = shape['flags']
 
+    def to_dict(self):
+        return dict(
+            label = self.label,
+            points = self.points.tolist(),
+            shape_type = self.shape_type,
+            flags = self.flags
+        )
+
     def __str__(self):
         return f"(main_label={self.label}, shape_type={self.shape_type}, size = {self.points.shape})"
 
@@ -39,16 +47,40 @@ class LabelmeShape:
         poly  = Polygon(self.points)
         return poly.area
 
-class LoadLabelmeObject:
-    def __init__(self, json_labelme_path):
-        labelme_json = load_json(json_labelme_path)
-        self.parser(labelme_json)
+class LabelmeObject:
+    def __init__(self, json_labelme_path = None):
+        if json_labelme_path is not None:
+            labelme_json = load_json(json_labelme_path)
+            self.parser(labelme_json)
 
+    def from_memory(self, version : str = "5.0", flags : dict = None, shapes : List[LabelmeShape] = None,
+                    imagePath : str = "", imageData : str = "", imageHeight : str = "",
+                    imageWidth : str = ""):
+        if shapes is None:
+            shapes = []
+        self.version = version
+        self.flags = flags
+        self.shapes = shapes
+        self.imagePath = imagePath
+        self.imageData = imageData
+        self.imageHeight = imageHeight
+        self.imageWidth = imageWidth
+
+    def to_dict(self):
+        return dict(
+            version = self.version,
+            flags = self.flags,
+            shapes = [ s.to_dict() for s in self.shapes ],
+            imagePath = self.imagePath,
+            imageData = self.imageData,
+            imageHeight = self.imageHeight,
+            imageWidth = self.imageWidth
+        )
     def parser(self, labelme_json):
         self.version = labelme_json["version"]
         self.flags = labelme_json["flags"]
         self.shapes = [LabelmeShape(shape) for shape in  labelme_json["shapes"]]
-        if self.shapes[0].shape_type == LabelmeShapeType.polygon:
+        if len(self.shapes)> 0 and self.shapes[0].shape_type == LabelmeShapeType.polygon:
             self.shapes.sort(key=lambda x: x.area())
         self.imagePath = labelme_json["imagePath"]
         self.imageData = labelme_json["imageData"]
@@ -65,10 +97,10 @@ class LabelmeInterface(UserInterface):
         self.write_file_path = write_file_path
 
     def write(self, args):
-        imagePath = args.get("image_path")
+        imagePath = args.get("imagePath")
         imageHeight = args.get("imageHeight")
         imageWidth = args.get("imageWidth")
-        structure_list = args.get("structure_list")
+        structure_list = args.get("shapes")
         shapes = self.from_structure_to_labelme_shape(structure_list)
 
         labelme_dict = dict(
@@ -84,7 +116,7 @@ class LabelmeInterface(UserInterface):
         write_json(labelme_dict, self.write_file_path)
 
     def read(self):
-        labelme_parser = LoadLabelmeObject(self.read_file_path)
+        labelme_parser = LabelmeObject(self.read_file_path)
         structure_list = [self.from_labelme_shape_to_structure(shape) for shape in labelme_parser.shapes]
         structure_list.sort(key=lambda x: x.area())
         return structure_list
@@ -100,18 +132,25 @@ class LabelmeInterface(UserInterface):
 
 class AL_LateWood_EarlyWood(LabelmeInterface):
 
-    def __init__(self, json_labelme_path, write_file_path):
+    def __init__(self, json_labelme_path, write_file_path, image_path = None):
         super().__init__(read_file_path = json_labelme_path, write_file_path = write_file_path)
+        self.image_path = image_path
 
     def from_structure_to_labelme_shape(self, structure_list):
-        shapes = []
-        for structure in structure_list:
-            pass
-
-        return shapes
+        return structure_list
 
     def from_labelme_shape_to_structure(self, shape: LabelmeShape):
         return shape
+
+    def write_list_of_points_to_labelme_json(self, shapes: List[List[List[int]]]):
+        shapes = [LabelmeShape(dict(points=s, shape_type=LabelmeShapeType.polygon, flags={}, label=str(idx)))
+                  for idx, s in enumerate(shapes)]
+        object = LabelmeObject()
+        object.from_memory(shapes=shapes, imagePath=str(self.image_path))
+        json_content = object.to_dict()
+        self.write(json_content)
+
+        return
 
 
 
