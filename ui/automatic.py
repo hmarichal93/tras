@@ -11,7 +11,7 @@ from lib.image import LabelMeInterface as UserInterface, Drawing, Color, load_im
 from lib.io import load_json, write_binary_file
 from lib.inbd import INBD
 from lib.cstrd import CSTRD
-from backend.labelme_layer import LabelmeShapeType, LoadLabelmeObject, AL_LateWood_EarlyWood
+from backend.labelme_layer import LabelmeShapeType, LabelmeObject, AL_LateWood_EarlyWood, LabelmeShape
 from ui.common import Context, download_button
 
 class LatewoodMethods:
@@ -50,7 +50,7 @@ class PithInterface(UserInterface):
 
     def parse_output(self):
 
-        object = LoadLabelmeObject(self.output_path)
+        object = LabelmeObject(self.output_path)
         if len(object.shapes) > 1:
             st.error("More than one shape found. Add only one shape")
             return None
@@ -196,6 +196,11 @@ class UI:
         self.output_dir_cstrd = self.CTX.output_dir / "cstrd"
         os.system(f"rm -rf {self.output_dir_cstrd}")
         self.output_dir_cstrd.mkdir(exist_ok=True, parents=True)
+
+
+
+
+
         method = CSTRD(self.CTX.image_no_background_path, self.CTX.pith_mask, Path(self.CTX.model_path), self.output_dir_cstrd,
                     Nr=self.CTX.number_of_rays, resize_factor=self.CTX.inbd_resize_factor,
                     background_path=self.CTX.json_background_path, sigma=self.CTX.sigma, th_low=self.CTX.th_low,
@@ -231,6 +236,7 @@ class UI:
                     background_path=self.CTX.json_background_path)
         results_path = inbd.run()
         return results_path
+
     def parameters_latewood(self, method_latewood):
         if method_latewood == LatewoodMethods.inbd:
             self.inbd_parameters()

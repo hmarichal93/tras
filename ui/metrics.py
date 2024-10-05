@@ -19,7 +19,7 @@ from ui.common import Context, Shapes, Color
 from lib.io import load_json, write_json, bytesio_to_dict
 from lib.metrics import  export_results, Table
 from backend.labelme_layer import (LabelmeInterface, LabelmeShapeType, AL_LateWood_EarlyWood, LabelmeShape,
-                                   LoadLabelmeObject)
+                                   LabelmeObject)
 
 
 class ViewContext(Context):
@@ -372,7 +372,7 @@ class UI:
             interface = PathInterface(self.CTX.image_path, self.CTX.ring_path)
             interface.interface()
             results = interface.parse_output()
-            object_lw = LoadLabelmeObject(self.CTX.lw_annotation_file)
+            object_lw = LabelmeObject(self.CTX.lw_annotation_file)
             l_intersections = interface.compute_intersections( object_lw, results)
 
             interface.compute_metrics(l_intersections, output_path,
@@ -405,7 +405,7 @@ class PathInterface(UserInterface):
         self.output_image_path = output_image_path
 
     def parse_output(self):
-        object = LoadLabelmeObject(self.output_path)
+        object = LabelmeObject(self.output_path)
         if len(object.shapes) > 1:
             st.error("More than one shape found. Add only one shape")
             return None
@@ -427,7 +427,7 @@ class PathInterface(UserInterface):
         return None
 
 
-    def compute_intersections(self, rings: LoadLabelmeObject, path: LineString | MultiLineString, debug=True):
+    def compute_intersections(self, rings: LabelmeObject, path: LineString | MultiLineString, debug=True):
         if debug:
             image = load_image(self.image_path)
             debug_image_path = self.image_path.parent / f"debug_path.png"

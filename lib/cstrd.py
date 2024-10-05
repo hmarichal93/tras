@@ -3,7 +3,7 @@ import numpy as np
 
 from lib.models import Model
 from lib.image import load_image
-
+from backend.labelme_layer import AL_LateWood_EarlyWood
 
 class CSTRD(Model):
     def __init__(self, image_path, pith_mask_path, model_path, output_dir, Nr = 360, resize_factor = 1,
@@ -31,7 +31,29 @@ class CSTRD(Model):
                    f"--output_dir {self.output_dir} --root ./automatic_methods/tree_ring_delineation/cstrd_ipol/ "
                    f"--sigma {self.sigma} --th_low {self.th_low} --th_high {self.th_hight} --save_imgs 1 ")
         if self.gt_ring_json is not None:
-            command += f"--gt_ring_json {self.gt_ring_json} "
+           if self.resize_factor != 1:
+                image_orig = load_image(self.image_path)
+                H, W = image_orig.shape[:2]
+                image_r = load_image(image_path)
+                h, w = image_r.shape[:2]
+                gt_path_resized = str(self.gt_ring_json).replace(".json", "resized.json")
+                al = AL_LateWood_EarlyWood(self.gt_ring_json,
+                                           gt_path_resized,
+                                           image_path = str(image_path)
+                )
+                shapes = al.read()
+                shapes = [(np.array(s.points) * [h / H, w / W]).tolist() for s in shapes]
+                al.write_list_of_points_to_labelme_json(shapes)
+
+           else:
+                gt_path_resized = self.gt_ring_json
+
+           command += f"--gt_ring_json {gt_path_resized} "
+
+        if self.include_gt_rings_in_output:
+            command += f"--include_gt_rings_in_output 1 "
+        raise
+        print(command)
         os.system(command)
 
         json_name = f"labelme.json"
