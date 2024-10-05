@@ -7,7 +7,7 @@ from shapely.geometry import Polygon, Point
 from streamlit_option_menu import option_menu
 from pathlib import Path
 
-from lib.image import LabelMeInterface as UserInterface, Drawing, Color, load_image
+from lib.image import LabelMeInterface as UserInterface, Drawing, Color, load_image, write_image
 from lib.io import load_json, write_binary_file
 from lib.inbd import INBD
 from lib.cstrd import CSTRD
@@ -79,13 +79,13 @@ class PithInterface(UserInterface):
             x = int(x[0])
             y = int(y[0])
             mask[int(x), int(y)] = 255
-            cv2.imwrite(output_path, mask)
+            write_image(output_path, mask)
             return
 
         image = load_image(self.image_path)
         mask = np.zeros(image.shape, dtype=np.uint8)
         mask = Drawing.fill(results.exterior, mask, Color.white, opacity=1)
-        cv2.imwrite(str(output_path), mask)
+        write_image(str(output_path), mask)
         return
 
 

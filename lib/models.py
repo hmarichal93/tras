@@ -12,7 +12,7 @@ from abc import abstractmethod
 from automatic_methods.tree_ring_delineation.mlbrief_inbd.uruDendro.metric_influence_area import build_rays, \
     InfluenceArea
 from backend.labelme_layer import LabelmeInterface, LabelmeShapeType, AL_LateWood_EarlyWood, LabelmeShape
-from lib.image import resize_image_using_pil_lib, load_image
+from lib.image import resize_image_using_pil_lib, load_image, write_image
 
 class LabelmeWriter(LabelmeInterface):
     def __init__(self, write_file_path):
@@ -61,7 +61,7 @@ class Model:
         image = resize_image_using_pil_lib(image, int(self.height / resize_factor), int(self.width / resize_factor))
         self.working_height, self.working_width, _ = image.shape
         resized_image_path = Path(image_path).parent / f"{Path(image_path).stem}_resized.png"
-        cv2.imwrite(str(resized_image_path), image)
+        write_image(str(resized_image_path), image)
         return resized_image_path
 
     def _sampling_polygons(self, dt_file, output_path, pith_mask_path):

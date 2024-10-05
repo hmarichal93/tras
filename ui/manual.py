@@ -8,7 +8,7 @@ from streamlit_option_menu import option_menu
 from pathlib import Path
 from copy import deepcopy
 
-from lib.image import LabelMeInterface as UserInterface, Color as ColorCV2, Drawing, load_image
+from lib.image import LabelMeInterface as UserInterface, Color as ColorCV2, Drawing, load_image, write_image
 from ui.common import Context, Shapes, Color
 from lib.io import load_json, write_json, bytesio_to_dict
 
@@ -397,7 +397,7 @@ class UI:
 
 
         output_image_path = self.CTX.output_dir / output_image_name
-        cv2.imwrite(str(output_image_path), image)
+        write_image(str(output_image_path), image)
 
         return output_image_path
 

@@ -10,7 +10,7 @@ from shapely.geometry import Polygon, Point, LineString
 from typing import List
 import datetime
 
-from lib.image import Color, Drawing, resize_image_using_pil_lib, load_image
+from lib.image import Color, Drawing, resize_image_using_pil_lib, load_image, write_image
 from backend.labelme_layer import AL_AnnualRings
 
 
@@ -176,10 +176,10 @@ def debug_images(annual_rings_list, df, image_path, output_dir):
         image_debug = Drawing.arrow(image_debug, pith, ring_centroid, Color.red, thickness=3)
         output_name = f"{output_dir}/{idx}_ring_properties_label_{ring.main_label}.png"
         image_debug = resize_image_using_pil_lib(image_debug, 640, 640)
-        cv2.imwrite(output_name, image_debug)
+        write_image(output_name, image_debug)
 
     image_full = resize_image_using_pil_lib(image_full, 640, 640)
-    cv2.imwrite(f"{output_dir}/rings.png", image_full)
+    write_image(f"{output_dir}/rings.png", image_full)
 
     return
 

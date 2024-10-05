@@ -193,3 +193,8 @@ def resize_image_using_pil_lib(im_in: np.array, height_output: object, width_out
 def load_image(image_path):
     """Load image from path"""
     return cv2.imread(str(image_path),cv2.IMREAD_UNCHANGED)
+
+def write_image(image_path, image):
+    """Write image to path"""
+    cv2.imwrite(str(image_path), image)
+    return

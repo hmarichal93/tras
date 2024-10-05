@@ -8,7 +8,7 @@ from PIL import Image
 from streamlit_option_menu import option_menu
 from pathlib import Path
 
-from lib.image import LabelMeInterface as UserInterface, resize_image_using_pil_lib, load_image
+from lib.image import LabelMeInterface as UserInterface, resize_image_using_pil_lib, load_image, write_image
 from lib.io import load_json
 from ui.common import Context
 
@@ -111,13 +111,13 @@ def set_date_input(dictionary_date, text="Tree planting date"):
     dictionary_date['day'] = input_date.day
     return dictionary_date
 
-def resize_image(image_path, resize_factor):
+def resize_image(image_path : Path, resize_factor : float):
     image = load_image(image_path)
     H, W = image.shape[:2]
     H_new = int(H  / resize_factor)
     W_new = int(W  / resize_factor)
     image = resize_image_using_pil_lib(image,  H_new, W_new)
-    cv2.imwrite(image_path, image)
+    write_image(str(image_path), image)
     return
 
 
@@ -287,7 +287,7 @@ class BackgroundInterface(UserInterface):
         bg_image_pil = Image.open(self.image_path)
         bg_image_pil_no_background, mask = self.remove_background_polygon(bg_image_pil, self.background_polygon)
         bg_image_pil_no_background.save(self.output_image_path)
-        cv2.imwrite(str(self.output_image_path).replace(".png", "_mask.png"), mask)
+        write_image(str(self.output_image_path).replace(".png", "_mask.png"), mask)
         return bg_image_pil_no_background
 
     def remove_background_polygon(self, bg_image_pil, background_polygon):

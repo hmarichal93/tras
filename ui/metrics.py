@@ -14,7 +14,7 @@ from copy import deepcopy
 from shapely.geometry import LineString, MultiLineString, Polygon, Point
 from datetime import datetime
 
-from lib.image import LabelMeInterface as UserInterface, Color as ColorCV2, Drawing, load_image
+from lib.image import LabelMeInterface as UserInterface, Color as ColorCV2, Drawing, load_image, write_image
 from ui.common import Context, Shapes, Color
 from lib.io import load_json, write_json, bytesio_to_dict
 from lib.metrics import  export_results, Table
@@ -473,7 +473,7 @@ class PathInterface(UserInterface):
                     image = Drawing.put_text(ring.label, image, (int(y[0]), int(x[0])), color=ColorCV2.black, fontScale=1.0)
 
         if debug:
-            cv2.imwrite(str(debug_image_path), image)
+            write_image(str(debug_image_path), image)
 
         return l_intersection
 
