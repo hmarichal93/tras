@@ -12,7 +12,7 @@ from lib.io import load_json, write_binary_file
 from lib.inbd import INBD
 from lib.cstrd import CSTRD
 from backend.labelme_layer import LabelmeShapeType, LabelmeObject, AL_LateWood_EarlyWood, LabelmeShape
-from ui.common import Context, download_button
+from ui.common import Context, download_button, file_uploader
 
 class LatewoodMethods:
     cstrd = "CS-TRD"
@@ -260,23 +260,30 @@ class UI:
         method_latewood = st.radio("Method", [LatewoodMethods.cstrd], horizontal=True)
         self.parameters_latewood(method_latewood)
         st.divider()
+        #upload file
         disabled = not self.CTX.lw_annotations.exists()
+
+        # if st.checkbox("Upload latewood annotations"):
+        #     file_uploader("Upload latewood annotations", self.CTX.lw_annotations, ".json")
+        # else:
+        st.write("Latewood annotations file: ", self.CTX.lw_annotations)
+
         run_button = st.button("Run", use_container_width=True, disabled= disabled)
 
         if run_button:
             results_path = self.cstrd_run(str(self.CTX.lw_annotations))
-            self.display_results(results_path)
+            st.write("Results saved in: ", results_path)
+            download_button(results_path, "Download", f"{self.CTX.image_orig_path.stem}.json",
+                            "application/json")
+            image_draw_path = results_path.parent / "contours.png"
+            st.image(cv2.cvtColor(load_image(image_draw_path),cv2.COLOR_BGR2RGB), use_column_width=True)
 
 
 
         return
 
     def display_results(self, results_path):
-        st.write("Results saved in: ", results_path)
         image_contour_path = Path(results_path).parent / "contours.png" #if method_latewood == LatewoodMethods.inbd else None
-        download_button(results_path, "Download", f"{self.CTX.image_orig_path.stem}.json",
-                        "application/json")
-
 
         #display image in image_contour_path
         if image_contour_path is not None:
@@ -287,7 +294,7 @@ class UI:
             for ring in rings_list:
                 poly = Polygon(ring.points.tolist())
                 image = Drawing.curve( poly.exterior.coords, image, Color.red, thickness=5)
-                #image = Drawing.fill(poly.exterior, image, Color.red, opacity=0.3)
+
             st.image(image, use_column_width=True)
         return
 
@@ -302,7 +309,9 @@ class UI:
         if run_button:
             results_path = self.inbd_run() if method_latewood == LatewoodMethods.inbd else\
                 self.cstrd_run()
-
+            st.write("Results saved in: ", results_path)
+            download_button(results_path, "Download", f"{self.CTX.image_orig_path.stem}.json",
+                            "application/json")
             self.display_results(results_path)
 
 

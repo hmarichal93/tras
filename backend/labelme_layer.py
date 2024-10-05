@@ -10,7 +10,7 @@ import pandas as pd
 from shapely.geometry import Polygon, Point
 
 from lib.io import load_json, write_json
-from lib.image import Color, Drawing
+from lib.image import Color, Drawing, load_image
 
 from backend.abstraction_layer import UserInterface
 from backend.disk_wood_structure import AnnualRing
@@ -151,6 +151,29 @@ class AL_LateWood_EarlyWood(LabelmeInterface):
         self.write(json_content)
 
         return
+
+def resize_annotations( image_orig_path, image_resized_path, annotations_orig_path):
+    """
+    Resize the annotations to the new image size
+    :param image_orig_path: path to the original image file
+    :param image_resized_path: path to the resized image path
+    :param annotations_orig_path: annotations made in the original resolution in labelme format
+    :return: new annotation file path
+    """
+    image_orig = load_image(image_orig_path)
+    H, W = image_orig.shape[:2]
+    image_r = load_image(image_resized_path)
+    h, w = image_r.shape[:2]
+    gt_path_resized = str(annotations_orig_path).replace(".json", "resized.json")
+    al = AL_LateWood_EarlyWood(annotations_orig_path,
+                               gt_path_resized,
+                               image_path=str(image_resized_path)
+                               )
+    shapes = al.read()
+    shapes = [(np.array(s.points) * [h / H, w / W]).tolist() for s in shapes]
+    al.write_list_of_points_to_labelme_json(shapes)
+
+    return gt_path_resized
 
 
 

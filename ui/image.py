@@ -11,6 +11,7 @@ from pathlib import Path
 from lib.image import LabelMeInterface as UserInterface, resize_image_using_pil_lib, load_image, write_image
 from lib.io import load_json
 from ui.common import Context
+from backend.labelme_layer import resize_annotations
 
 
 pixels_length = 1
@@ -118,7 +119,7 @@ def resize_image(image_path : Path, resize_factor : float):
     W_new = int(W  / resize_factor)
     image = resize_image_using_pil_lib(image,  H_new, W_new)
     write_image(str(image_path), image)
-    return
+    return str(image_path)
 
 
 def main(runtime_config_path):
@@ -189,11 +190,15 @@ def main(runtime_config_path):
             CTX.resize_factor = resize_factor
 
         if st.button("Resize Image"):
-            resize_image(CTX.image_path, resize_factor)
+            _ = resize_image(CTX.image_path, resize_factor)
 
             if Path(CTX.image_no_background_path).exists():
-                resize_image(CTX.image_no_background_path, resize_factor)
+                backup_image_path = str(CTX.image_no_background_path).replace(".png", "_bkp.png")
+                os.system(f"cp {CTX.image_no_background_path} {backup_image_path}")
+                CTX.image_no_background_path = resize_image(CTX.image_no_background_path, resize_factor)
                 resize_image(str(CTX.image_no_background_path).replace(".png", "_mask.png"), resize_factor)
+                new_annotations_path = resize_annotations(backup_image_path, CTX.image_no_background_path, CTX.background_json_path)
+                os.system(f"cp {new_annotations_path} {CTX.background_json_path}")
 
 
             CTX.scale_status = False

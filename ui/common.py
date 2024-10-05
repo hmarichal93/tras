@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 import streamlit as st
 
-from lib.io import load_json, write_json, read_file_as_binary
+from lib.io import load_json, write_json, read_file_as_binary, bytesio_to_dict
 
 
 class Shapes:
@@ -64,3 +64,15 @@ def download_button(file_path: str, label: str, filen_name:str, mime:str)-> None
     st.download_button(label=label, data=file_content, file_name=filen_name, mime=mime)
 
     return
+
+
+def save_annotation_file_locally(filename, file_uploader_instance):
+    config = bytesio_to_dict(file_uploader_instance)
+    write_json(config, filename)
+
+def file_uploader(label, output_file, extension):
+    uploaded_cw_annotation_file = st.file_uploader(label, type=[extension])
+    if uploaded_cw_annotation_file:
+        save_annotation_file_locally(output_file, uploaded_cw_annotation_file)
+
+    return output_file
