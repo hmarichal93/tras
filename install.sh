@@ -1,4 +1,7 @@
 #!/bin/bash
+conda env create -f environment.yml
+conda activate dendrotool
+
 echo "Installing dependencies..."
 git submodule update --init
 
