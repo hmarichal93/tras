@@ -23,7 +23,7 @@ class Menu:
     metrics = "Metrics"
     save = "Save"
 
-APP_NAME = "UruDendro-Tool"
+APP_NAME = "DendroTool: An Interactive Software for tracing Tree Ring Cross Sections"
 DEFAULT_CONFIG_PATH = "./config/default.json"
 RUNTIME_CONFIG_PATH = "./config/runtime.json"
 
@@ -40,9 +40,20 @@ def main():
     im = Image.open('assets/pixels_wood.jpg')
     # Adding Image to web app
     st.set_page_config(page_title=APP_NAME, page_icon=im)
+    st.header(APP_NAME)
+    margins_css = """
+        <style>
+            .main > div {
+                padding-left: 0rem;
+                padding-right: 0rem;
+            }
+        </style>
+    """
+
+    st.markdown(margins_css, unsafe_allow_html=True)
     # 1. as sidebar menu
     with st.sidebar:
-        selected = option_menu(APP_NAME, [Menu.home, Menu.image, Menu.automatic_ring_delineation,
+        selected = option_menu("", [Menu.home, Menu.image, Menu.automatic_ring_delineation,
                                           Menu.manual_ring_delineation, Menu.metrics, Menu.save], menu_icon="cast", default_index=0)
 
 
