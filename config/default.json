@@ -1,6 +1,6 @@
 {
   "general": {
-            "output_dir": "/home/henry/Documents/repo/fing/gui_streamlit/output", "display_image_size": 256
+            "output_dir": "./output", "display_image_size": 256
            },
   "image": {
            "image_path": "image.png" , "mode":"cross-section",
