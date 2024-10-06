@@ -1,17 +1,14 @@
 import numpy as np
 import cv2
-import datetime
+import os
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from pathlib import Path
 from typing import List
 
-import pandas as pd
 from shapely.geometry import Polygon, Point
-
 from lib.io import load_json, write_json
 from lib.image import Color, Drawing, load_image
-
 from backend.abstraction_layer import UserInterface
 from backend.disk_wood_structure import AnnualRing
 
@@ -91,10 +88,11 @@ class LabelmeObject:
 
 class LabelmeInterface(UserInterface):
 
-    def __init__(self, version = "4.5.6", read_file_path = None, write_file_path = None):
+    def __init__(self, version = "4.5.6", read_file_path = None, write_file_path = None, edit=False):
         self.version = version
         self.read_file_path = read_file_path
         self.write_file_path = write_file_path
+        self.edit = edit
 
     def write(self, args):
         imagePath = args.get("imagePath")
@@ -129,6 +127,39 @@ class LabelmeInterface(UserInterface):
     def from_labelme_shape_to_structure(self, shape: LabelmeShape):
         pass
 
+    def interface(self):
+        if self.edit:
+            command = f"labelme {self.write_file_path}"
+
+        else:
+            command = f"labelme {self.read_file_path} -O {self.write_file_path}  --nodata "
+
+        print(command)
+        os.system(command)
+
+    @abstractmethod
+    def parse_output(self):
+        pass
+
+    @staticmethod
+    def load_shapes(output_path):
+        try:
+            json_content = load_json(output_path)
+            l_rings = []
+            for ring in json_content['shapes']:
+                l_rings.append(Polygon(np.array(ring['points'])[:, [1, 0]].tolist()))
+
+        except FileNotFoundError:
+            l_rings = []
+
+        return l_rings
+
+
+
+
+
+
+
 
 class AL_LateWood_EarlyWood(LabelmeInterface):
 
@@ -151,6 +182,9 @@ class AL_LateWood_EarlyWood(LabelmeInterface):
         self.write(json_content)
 
         return
+
+    def parse_output(self):
+        pass
 
 def resize_annotations( image_orig_path, image_resized_path, annotations_orig_path):
     """
