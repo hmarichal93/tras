@@ -1,4 +1,5 @@
 import json
+import sys
 
 def load_json(filepath: str) -> dict:
     """
@@ -48,3 +49,7 @@ def bytesio_to_dict(bytesio_obj):
     data_dict = json.loads(content_str)
 
     return data_dict
+
+def get_python_path():
+    python_path = sys.executable
+    return python_path

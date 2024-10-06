@@ -1,7 +1,5 @@
 import cv2
 import numpy as np
-import os
-import sys
 
 from shapely.geometry import Polygon
 from shapely.errors import TopologicalError
@@ -14,6 +12,7 @@ from automatic_methods.tree_ring_delineation.mlbrief_inbd.uruDendro.metric_influ
 from backend.labelme_layer import (LabelmeInterface, LabelmeShapeType, AL_LateWood_EarlyWood, LabelmeShape,
                                    resize_annotations)
 from lib.image import resize_image_using_pil_lib, load_image, write_image
+from lib.io import get_python_path
 
 class LabelmeWriter(LabelmeInterface):
     def __init__(self, write_file_path):
@@ -45,14 +44,12 @@ class Model:
         self.pith_mask = pith_mask_path
         self.model_path = model_path
         self.output_dir = output_dir
-        self.python_path = self._get_python_path()
+        self.python_path = get_python_path()
         self.Nr = Nr
         self.resize_factor = resize_factor
         self.background_path = background_path
 
-    def _get_python_path(self):
-        python_path = sys.executable
-        return python_path
+
 
     @abstractmethod
     def run(self):

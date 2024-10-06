@@ -4,15 +4,15 @@ import cv2
 import os
 
 from shapely.geometry import Polygon, Point
-from streamlit_option_menu import option_menu
 from pathlib import Path
 
-from lib.image import LabelMeInterface as UserInterface, Drawing, Color, load_image, write_image
+from lib.image import  Drawing, Color, load_image, write_image
 from lib.io import load_json, write_binary_file
 from lib.inbd import INBD
 from lib.cstrd import CSTRD
-from backend.labelme_layer import LabelmeShapeType, LabelmeObject, AL_LateWood_EarlyWood, LabelmeShape
-from ui.common import Context, download_button, file_uploader
+from backend.labelme_layer import (LabelmeShapeType, LabelmeObject, AL_LateWood_EarlyWood,
+                                   LabelmeInterface as UserInterface)
+from ui.common import Context, download_button
 
 class LatewoodMethods:
     cstrd = "CS-TRD"
@@ -44,13 +44,13 @@ def annotate_pith():
 
 class PithInterface(UserInterface):
     def __init__(self, image_path, output_json_path, output_image_path, pith_model=None):
-        super().__init__(image_path, output_json_path)
+        super().__init__(read_file_path=image_path, write_file_path=output_json_path)
         self.output_image_path = output_image_path
         self.pith_model = pith_model
 
     def parse_output(self):
 
-        object = LabelmeObject(self.output_path)
+        object = LabelmeObject(self.write_file_path)
         if len(object.shapes) > 1:
             st.error("More than one shape found. Add only one shape")
             return None
@@ -74,7 +74,7 @@ class PithInterface(UserInterface):
 
     def generate_center_mask(self, output_path, results):
         if self.pith_model == Pith.pixel:
-            mask = np.zeros(load_image(self.image_path).shape[:2], dtype=np.uint8)
+            mask = np.zeros(load_image(self.read_file_path).shape[:2], dtype=np.uint8)
             x,y = results.xy
             x = int(x[0])
             y = int(y[0])
@@ -82,13 +82,17 @@ class PithInterface(UserInterface):
             write_image(output_path, mask)
             return
 
-        image = load_image(self.image_path)
+        image = load_image(self.read_file_path)
         mask = np.zeros(image.shape, dtype=np.uint8)
         mask = Drawing.fill(results.exterior, mask, Color.white, opacity=1)
         write_image(str(output_path), mask)
         return
 
+    def from_structure_to_labelme_shape(self, structure_list):
+        pass
 
+    def from_labelme_shape_to_structure(self, shapes):
+        pass
 
 class ViewContext(Context):
     def init_specific_ui_components(self):

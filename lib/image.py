@@ -8,47 +8,6 @@ from shapely.geometry import Polygon
 
 from lib.io import load_json
 
-class UserInterface(ABC):
-    def __init__(self, image_path, output_path):
-        self.image_path = image_path
-        self.output_path = output_path
-
-    @abstractmethod
-    def interface(self):
-        pass
-
-
-class LabelMeInterface(UserInterface):
-    def __init__(self, image_path, output_path, edit=False):
-        super().__init__(image_path, output_path)
-        self.edit = edit
-
-    def interface(self):
-        if self.edit:
-            command = f"labelme {self.output_path}"
-
-        else:
-            command = f"labelme {self.image_path} -O {self.output_path}  --nodata "
-
-        print(command)
-        os.system(command)
-
-    @abstractmethod
-    def parse_output(self):
-        pass
-
-    @staticmethod
-    def load_shapes(output_path):
-        try:
-            json_content = load_json(output_path)
-            l_rings = []
-            for ring in json_content['shapes']:
-                l_rings.append(Polygon(np.array(ring['points'])[:, [1, 0]].tolist()))
-
-        except FileNotFoundError:
-            l_rings = []
-
-        return l_rings
 
 
 
