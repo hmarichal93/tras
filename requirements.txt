@@ -97,3 +97,8 @@ streamlit-option-menu==0.3.13
 sympy==1.13.3
 tenacity==9.0.0
 termcolor==2.4
+--find-links https://download.pytorch.org/whl/torch_stable.html
+torch==2.4.1
+torchvision==0.19.1
+triton==3.0.0
+argparse==1.4.0
