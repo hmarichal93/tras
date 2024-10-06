@@ -105,11 +105,6 @@ class Model:
         return
 
     def rm_polygons_within_the_background(self, l_poly: List[Polygon]) -> List[Polygon]:
-        if self.resize_factor != 1:
-            image_resized_path = self._resize_image(self.image_path, self.resize_factor)
-            new_annotations_path = resize_annotations(self.image_path, image_resized_path,
-                                                      self.background_path)
-            self.background_path = new_annotations_path
         background = AL_LateWood_EarlyWood(self.background_path, None).read()
 
         background_poly = Polygon(background[0].points)
