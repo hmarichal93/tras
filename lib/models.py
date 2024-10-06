@@ -11,7 +11,8 @@ from abc import abstractmethod
 
 from automatic_methods.tree_ring_delineation.mlbrief_inbd.uruDendro.metric_influence_area import build_rays, \
     InfluenceArea
-from backend.labelme_layer import LabelmeInterface, LabelmeShapeType, AL_LateWood_EarlyWood, LabelmeShape
+from backend.labelme_layer import (LabelmeInterface, LabelmeShapeType, AL_LateWood_EarlyWood, LabelmeShape,
+                                   resize_annotations)
 from lib.image import resize_image_using_pil_lib, load_image, write_image
 
 class LabelmeWriter(LabelmeInterface):
@@ -34,6 +35,9 @@ class LabelmeWriter(LabelmeInterface):
     def from_labelme_shape_to_structure(self, shapes):
         pass
 
+    def parse_output(self):
+        pass
+
 
 class Model:
     def __init__(self, image_path, pith_mask_path, model_path, output_dir, Nr = 360, resize_factor = 1, background_path = None):
@@ -54,7 +58,7 @@ class Model:
     def run(self):
         pass
 
-    def _resize_image(self, image_path: Path, resize_factor: float, compute_shape: bool = False):
+    def _resize_image(self, image_path: Path, resize_factor: float, compute_shape: bool = False)-> Path:
         if not compute_shape:
             image = load_image(image_path)
             self.height, self.width, _ = image.shape
@@ -104,6 +108,11 @@ class Model:
         return
 
     def rm_polygons_within_the_background(self, l_poly: List[Polygon]) -> List[Polygon]:
+        if self.resize_factor != 1:
+            image_resized_path = self._resize_image(self.image_path, self.resize_factor)
+            new_annotations_path = resize_annotations(self.image_path, image_resized_path,
+                                                      self.background_path)
+            self.background_path = new_annotations_path
         background = AL_LateWood_EarlyWood(self.background_path, None).read()
 
         background_poly = Polygon(background[0].points)
