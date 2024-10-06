@@ -177,7 +177,7 @@ class AL_LateWood_EarlyWood(LabelmeInterface):
         shapes = [LabelmeShape(dict(points=s, shape_type=LabelmeShapeType.polygon, flags={}, label=str(idx)))
                   for idx, s in enumerate(shapes)]
         object = LabelmeObject()
-        object.from_memory(shapes=shapes, imagePath=str(self.image_path))
+        object.from_memory(shapes=shapes, imagePath=str(Path(self.image_path).name))
         json_content = object.to_dict()
         self.write(json_content)
 
