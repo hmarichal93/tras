@@ -3,29 +3,6 @@
 # Ensure the script stops if any command fails
 set -e
 
-# Check if conda is available
-if ! command -v conda &> /dev/null; then
-    echo "Error: Conda is not installed or not in the PATH."
-    exit 1
-fi
-
-# Create and activate the conda environment
-echo "Creating the Conda environment..."
-if conda env create -f environment.yml; then
-    echo "Environment created successfully."
-else
-    echo "Error creating the Conda environment."
-    exit 1
-fi
-
-echo "Activating the environment..."
-if conda activate dendrotool; then
-    echo "Environment activated successfully."
-else
-    echo "Error activating the environment."
-    exit 1
-fi
-
 # Install repository dependencies
 echo "Installing repository dependencies..."
 if git submodule update --init; then
