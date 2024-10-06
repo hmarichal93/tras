@@ -8,10 +8,10 @@ from PIL import Image
 from streamlit_option_menu import option_menu
 from pathlib import Path
 
-from lib.image import LabelMeInterface as UserInterface, resize_image_using_pil_lib, load_image, write_image
+from lib.image import resize_image_using_pil_lib, load_image, write_image
 from lib.io import load_json
 from ui.common import Context
-from backend.labelme_layer import resize_annotations
+from backend.labelme_layer import resize_annotations, LabelmeInterface as UserInterface
 
 
 pixels_length = 1
@@ -275,12 +275,12 @@ def scale_index_unit(unit):
 
 class BackgroundInterface(UserInterface):
     def __init__(self, image_path, output_json_path, output_image_path):
-        super().__init__(image_path, output_json_path)
+        super().__init__(read_file_path = image_path, write_file_path=output_json_path)
         self.output_image_path = output_image_path
 
     def parse_output(self):
         try:
-            data = load_json(self.output_path)
+            data = load_json(self.write_file_path)
         except FileNotFoundError:
             st.write("No json file found")
             return None
@@ -289,7 +289,7 @@ class BackgroundInterface(UserInterface):
         return  self.background_polygon
 
     def remove_background(self):
-        bg_image_pil = Image.open(self.image_path)
+        bg_image_pil = Image.open(self.read_file_path)
         bg_image_pil_no_background, mask = self.remove_background_polygon(bg_image_pil, self.background_polygon)
         bg_image_pil_no_background.save(self.output_image_path)
         write_image(str(self.output_image_path).replace(".png", "_mask.png"), mask)
@@ -310,7 +310,11 @@ class BackgroundInterface(UserInterface):
         return bg_image_pil, mask
 
 
+    def from_structure_to_labelme_shape(self, structure_list):
+        pass
 
+    def from_labelme_shape_to_structure(self, shapes):
+        pass
 
 
 
@@ -318,17 +322,23 @@ class BackgroundInterface(UserInterface):
 class ScaleInterface(UserInterface):
 
     def __init__(self, image_path, output_file):
-        super().__init__(image_path, output_file)
+        super().__init__(read_file_path = image_path, write_file_path=output_file)
 
     def parse_output(self):
         try:
-            data = load_json(self.output_path)
+            data = load_json(self.write_file_path)
         except FileNotFoundError:
             st.write("No json file found")
 
         line = np.array(data['shapes'][0]['points'])
         pixels_length = int(np.linalg.norm(line[0] - line[1]))
         return pixels_length
+
+    def from_structure_to_labelme_shape(self, structure_list):
+        pass
+
+    def from_labelme_shape_to_structure(self, shapes):
+        pass
 
 
 def set_scale(CTX):

@@ -4,13 +4,13 @@ import cv2
 import streamlit as st
 import numpy as np
 
-from streamlit_option_menu import option_menu
 from pathlib import Path
 from copy import deepcopy
 
-from lib.image import LabelMeInterface as UserInterface, Color as ColorCV2, Drawing, load_image, write_image
-from ui.common import Context, Shapes, Color, file_uploader
-from lib.io import load_json, write_json, bytesio_to_dict
+from lib.image import Drawing, load_image, write_image
+from ui.common import Context, Shapes, file_uploader
+from lib.io import load_json, write_json
+from backend.labelme_layer import LabelmeInterface as UserInterface
 
 
 
@@ -123,8 +123,8 @@ class ViewContext(Context):
 
 class ShapeInterface(UserInterface):
 
-    def __init__(self, image_path:Path, output_file:Path,  annotations_path:Path):
-        super().__init__(image_path, output_file, edit=annotations_path)
+    def __init__(self, image_path : Path, output_file : Path,  annotations_path : Path):
+        super().__init__(read_file_path = image_path, write_file_path = output_file, edit = annotations_path)
         self.annotations_path = annotations_path
 
 
@@ -135,18 +135,24 @@ class ShapeInterface(UserInterface):
         except FileNotFoundError:
             st.write("No json file found")
             data = {}
-        data["imagePath"] = str(self.image_path.name)
-        write_json(data, self.output_path)
+        data["imagePath"] = str(self.read_file_path.name)
+        write_json(data, self.write_file_path)
         return data
 
 
     def parse_output(self):
         try:
-            data = load_json(self.output_path)
+            data = load_json(self.write_file_path)
         except FileNotFoundError:
             st.write("No json file found")
             data = {}
         return data
+
+    def from_structure_to_labelme_shape(self, structure_list):
+        pass
+
+    def from_labelme_shape_to_structure(self, shapes):
+        pass
 
 
 
@@ -432,7 +438,7 @@ def annotate_pith():
 class PithBoundaryInterface(UserInterface):
 
     def __init__(self, image_path, output_file):
-        super().__init__(image_path, output_file)
+        super().__init__(read_file_path = image_path, write_file_path=output_file)
 
     def parse_output(self):
         try:
