@@ -18,8 +18,8 @@ from lib.io import load_json, write_json, bytesio_to_dict
 class Menu:
     home = "Home"
     image = "Image"
-    automatic_ring_delineation = "Automatic"
-    manual_ring_delineation = "Manual"
+    automatic_ring_delineation = "Automatic Ring Delineation"
+    manual_ring_delineation = "Manual Ring Delineation"
     metrics = "Metrics"
     save = "Save"
 
@@ -51,8 +51,17 @@ def main():
     """
 
     st.markdown(margins_css, unsafe_allow_html=True)
+
     # 1. as sidebar menu
     with st.sidebar:
+        st.markdown(
+            """
+            <a href="https://github.com/hmarichal93/dendrotool" target="_blank">
+                <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" width="30" height="30">
+            </a>
+            """,
+            unsafe_allow_html=True
+        )
         selected = option_menu("", [Menu.home, Menu.image, Menu.automatic_ring_delineation,
                                           Menu.manual_ring_delineation, Menu.metrics, Menu.save], menu_icon="cast", default_index=0)
 
@@ -79,6 +88,7 @@ def main():
     with st.sidebar:
         realtime_update = st.checkbox("Update in realtime", True)
         st.image("assets/wood_image.jpeg")
+
 
 
 
