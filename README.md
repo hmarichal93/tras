@@ -1,3 +1,5 @@
+# DendroTool: An Interactive Software for tracing Tree Ring Cross-Sections.
+![Preview Image](assets/preview.png)
 ## Installation
 
 ```bash 
@@ -11,4 +13,6 @@ conda activate dendrotool
 ```bash
 ./run.sh
 ```
+
+
 
