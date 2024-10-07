@@ -9,7 +9,7 @@ import altair as alt
 from typing import List
 from streamlit_image_zoom import image_zoom
 from pathlib import Path
-from shapely.geometry import LineString, MultiLineString, Polygon, Point
+from shapely.geometry import LineString, MultiLineString, Polygon, Point, MultiPoint
 
 from lib.image import  Color as ColorCV2, Drawing, load_image, write_image
 from ui.common import Context
@@ -454,19 +454,20 @@ class PathInterface(UserInterface):
                 if intersection_points.is_empty:
                     continue
 
-                x, y = intersection_points.coords.xy
+                x, y = intersection_points.coords.xy if not isinstance(intersection_points, MultiPoint) else\
+                    intersection_points[0].coords.xy
                 l_intersection.append(PointLabelme(x= x[0], y=y[0], label=ring.label))
 
-            if debug:
-                image = Drawing.curve(ring_polygon.exterior, image, color=ColorCV2.red, thickness=2)
-                if isinstance(x, np.ndarray):
-                    for idx in range(len(x)):
-                        image = Drawing.circle(image, (int(y[idx]), int(x[idx])), radius=5,
+                if debug:
+                    image = Drawing.curve(ring_polygon.exterior, image, color=ColorCV2.red, thickness=2)
+                    if isinstance(x, np.ndarray):
+                        for idx in range(len(x)):
+                            image = Drawing.circle(image, (int(y[idx]), int(x[idx])), radius=5,
+                                                   color=ColorCV2.blue, thickness=-1)
+                    else:
+                        image = Drawing.circle(image, (int(y[0]), int(x[0])), radius=5,
                                                color=ColorCV2.blue, thickness=-1)
-                else:
-                    image = Drawing.circle(image, (int(y[0]), int(x[0])), radius=5,
-                                           color=ColorCV2.blue, thickness=-1)
-                    image = Drawing.put_text(ring.label, image, (int(y[0]), int(x[0])), color=ColorCV2.black, fontScale=1.0)
+                        image = Drawing.put_text(ring.label, image, (int(y[0]), int(x[0])), color=ColorCV2.black, fontScale=1.0)
 
         if debug:
             write_image(str(debug_image_path), image)

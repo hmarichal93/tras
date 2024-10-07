@@ -39,8 +39,8 @@ def initialization():
 def main():
     im = Image.open('assets/pixels_wood.jpg')
     # Adding Image to web app
-    st.set_page_config(page_title=APP_NAME, page_icon=im)
-    st.header(APP_NAME)
+    st.set_page_config(page_title=APP_NAME, page_icon=im, layout='wide')
+    st.title(APP_NAME)
     margins_css = """
         <style>
             .main > div {
