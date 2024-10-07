@@ -11,7 +11,7 @@ from streamlit_image_zoom import image_zoom
 from pathlib import Path
 from shapely.geometry import LineString, MultiLineString, Polygon, Point, MultiPoint
 
-from lib.image import  Color as ColorCV2, Drawing, load_image, write_image
+from lib.image import  Color as ColorCV2, Drawing, load_image, write_image, resize_image_using_pil_lib
 from ui.common import Context
 from lib.metrics import  export_results, Table
 from backend.labelme_layer import (LabelmeShapeType,
@@ -294,9 +294,11 @@ class UI:
                        },
                        hide_index = True
         )
-
-        image_zoom(image, mode="scroll", size=(800, 600), keep_aspect_ratio=True, zoom_factor=4.0, increment=0.2)
-
+        height, width = image.shape[:2]
+        height, width = 800, 400
+        image_z = resize_image_using_pil_lib(image, height, width)
+        height, width = image_z.shape[:2]
+        image_zoom(image, mode="scroll", size=(width, height), keep_aspect_ratio=True, zoom_factor=4.0, increment=0.2)
 
         #tab1, tab2 = st.tabs(["Line plot", "Bar plot"])
 
@@ -380,7 +382,11 @@ class UI:
             st.write(df)
             image = load_image(self.CTX.output_dir / "debug_path.png")
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            image_zoom(image, mode="scroll", size=(800, 600), keep_aspect_ratio=True, zoom_factor=4.0, increment=0.2)
+            height, width = 800, 400
+            image_z = resize_image_using_pil_lib(image, height, width)
+            height, width = image_z.shape[:2]
+            image_zoom(image, mode="scroll", size=(width, height), keep_aspect_ratio=True, zoom_factor=4.0,
+                       increment=0.2)
             x_axis = "index"
             y_axis = columns[1]
             x_axis_values = np.arange(df.shape[0]) #df[x_axis].values
