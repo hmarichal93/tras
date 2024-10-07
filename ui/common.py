@@ -9,8 +9,7 @@ class Shapes:
     pith = "Pith"
     latewood = "Late Wood"
     earlywood = "Early Wood"
-    knot = "Knot"
-    compresionwood = "Compression Wood"
+    other = "Other"
 
 class Color:
     red = "red"

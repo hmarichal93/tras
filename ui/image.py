@@ -11,8 +11,8 @@ from pathlib import Path
 from lib.image import resize_image_using_pil_lib, load_image, write_image
 from lib.io import load_json
 from ui.common import Context
-from backend.labelme_layer import resize_annotations, LabelmeInterface as UserInterface
-
+from backend.labelme_layer import (LabelmeShapeType,
+                                   LabelmeObject, LabelmeInterface as UserInterface, resize_annotations)
 
 pixels_length = 1
 know_distance = 2
@@ -273,19 +273,29 @@ def scale_index_unit(unit):
         return 4
 
 
+
+
+########################################################################################################################
+################################INTERFACE CLASSES#######################################################################
+########################################################################################################################
+
+
 class BackgroundInterface(UserInterface):
     def __init__(self, image_path, output_json_path, output_image_path):
         super().__init__(read_file_path = image_path, write_file_path=output_json_path)
         self.output_image_path = output_image_path
 
     def parse_output(self):
-        try:
-            data = load_json(self.write_file_path)
-        except FileNotFoundError:
-            st.write("No json file found")
+        object = LabelmeObject(self.write_file_path)
+        if len(object.shapes) > 1:
+            st.error("More than one shape found. Add only one shape")
+            return None
+        shape = object.shapes[0]
+        if not(shape.shape_type == LabelmeShapeType.polygon):
+            st.error("Shape is not a polyline. Remember that you are delineating the disk contour")
             return None
 
-        self.background_polygon = np.array(data['shapes'][0]['points'])
+        self.background_polygon = shape.points
         return  self.background_polygon
 
     def remove_background(self):
@@ -325,12 +335,15 @@ class ScaleInterface(UserInterface):
         super().__init__(read_file_path = image_path, write_file_path=output_file)
 
     def parse_output(self):
-        try:
-            data = load_json(self.write_file_path)
-        except FileNotFoundError:
-            st.write("No json file found")
-
-        line = np.array(data['shapes'][0]['points'])
+        object = LabelmeObject(self.write_file_path)
+        if len(object.shapes) > 1:
+            st.error("More than one shape found. Add only one shape")
+            return None
+        shape = object.shapes[0]
+        if not(shape.shape_type == LabelmeShapeType.line):
+            st.error("Shape is not a line. Remember that you are marking the scale")
+            return 1
+        line = np.array(shape.points)
         pixels_length = int(np.linalg.norm(line[0] - line[1]))
         return pixels_length
 

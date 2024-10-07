@@ -36,10 +36,7 @@ class ViewContext(Context):
         self.ew_annotation_file = None if len(self.ew_annotation_file) == 0 else self.ew_annotation_file
         self.lw_annotation_file = config_manual["annotations_files"]["late_wood"]
         self.lw_annotation_file = None if len(self.lw_annotation_file) == 0 else self.lw_annotation_file
-        self.knot_annotation_file = config_manual["annotations_files"]["knot"]
-        self.knot_annotation_file = None if len(self.knot_annotation_file) == 0 else self.knot_annotation_file
-        self.cw_annotation_file = config_manual["annotations_files"]["compression_wood"]
-        self.cw_annotation_file = None if len(self.cw_annotation_file) == 0 else self.cw_annotation_file
+
 
         self.output_dir_metrics = self.output_dir  / "metrics"
         self.output_dir_metrics.mkdir(parents=True, exist_ok=True)
@@ -395,6 +392,12 @@ class UI:
             st.warning("Index 0 refers to the pith position")
 
 
+
+########################################################################################################################
+################################INTERFACE CLASSES#######################################################################
+########################################################################################################################
+
+
 class PathInterface(UserInterface):
     def __init__(self, image_path, output_json_path, output_image_path=None):
         super().__init__(read_file_path = image_path, write_file_path=output_json_path)
@@ -497,7 +500,7 @@ class PathInterface(UserInterface):
         pass
 
 
-
+########################################################################################################################
 
 def main(runtime_config_path):
     ui = UI(runtime_config_path)
@@ -521,7 +524,3 @@ def main(runtime_config_path):
 
     ui.CTX.save_config()
     return
-
-def annotate_pith():
-    #TODO: Implement
-    pass

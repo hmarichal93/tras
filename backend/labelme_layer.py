@@ -77,8 +77,11 @@ class LabelmeObject:
         self.version = labelme_json["version"]
         self.flags = labelme_json["flags"]
         self.shapes = [LabelmeShape(shape) for shape in  labelme_json["shapes"]]
-        if len(self.shapes)> 0 and self.shapes[0].shape_type == LabelmeShapeType.polygon:
-            self.shapes.sort(key=lambda x: x.area())
+        if len(self.shapes)> 0:
+            check_if_all_shapes_are_polygon = (len([s for s in self.shapes if s.shape_type == LabelmeShapeType.polygon])
+                                               ==len(self.shapes))
+            if check_if_all_shapes_are_polygon:
+                self.shapes.sort(key=lambda x: x.area())
         self.imagePath = labelme_json["imagePath"]
         self.imageData = labelme_json["imageData"]
         self.imageHeight = labelme_json["imageHeight"]
@@ -311,5 +314,8 @@ def draw_circular_region(image, poly_outter, poly_inner, color, opacity):
     mask[y, x] = color
     cv2.addWeighted(mask, opacity, image, 1 - opacity, 0, image)
     return image
+
+
+
 
 

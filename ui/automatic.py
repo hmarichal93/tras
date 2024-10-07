@@ -104,6 +104,9 @@ class ViewContext(Context):
         if Path(self.image_no_background_path).exists():
             self.image_orig_path = self.image_path
             self.image_path = self.image_no_background_path
+        else:
+            self.image_orig_path = self.image_path
+            self.image_no_background_path = self.image_path
 
         self.inbd_models = self.config["automatic"]["inbd_models"]
         self.model_path = self.config["automatic"]["model_path"]
