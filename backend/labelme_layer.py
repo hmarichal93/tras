@@ -316,3 +316,6 @@ def draw_circular_region(image, poly_outter, poly_inner, color, opacity):
     return image
 
 
+
+
+

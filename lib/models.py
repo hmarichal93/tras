@@ -105,6 +105,8 @@ class Model:
         return
 
     def rm_polygons_within_the_background(self, l_poly: List[Polygon]) -> List[Polygon]:
+        if not self.background_path.exists():
+            return l_poly
         background = AL_LateWood_EarlyWood(self.background_path, None).read()
 
         background_poly = Polygon(background[0].points)
