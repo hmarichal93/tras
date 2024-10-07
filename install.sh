@@ -3,6 +3,20 @@
 # Ensure the script stops if any command fails
 set -e
 
+#installing conda environment
+echo "Installing conda environment..."
+if conda env create -f environment.yml; then
+    echo "Conda environment installed successfully."
+else
+    echo "Error installing conda environment."
+    exit 1
+fi
+
+source ~./.bashrc
+conda activate dendrotool
+pip install -r requirements.txt
+
+
 # Install repository dependencies
 echo "Installing repository dependencies..."
 if git submodule update --init; then

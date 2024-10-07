@@ -7,5 +7,3 @@ dependencies:
   - geos=3.13
   - cmake=3.30
   - pip=24.2
-  - pip:
-    - -r requirements.txt
