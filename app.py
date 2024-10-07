@@ -78,7 +78,7 @@ def main():
 
     with st.sidebar:
         realtime_update = st.checkbox("Update in realtime", True)
-        st.image("assets/logo2.png")
+        st.image("assets/wood_image.jpeg")
 
 
 

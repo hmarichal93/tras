@@ -41,9 +41,20 @@ class UI:
 
     def download_results(self):
         #1.0 zip the results in self.CTX.output_dir
-        zip_file_path = self.CTX.output_dir / "results.zip"
+        files_to_export = (list(self.CTX.output_dir.glob("*.json")) +
+                           [self.CTX.output_dir / "metrics" / "measurements.csv"] +
+                           [self.CTX.output_dir / "image.png"])
+
+        #1.0 copy files to tmp dir
+        tmp_dir = self.CTX.output_dir / "tmp"
+        tmp_dir.mkdir(exist_ok=True, parents=True)
+        for file in files_to_export:
+            os.system(f"cp {file} {tmp_dir}")
+        zip_file_path = tmp_dir / "results.zip"
+
+        #1.1 zip the files
         if not zip_file_path.exists():
-            os.system(f"cd {self.CTX.output_dir} && zip -r results.zip .")
+            os.system(f"cd {tmp_dir} && zip -r results.zip .")
         #2.0 download the zip file
         args = dict(
             file_path = str(zip_file_path),
