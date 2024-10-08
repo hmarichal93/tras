@@ -295,7 +295,7 @@ class BackgroundInterface(UserInterface):
             st.error("Shape is not a polyline. Remember that you are delineating the disk contour")
             return None
 
-        self.background_polygon = shape.points
+        self.background_polygon = shape.points[:, [1,0]]
         return  self.background_polygon
 
     def remove_background(self):
