@@ -1,0 +1,6 @@
+[submodule "automatic_methods/tree_ring_delineation/mlbrief_inbd"]
+	path = automatic_methods/tree_ring_delineation/mlbrief_inbd
+	url = https://github.com/hmarichal93/mlbrief_inbd.git
+[submodule "automatic_methods/tree_ring_delineation/cstrd_ipol"]
+	path = automatic_methods/tree_ring_delineation/cstrd_ipol
+	url = https://github.com/hmarichal93/cstrd_ipol.git
