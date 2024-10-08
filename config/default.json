@@ -27,17 +27,16 @@
   ,
   "manual": {
     "main_shape": "Late Wood",
-    "drawable_shapes": {"Early Wood": false, "Late Wood": false, "Knot": false, "Compression Wood": false}, 
+    "drawable_shapes": {"Early Wood": false, "Late Wood": false, "Other": false},
     "annotations_files": {
-       "early_wood": ["early_wood_read.json"], "late_wood": [""], "knot": [], "compression_wood" : []
+       "early_wood": ["early_wood_read.json"], "late_wood": [""], "other": []
     },
     "annotate_from_scratch": true,
     "show_advanced_settings": true, 
     "advanced_settings": {
       "Early Wood": {"shapes_list":[], "thickness": 10, "color": "(0,0,255)", "stroke": true, "fill": true, "opacity":0.5},
       "Late Wood": {"shapes_list":[], "thickness": 10, "color": "(0,0,255)", "stroke": true, "fill": true, "opacity":0.5},
-      "Knot": {"shapes_list":[], "thickness": 10, "color": "(0,0,255)", "stroke": true, "fill": true, "opacity":0.5},
-      "Compression Wood": {"shapes_list":[], "thickness": 10, "color": "(0,0,255)", "stroke": true, "fill": true, "opacity":0.5}}
+      "Other": {"shapes_list":[], "thickness": 10, "color": "(0,0,255)", "stroke": true, "fill": true, "opacity":0.5}}
   },
   "metric":{
     "main_label": true,
