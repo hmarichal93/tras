@@ -36,6 +36,9 @@ def initialization():
 
     return
 
+class Mode:
+    single = "Single"
+    batch = "Batch"
 
 def main():
     im = Image.open('assets/pixels_wood.jpg')
@@ -53,27 +56,30 @@ def main():
             """,
             unsafe_allow_html=True
         )
-        selected = option_menu("", [Menu.home, Menu.image, Menu.automatic_ring_delineation,
-                                          Menu.manual_ring_delineation, Menu.metrics, Menu.save], menu_icon="cast", default_index=0)
+        mode = st.radio("Mode", [Mode.single, Mode.batch], index=0, horizontal=True, help="Select the mode to run the app")
+        if mode == Mode.single:
+            selected = option_menu("", [Menu.home, Menu.image, Menu.automatic_ring_delineation,
+                                              Menu.manual_ring_delineation, Menu.metrics, Menu.save], menu_icon="cast", default_index=0)
 
 
-    if selected == Menu.home:
-        home(DEFAULT_CONFIG_PATH, RUNTIME_CONFIG_PATH)
+    if mode == Mode.single:
+        if selected == Menu.home:
+            home(DEFAULT_CONFIG_PATH, RUNTIME_CONFIG_PATH)
 
-    elif selected == Menu.image:
-        image(RUNTIME_CONFIG_PATH)
+        elif selected == Menu.image:
+            image(RUNTIME_CONFIG_PATH)
 
-    elif selected == Menu.automatic_ring_delineation:
-        automatic_ring_delineation(RUNTIME_CONFIG_PATH)
+        elif selected == Menu.automatic_ring_delineation:
+            automatic_ring_delineation(RUNTIME_CONFIG_PATH)
 
-    elif selected == Menu.manual_ring_delineation:
-        manual(RUNTIME_CONFIG_PATH)
+        elif selected == Menu.manual_ring_delineation:
+            manual(RUNTIME_CONFIG_PATH)
 
-    elif selected == Menu.metrics:
-        metrics(RUNTIME_CONFIG_PATH)
+        elif selected == Menu.metrics:
+            metrics(RUNTIME_CONFIG_PATH)
 
-    elif selected == Menu.save:
-        save(RUNTIME_CONFIG_PATH)
+        elif selected == Menu.save:
+            save(RUNTIME_CONFIG_PATH)
 
 
     with st.sidebar:
