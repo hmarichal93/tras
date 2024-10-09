@@ -12,7 +12,7 @@ from pathlib import Path
 from shapely.geometry import LineString, MultiLineString, Polygon, Point, MultiPoint
 
 from lib.image import  Color as ColorCV2, Drawing, load_image, write_image, resize_image_using_pil_lib
-from ui.common import Context
+from ui.common import Context, RunningWidget
 from lib.metrics import  export_results, Table
 from backend.labelme_layer import (LabelmeShapeType,
                                    LabelmeObject, LabelmeInterface as UserInterface)
@@ -237,13 +237,14 @@ class UI:
                 ew_file_path = self.CTX.output_dir_metrics / "earlywood.json"
             else:
                 ew_file_path = None
-
+            gif_running = RunningWidget()
             export_results(labelme_latewood_path= lw_file_path,
                            labelme_earlywood_path= ew_file_path,
                            image_path=self.CTX.image_path,
                            metadata=metadata,
                            draw=True,
                            output_dir=self.CTX.output_dir_metrics)
+            gif_running.empty()
 
         self.dataframe_file = self.CTX.output_dir_metrics / "measurements.csv"
         if not Path(self.dataframe_file).exists():
@@ -363,6 +364,7 @@ class UI:
         output_path = self.CTX.output_dir_metrics / "coorecorder.csv"
 
         if button:
+            gif_running = RunningWidget()
             self.CTX.ring_path = self.CTX.output_dir / "path.json"
             interface = PathInterface(self.CTX.image_path, self.CTX.ring_path)
             interface.interface()
@@ -373,6 +375,8 @@ class UI:
             interface.compute_metrics(l_intersections, output_path,
                                       scale = self.CTX.know_distance / self.CTX.pixels_length,
                                       unit = self.CTX.units_mode)
+
+            gif_running.empty()
 
             st.write(f"Results are saved in {self.CTX.output_dir_metrics}")
 

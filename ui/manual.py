@@ -8,7 +8,7 @@ from pathlib import Path
 from copy import deepcopy
 
 from lib.image import Drawing, load_image, write_image
-from ui.common import Context, Shapes, file_uploader
+from ui.common import Context, Shapes, file_uploader, RunningWidget
 from lib.io import load_json, write_json
 from backend.labelme_layer import LabelmeInterface as UserInterface
 
@@ -296,6 +296,7 @@ class UI:
         edit_button = st.button("Edit", disabled = not enabled)
 
         if edit_button:
+
             image_annotations_path = self.annotations_files_dict[self.CTX.main_shape]
             output_path = image_annotations_path
             if self.CTX.annotate_from_scratch:
@@ -308,9 +309,11 @@ class UI:
                 st.error("No image found. Please upload an imagen")
                 return
             image_with_drawable_shapes_path = self.draw_shapes_over_image(self.CTX.image_path, self.CTX.drawable_shapes)
+            gif_runner = RunningWidget()
             shape_edition = ShapeInterface(image_with_drawable_shapes_path, output_path, image_annotations_path)
             shape_edition.parse_input()
             shape_edition.interface()
+            gif_runner.empty()
             st.write("Annotations saved in", output_path)
 
 

@@ -10,7 +10,7 @@ from pathlib import Path
 
 from lib.image import resize_image_using_pil_lib, load_image, write_image
 from lib.io import load_json
-from ui.common import Context
+from ui.common import Context, RunningWidget
 from backend.labelme_layer import (LabelmeShapeType,
                                    LabelmeObject, LabelmeInterface as UserInterface, resize_annotations)
 
@@ -166,6 +166,7 @@ def main(runtime_config_path):
 
     if selected == Menu.preprocess and Path(CTX.image_path).exists():
         if st.button("Remove Background"):
+            gif_runner = RunningWidget()
             interface = BackgroundInterface(CTX.image_path, CTX.background_json_path, CTX.image_no_background_path)
             interface.interface()
             res = interface.parse_output()
@@ -173,7 +174,8 @@ def main(runtime_config_path):
                 CTX.bg_image_pil_no_background = interface.remove_background()
                 CTX.bg_image_pil_no_background = CTX.bg_image_pil_no_background.resize((CTX.display_image_size,
                                                                 CTX.display_image_size), Image.Resampling.LANCZOS)
-                #st.image(CTX.bg_image_pil_no_background)
+
+            gif_runner.empty()
 
         if Path(CTX.image_no_background_path).exists():
             CTX.bg_image_pil_no_background = Image.open(CTX.image_no_background_path)
@@ -190,6 +192,8 @@ def main(runtime_config_path):
             CTX.resize_factor = resize_factor
 
         if st.button("Resize Image"):
+            gif_runner = RunningWidget()
+
             _ = resize_image(CTX.image_path, resize_factor)
 
             if Path(CTX.image_no_background_path).exists():
@@ -202,7 +206,7 @@ def main(runtime_config_path):
 
 
             CTX.scale_status = False
-
+            gif_runner.empty()
             st.warning("Image resized. Please set the scale again")
 
     if selected == Menu.scale and Path(CTX.image_path).exists():
@@ -219,8 +223,10 @@ def main(runtime_config_path):
         else:
             button = st.button("Set Distance in Pixels")
             if button:
+                gif_runner = RunningWidget()
                 CTX.pixels_length = set_scale(CTX)
                 CTX.scale_status = True
+                gif_runner.empty()
             pixels_length = st.number_input("Distance in Pixels", 1.0, 10000.0, float(CTX.pixels_length))
             #input float number
 

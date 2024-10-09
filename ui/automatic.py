@@ -12,7 +12,7 @@ from lib.inbd import INBD
 from lib.cstrd import CSTRD
 from backend.labelme_layer import (LabelmeShapeType, LabelmeObject, AL_LateWood_EarlyWood,
                                    LabelmeInterface as UserInterface)
-from ui.common import Context, download_button
+from ui.common import Context, download_button, RunningWidget
 
 class LatewoodMethods:
     cstrd = "CS-TRD"
@@ -155,6 +155,8 @@ class UI:
     def annotate_pith_manual(self, selected):
             annotate = st.button("Annotate")
             if annotate:
+                gif_runner = RunningWidget()
+
                 self.CTX.pith_mask = self.CTX.output_dir / "pith_mask"
                 self.CTX.pith_mask.mkdir(exist_ok=True, parents=True)
                 self.CTX.pith_mask = self.CTX.output_dir / "pith_mask" / f"{self.CTX.image_orig_path.stem}.png"
@@ -163,6 +165,8 @@ class UI:
                                           pith_model=selected)
                 interface.interface()
                 results = interface.parse_output()
+
+                gif_runner.empty()
                 if results is None:
                     return
                 interface.generate_center_mask(self.CTX.pith_mask, results)
@@ -204,9 +208,7 @@ class UI:
         os.system(f"rm -rf {self.output_dir_cstrd}")
         self.output_dir_cstrd.mkdir(exist_ok=True, parents=True)
 
-
-
-
+        gif_runner = RunningWidget()
 
         method = CSTRD(self.CTX.image_no_background_path, self.CTX.pith_mask, Path(self.CTX.model_path), self.output_dir_cstrd,
                     Nr=self.CTX.number_of_rays, resize_factor=self.CTX.inbd_resize_factor,
@@ -216,7 +218,7 @@ class UI:
                     include_gt_rings_in_output= True if lw_annotations is not None else False)
 
         results_path = method.run()
-
+        gif_runner.empty()
         return results_path
 
     def inbd_parameters(self):
@@ -238,10 +240,12 @@ class UI:
         return
 
     def inbd_run(self):
+        gif_runner = RunningWidget()
         inbd = INBD(self.CTX.image_no_background_path, self.CTX.pith_mask, Path(self.CTX.model_path), self.output_dir_inbd,
                     Nr=self.CTX.number_of_rays, resize_factor=self.CTX.inbd_resize_factor,
                     background_path=self.CTX.json_background_path)
         results_path = inbd.run()
+        gif_runner.empty()
         return results_path
 
     def parameters_latewood(self, method_latewood):
