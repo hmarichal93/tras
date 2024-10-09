@@ -16,14 +16,16 @@ Follow the instructions below to set up the environment and install the necessar
 ```bash 
 conda env create -f environment.yml
 conda activate dendrotool
-./install.sh
+./install.sh $CONDA_PREFIX_1
 ```
-
+Replace `$CONDA_PREFIX_1` with the path to the conda environment where the application is installed. 
+The `install.sh` script will download the necessary data files and set up the application for use. It will create an icon on the desktop for easy access to the application called `DendroTool`.
 ## Usage
 Run the application using the following command:
 ```bash
-./run.sh
+./run.sh $CONDA_PREFIX_1
 ```
+Replace `$CONDA_PREFIX_1` with the path to the conda environment where the application is installed. 
 
 
 
