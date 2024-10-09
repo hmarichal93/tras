@@ -1,6 +1,7 @@
 altair==5.4.1
 fpdf==1.7.2
 glob2==0.7
+GitPython==3.1.43
 imageio==2.35.1
 labelme==5.5.0
 matplotlib==3.9.2

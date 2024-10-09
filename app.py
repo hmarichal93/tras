@@ -42,16 +42,6 @@ def main():
     # Adding Image to web app
     st.set_page_config(page_title=APP_NAME, page_icon=im, layout='wide')
     st.title(APP_NAME)
-    margins_css = """
-        <style>
-            .main > div {
-                padding-left: 0rem;
-                padding-right: 0rem;
-            }
-        </style>
-    """
-
-    st.markdown(margins_css, unsafe_allow_html=True)
 
     # 1. as sidebar menu
     with st.sidebar:
@@ -87,8 +77,10 @@ def main():
 
 
     with st.sidebar:
-        if st.button("Update"):
-            pull_last_changes_from_remote_repo()
+
+        if st.button("Update", help="Update the app to the latest version"):
+            pull_last_changes_from_remote_repo(os.path.dirname(os.path.abspath(__file__)))
+
         st.image("assets/wood_image.jpeg")
 
 
