@@ -16,6 +16,12 @@ from ui.update import pull_last_changes_from_remote_repo
 
 from lib.io import load_json, write_json, bytesio_to_dict
 
+
+APP_NAME = "DendroTool: An Interactive Software for tracing Tree Ring Cross Sections"
+DEFAULT_CONFIG_PATH = "./config/default.json"
+RUNTIME_CONFIG_PATH = "./config/runtime.json"
+
+
 class Menu:
     home = "Home"
     image = "Image"
@@ -24,9 +30,7 @@ class Menu:
     metrics = "Metrics"
     save = "Save"
 
-APP_NAME = "DendroTool: An Interactive Software for tracing Tree Ring Cross Sections"
-DEFAULT_CONFIG_PATH = "./config/default.json"
-RUNTIME_CONFIG_PATH = "./config/runtime.json"
+
 
 
 
@@ -44,6 +48,22 @@ def main():
     im = Image.open('assets/pixels_wood.jpg')
     # Adding Image to web app
     st.set_page_config(page_title=APP_NAME, page_icon=im, layout='wide')
+    st.markdown(
+        """
+        <style>
+        /* Change the width of the sidebar */
+        [data-testid="stSidebar"] {
+            width: 33.33% !important;
+        }
+        /* Adjust the main content to fit within the remaining width */
+        [data-testid="stSidebar"] + div {
+            width: 66.67%;
+            margin-left: 33.33%;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
     st.title(APP_NAME)
 
     # 1. as sidebar menu
