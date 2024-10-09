@@ -12,6 +12,7 @@ from ui.home import main as home
 from ui.manual import  main as manual
 from ui.metrics import  main as metrics
 from ui.save import main as save
+from ui.update import pull_last_changes_from_remote_repo
 
 from lib.io import load_json, write_json, bytesio_to_dict
 
@@ -41,16 +42,6 @@ def main():
     # Adding Image to web app
     st.set_page_config(page_title=APP_NAME, page_icon=im, layout='wide')
     st.title(APP_NAME)
-    margins_css = """
-        <style>
-            .main > div {
-                padding-left: 0rem;
-                padding-right: 0rem;
-            }
-        </style>
-    """
-
-    st.markdown(margins_css, unsafe_allow_html=True)
 
     # 1. as sidebar menu
     with st.sidebar:
@@ -86,7 +77,10 @@ def main():
 
 
     with st.sidebar:
-        realtime_update = st.checkbox("Update in realtime", True)
+
+        if st.button("Update", help="Update the app to the latest version"):
+            pull_last_changes_from_remote_repo(os.path.dirname(os.path.abspath(__file__)))
+
         st.image("assets/wood_image.jpeg")
 
 
