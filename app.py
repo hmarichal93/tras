@@ -12,6 +12,7 @@ from ui.home import main as home
 from ui.manual import  main as manual
 from ui.metrics import  main as metrics
 from ui.save import main as save
+from ui.update import pull_last_changes_from_remote_repo
 
 from lib.io import load_json, write_json, bytesio_to_dict
 
@@ -86,7 +87,8 @@ def main():
 
 
     with st.sidebar:
-        realtime_update = st.checkbox("Update in realtime", True)
+        if st.button("Update"):
+            pull_last_changes_from_remote_repo()
         st.image("assets/wood_image.jpeg")
 
 
