@@ -1,7 +1,6 @@
 import streamlit as st
 import numpy as np
 import cv2
-import datetime
 import os
 
 from PIL import Image
@@ -10,7 +9,7 @@ from pathlib import Path
 
 from lib.image import resize_image_using_pil_lib, load_image, write_image
 from lib.io import load_json
-from ui.common import Context, RunningWidget
+from ui.common import Context, RunningWidget, set_date_input
 from backend.labelme_layer import (LabelmeShapeType,
                                    LabelmeObject, LabelmeInterface as UserInterface, resize_annotations)
 
@@ -89,9 +88,6 @@ class ViewContext(Context):
 
         return
 
-        # config["background"]["image_path"] = self.image_no_background_path
-        # config["background"]["json_path"] = self.background_json_path
-
 
 class Menu:
     image = "Upload Image"
@@ -101,16 +97,6 @@ class Menu:
 
 
 
-def set_date_input(dictionary_date, text="Tree planting date"):
-    year, month, day = (dictionary_date['year'], dictionary_date['month'],
-                        dictionary_date['day'])
-    input_date = st.date_input( text, datetime.date(year, month, day),
-                                min_value = datetime.date(1500, 1, 1),
-                                max_value = datetime.date(3000, 1, 1))
-    dictionary_date['year'] = input_date.year
-    dictionary_date['month'] = input_date.month
-    dictionary_date['day'] = input_date.day
-    return dictionary_date
 
 def resize_image(image_path : Path, resize_factor : float):
     image = load_image(image_path)
@@ -244,8 +230,14 @@ def main(runtime_config_path):
         CTX.code = code
 
         ##tree planting date
-        CTX.tree_planting_date = set_date_input(CTX.tree_planting_date, "Tree planting date")
-        CTX.harvest_date = set_date_input(CTX.tree_planting_date, "Harvest date")
+        checkbox_harvest = st.checkbox("Harvest date", value = False, help='Check if the date is the harvest date or the planting date.'
+                                                                           ' It is used to set the correct date for each ring')
+        if not checkbox_harvest:
+            CTX.tree_planting_date = set_date_input(CTX.tree_planting_date, "Tree planting date")
+            CTX.harvest_date = None
+        else:
+            CTX.harvest_date = set_date_input(CTX.harvest_date, "Harvest date")
+            CTX.tree_planting_date = None
 
         location = st.text_input("Location", value = CTX.location)
         CTX.location = location

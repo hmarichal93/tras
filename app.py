@@ -13,6 +13,7 @@ from ui.manual import  main as manual
 from ui.metrics import  main as metrics
 from ui.save import main as save
 from ui.update import pull_last_changes_from_remote_repo
+from ui.batch.batch import main as batch
 
 from lib.io import load_json, write_json, bytesio_to_dict
 
@@ -76,7 +77,7 @@ def main():
             """,
             unsafe_allow_html=True
         )
-        mode = st.radio("Mode", [Mode.single, Mode.batch], index=0, horizontal=True, help="Select the mode to run the app")
+        mode = st.radio("Mode", [Mode.single, Mode.batch], index=0, horizontal=True, help="Select the mode to run the app. Single) one image, Batch) batch of images.")
         if mode == Mode.single:
             selected = option_menu("", [Menu.home, Menu.image, Menu.automatic_ring_delineation,
                                               Menu.manual_ring_delineation, Menu.metrics, Menu.save], menu_icon="cast", default_index=0)
@@ -101,6 +102,9 @@ def main():
         elif selected == Menu.save:
             save(RUNTIME_CONFIG_PATH)
 
+
+    if mode == Mode.batch:
+        batch(DEFAULT_CONFIG_PATH)
 
     with st.sidebar:
 

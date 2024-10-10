@@ -5,7 +5,7 @@ from streamlit_option_menu import option_menu
 from pathlib import Path
 
 from lib.io import load_json, write_json, bytesio_to_dict
-
+from ui.common import select_directory
 
 
 def main(default_config_path, runtime_config_path):
@@ -44,22 +44,7 @@ def main(default_config_path, runtime_config_path):
 
 
         reset_runtime_config(runtime_config_path, default_config_path)
-
-    folder_picker = st.button("Select Output folder")
-    dirname = False
-    if folder_picker:
-        import tkinter as tk
-        from tkinter import filedialog
-
-        # Set up tkinter
-        root = tk.Tk()
-        root.withdraw()
-
-        # Make folder picker dialog appear on top of other windows
-        root.wm_attributes('-topmost', 1)
-        dirname = filedialog.askdirectory(master=root)
-        st.write(f'Selected folder: {dirname}')
-        dirname = dirname if Path(dirname).is_dir() else False
+        dirname = select_directory()
         if dirname:
             config["general"]["output_dir"] = dirname
             write_json(config, runtime_config_path)

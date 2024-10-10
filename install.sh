@@ -11,7 +11,7 @@ fi
 ROOT_DIRECTORY=$PWD
 
 sudo apt install gnome-terminal -y
-pip install -r requirements.txt
+pip install -r --no-cache-dir requirements.txt
 
 git submodule set-url automatic_methods/tree_ring_delineation/cstrd_ipol https://github.com/hmarichal93/cstrd_ipol.git
 git submodule set-url automatic_methods/tree_ring_delineation/mlbrief_inbd https://github.com/hmarichal93/mlbrief_inbd.git

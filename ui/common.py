@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 import streamlit as st
+import datetime
 
 from lib.io import load_json, write_json, read_file_as_binary, bytesio_to_dict
 
@@ -94,3 +95,40 @@ class RunningWidget:
 
     def empty(self):
         self.gif_runner.empty()
+
+
+def set_date_input(dictionary_date, text="Tree planting date"):
+    if dictionary_date is None:
+        # default value
+        dictionary_date = {'year': 2000, 'month': 1, 'day': 1}
+
+    year, month, day = (dictionary_date['year'], dictionary_date['month'],
+                        dictionary_date['day'])
+
+    input_date = st.date_input(text, datetime.date(year, month, day),
+                               min_value=datetime.date(1500, 1, 1),
+                               max_value=datetime.date(3000, 1, 1))
+    dictionary_date['year'] = input_date.year
+    dictionary_date['month'] = input_date.month
+    dictionary_date['day'] = input_date.day
+    return dictionary_date
+
+
+def select_directory(text="Select Output folder"):
+    folder_picker = st.button(text)
+    dirname = False
+    if folder_picker:
+        import tkinter as tk
+        from tkinter import filedialog
+
+        # Set up tkinter
+        root = tk.Tk()
+        root.withdraw()
+
+        # Make folder picker dialog appear on top of other windows
+        root.wm_attributes('-topmost', 1)
+        dirname = filedialog.askdirectory( master = root)
+        st.write(f'Selected folder: {dirname}')
+        dirname = dirname if Path(dirname).is_dir() else False
+
+    return dirname
