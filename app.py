@@ -14,7 +14,6 @@ from ui.metrics import  main as metrics
 from ui.save import main as save
 from ui.update import pull_last_changes_from_remote_repo
 from ui.batch.batch import main as batch
-
 from lib.io import load_json, write_json, bytesio_to_dict
 
 
