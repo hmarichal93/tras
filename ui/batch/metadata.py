@@ -70,7 +70,7 @@ class UI:
             self.CTX.output_dir = dirname
 
     def form(self):
-        display = st.checkbox("Site Data", value=True)
+        display = st.checkbox("Site Data", value=False)
         if not display:
             return
 
@@ -161,7 +161,7 @@ class UI:
         return True
 
     def scale_settings(self):
-        display = st.checkbox("Scale Settings", value=True)
+        display = st.checkbox("Scale Settings", value=False)
         if not display:
             return
 
