@@ -206,6 +206,7 @@ class UI:
                                         "is the distance to which refers the 'pixels_length' column  and 'unit' is the unit of the length. "
                                         "If 'unit' is dpi, the 'know_distance' column is not used (empty) and 'pixels_length' is the dpi value. "
                                         "'unit' can be 'nm', 'micrometer', 'mm', 'cm' or 'dpi'")
+
                 if self.CTX.scale_json_path.exists():
                     df = pd.read_csv(self.CTX.scale_json_path)
                     if self.check_dataframe(df):
