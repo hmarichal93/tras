@@ -3,6 +3,7 @@ from streamlit_option_menu import option_menu
 
 from ui.common import Context, RunningWidget
 from ui.batch.metadata import main as metadata
+from ui.batch.configuration import main as configuration
 
 class ViewContext(Context):
     def init_specific_ui_components(self):
@@ -95,6 +96,9 @@ def main(runtime_config_path):
                            menu_icon="cast", default_index=0, orientation="horizontal")
     if selected == Menu.metadata:
         metadata(runtime_config_path)
+
+    if selected == Menu.configuration:
+        configuration(runtime_config_path)
 
 
 

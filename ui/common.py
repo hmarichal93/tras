@@ -67,14 +67,22 @@ def download_button(file_path: str, label: str, filen_name:str, mime:str)-> None
 
 
 
-def save_annotation_file_locally(filename, file_uploader_instance):
-    config = bytesio_to_dict(file_uploader_instance)
-    write_json(config, filename)
+def save_annotation_file_locally(filename, file_uploader_instance, extension=".json"):
+    if extension == ".json":
+        config = bytesio_to_dict(file_uploader_instance)
+        write_json(config, filename)
 
-def file_uploader(label, output_file, extension):
-    uploaded_cw_annotation_file = st.file_uploader(label, type=[extension])
+    if extension == ".csv":
+        # save the file as csv
+        with open(filename, "wb") as f:
+            f.write(file_uploader_instance.getvalue())
+
+
+
+def file_uploader(label, output_file, extension='.json', help_text=None):
+    uploaded_cw_annotation_file = st.file_uploader(label, type=[extension], help=help_text)
     if uploaded_cw_annotation_file:
-        save_annotation_file_locally(output_file, uploaded_cw_annotation_file)
+        save_annotation_file_locally(output_file, uploaded_cw_annotation_file, extension)
 
     return output_file
 
