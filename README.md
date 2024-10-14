@@ -12,20 +12,34 @@ Features
 
 ![Preview Image](assets/preview.png)
 ## Installation
-Follow the instructions below to set up the environment and install the necessary dependencies:
+### On Linux
+Follow the instructions below to set up the environment ([anaconda](https://anaconda.com))and install the necessary dependencies:
 ```bash 
 conda env create -f environment.yml
 conda activate dendrotool
 ./install.sh $CONDA_PREFIX_1
 ```
-Replace `$CONDA_PREFIX_1` with the path to the conda environment where the application is installed. 
+Replace `$CONDA_PREFIX_1` with the path to the conda environment where
+the application is installed. 
 The `install.sh` script will download the necessary data files and set up the application for use. It will create an icon on the desktop for easy access to the application called `DendroTool`.
+### On Windows
+Download [virtual box](https://www.virtualbox.org/wiki/Downloads) windows 
+host and install it. 
+Then download a linux image (in VDI format) from [osboxes](https://www.osboxes.org/ubuntu/) and [install](https://www.makeuseof.com/how-to-import-vdi-file-into-virtualbox/) it on virtual box. 
+We tested with [Linux Lite 5.8](https://www.osboxes.org/linux-lite/#linux-lite-5-8-vbox), 
+with 6 GB and 2 cores. After that, run the instruction from the Linux section.
+
+#### Linux Lite 5.8
+```bash
+#1
+sudo apt install git -y
+```
 ## Usage
 Run the application using the following command:
 ```bash
 ./run.sh $CONDA_PREFIX_1
 ```
-Replace `$CONDA_PREFIX_1` with the path to the conda environment where the application is installed. 
+Replace `$CONDA_PREFIX_1` with the path to the conda environment where the application is installed. Additionally you can run the application using the icon created on the desktop.
 
 
 
