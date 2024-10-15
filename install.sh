@@ -15,6 +15,7 @@ pip install -r requirements.txt
 
 git submodule set-url automatic_methods/tree_ring_delineation/cstrd_ipol https://github.com/hmarichal93/cstrd_ipol.git
 git submodule set-url automatic_methods/tree_ring_delineation/mlbrief_inbd https://github.com/hmarichal93/mlbrief_inbd.git
+git submodule set-url automatic_methods/pith_detection/apd https://github.com/hmarichal93/apd.git
 
 # Install repository dependencies
 echo "Installing repository dependencies..."
@@ -55,9 +56,21 @@ else
     exit 1
 fi
 
+# Installing APD project
+
+echo "Installing APD dependencies..."
+cd $ROOT_DIRECTORY/automatic_methods/pith_detection/apd || { echo "Directory not found: $ROOT_DIRECTORY/automatic_methods/pith_detection/apd"; exit 1; }
+if git submodule update --init; then
+    echo "APD dependencies installed successfully."
+else
+    echo "Error installing APD dependencies."
+    exit 1
+fi
+python fetch_pretrained_model.py
+
+
+
 echo "Installation complete and environment ready."
-
-
 ########################################################################################################################
 #Create desktop Icon
 
