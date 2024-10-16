@@ -67,8 +67,28 @@ class PithInterface(UserInterface):
         return None
 
     def automatic(self, pith_model,
-                  weights_path="automatic_methods/pith_detection/apd/checkpoints/yolo/all_best_yolov8.pt"):
-        apd = APD( self.read_file_path, self.write_file_path, method=pith_model, weigths_path=weights_path)
+                  weights_path="automatic_methods/pith_detection/apd/checkpoints/yolo/all_best_yolov8.pt",
+                  output_dir=None,
+                  params_dict= None):
+
+        if params_dict is None:
+            params_dict = {}
+
+        lo_w = params_dict.get("lo_w", 3)
+        st_w = params_dict.get("st_w", 3)
+        st_sigma = params_dict.get("st_sigma", 1.2)
+        percent_lo = params_dict.get("percent_lo", 0.7)
+        resize = params_dict.get("resize", 1)
+        if resize != 1:
+            image = load_image(self.read_file_path)
+            new_shape = int(image.shape[0] * resize)
+        else:
+            new_shape = 0
+
+
+        apd = APD( self.read_file_path, self.write_file_path, method=pith_model, weights_path=weights_path,
+                   output_dir= output_dir, percent_lo=percent_lo, st_w=st_w,
+                   lo_w=lo_w, st_sigma=st_sigma, new_shape=new_shape)
         apd.run()
 
         return
@@ -122,6 +142,8 @@ class ViewContext(Context):
         lw_path = self.config["manual"]["annotations_files"]["late_wood"]
         self.lw_annotations = self.output_dir / "none.json" if isinstance(lw_path, list) else Path(lw_path)
 
+        self.apd_params = self.config["automatic"]["apd_params"]
+
         return
 
     def update_config(self):
@@ -133,6 +155,7 @@ class ViewContext(Context):
         self.config["automatic"]["sigma"] = self.sigma
         self.config["automatic"]["th_low"] = self.th_low
         self.config["automatic"]["th_hight"] = self.th_hight
+        self.config["automatic"]["apd_params"] = self.apd_params
 
         return
 
@@ -154,13 +177,28 @@ class UI:
         return selected
 
     def get_pith(self, pith_model, pith_method):
+        if pith_method == Pith.automatic:
+            advanced = st.checkbox("Advanced parameters", value=False)
+            if advanced:
+                percent_lo = st.slider("Percent Lo", 0.0, 1.0, float(self.CTX.apd_params["percent_lo"]), step=0.1)
+                st_w = st.slider("ST Window", 1, 10,  int(self.CTX.apd_params["st_w"]))
+                lo_w = st.slider("LO Window", 1, 10,  int(self.CTX.apd_params["lo_w"]))
+                st_sigma = st.slider("ST Sigma", 0.1, 10.0,  float(self.CTX.apd_params["st_sigma"]), step=0.1)
+                resize = st.slider("Resize", 1.0, 10.0,  float(self.CTX.apd_params["resize"]))
+
+
+                params_dict = {"percent_lo": percent_lo, "st_w": st_w, "lo_w": lo_w,
+                               "st_sigma": st_sigma, "resize": resize}
+
+                self.CTX.apd_params = params_dict
+
         annotate = st.button("Run")
         if annotate:
             gif_runner = RunningWidget()
 
             self.CTX.pith_mask = self.CTX.output_dir / "pith_mask"
             self.CTX.pith_mask.mkdir(exist_ok=True, parents=True)
-            self.CTX.pith_mask = self.CTX.output_dir / "pith_mask" / f"{self.CTX.image_orig_path.stem}.png"
+            self.CTX.pith_mask_file = self.CTX.output_dir / "pith_mask" / f"{self.CTX.image_orig_path.stem}.png"
             interface = PithInterface(self.CTX.image_orig_path, self.CTX.output_dir / "pith.json",
                                       self.CTX.output_dir / "pith.png",
                                       pith_model=pith_model)
@@ -168,16 +206,16 @@ class UI:
             if pith_method == Pith.manual:
                 interface.interface()
             else:
-                interface.automatic(pith_model)
+                interface.automatic(pith_model, output_dir = self.CTX.pith_mask, params_dict = params_dict)
 
             results = interface.parse_output()
 
             gif_runner.empty()
             if results is None:
                 return
-            interface.generate_center_mask(self.CTX.pith_mask, results)
+            interface.generate_center_mask(self.CTX.pith_mask_file, results)
             #display image mask
-            st.image(load_image(self.CTX.pith_mask), use_column_width=True)
+            st.image(load_image(self.CTX.pith_mask_file), use_column_width=True)
 
         return
 

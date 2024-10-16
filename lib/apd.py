@@ -17,7 +17,8 @@ from ui.common import Pith
 class APD:
 
     def __init__(self, filename, output_filename, percent_lo=0.7, st_w=3, method=0, new_shape=640, lo_w=3,
-                 st_sigma=1.2, weigths_path=None):
+                 st_sigma=1.2, weights_path="automatic_methods/pith_detection/apd/checkpoints/yolo/all_best_yolov8.pt",
+                 output_dir=None):
         self.filename = filename
         self.output_filename = output_filename
         self.percent_lo = percent_lo
@@ -26,10 +27,11 @@ class APD:
         self.new_shape = new_shape
         self.lo_w = lo_w
         self.st_sigma = st_sigma
-        self.weigths_path = weigths_path
+        self.weigths_path = weights_path
+        self.output_dir = Path(output_dir)
 
     def run(self):
-
+        debug = True if self.output_dir is not None else False
         img_in = load_image(self.filename)
         o_height, o_width = img_in.shape[:2]
         # 1.1 resize image
@@ -41,16 +43,16 @@ class APD:
         if self.method == Pith.apd:
             print("apd")
             peak = apd(img_in, self.st_sigma, self.st_w, self.lo_w, rf = 7, percent_lo = self.percent_lo,
-                       max_iter = 11, epsilon =10 ** -3)
+                       max_iter = 11, epsilon =10 ** -3, output_dir=self.output_dir)
 
         elif self.method == Pith.apd_pl:
             print("apd_pcl")
             peak = apd_pcl(img_in, self.st_sigma, self.st_w, self.lo_w, rf = 7, percent_lo = self.percent_lo,
-                           max_iter = 11, epsilon =10 ** -3)
+                           max_iter = 11, epsilon =10 ** -3, output_dir=self.output_dir)
 
         elif self.method == Pith.apd_dl:
             print("apd_dl")
-            peak = apd_dl(img_in, Path("/tmp"), self.weigths_path)[::-1]
+            peak = apd_dl(img_in, self.output_dir, self.weigths_path)
 
         else:
             raise ValueError(f"method {self.method} not found")
@@ -81,4 +83,21 @@ class APD:
         return
 
 
+def test_apd():
+    filename = Path("./input/A4/A4.jpg")
+    output_filename = Path("./input/A4/A4.json")
+    apd = APD(filename, output_filename, method=Pith.apd)
+    apd.run()
 
+    output_filename = Path("./input/A4/A4_dl.json")
+    apd = APD(filename, output_filename, method=Pith.apd_dl)
+    apd.run()
+
+    output_filename = Path("./input/A4/A4_pcl.json")
+    apd = APD(filename, output_filename, method=Pith.apd_pl)
+    apd.run()
+
+    return
+
+if __name__ == "__main__":
+    test_apd()
