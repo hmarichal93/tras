@@ -1,5 +1,4 @@
 import os
-
 import streamlit as st
 
 from streamlit_option_menu import option_menu
@@ -9,12 +8,10 @@ from pathlib import Path
 from ui.image import main as image
 from ui.automatic import main as automatic_ring_delineation
 from ui.home import main as home
-from ui.manual import  main as manual
-from ui.metrics import  main as metrics
+from ui.manual import main as manual
+from ui.metrics import main as metrics
 from ui.save import main as save
 from ui.update import pull_last_changes_from_remote_repo
-
-from lib.io import load_json, write_json, bytesio_to_dict
 
 
 APP_NAME = "DendroTool: An Interactive Software for tracing Tree Ring Cross Sections"
@@ -31,18 +28,17 @@ class Menu:
     save = "Save"
 
 
-
-
-
 def initialization():
     if Path(RUNTIME_CONFIG_PATH).exists():
         os.system(f"rm -rf {RUNTIME_CONFIG_PATH}")
 
     return
 
+
 class Mode:
     single = "Single"
     batch = "Batch"
+
 
 def main():
     im = Image.open('assets/pixels_wood.jpg')
@@ -76,11 +72,12 @@ def main():
             """,
             unsafe_allow_html=True
         )
-        mode = st.radio("Mode", [Mode.single, Mode.batch], index=0, horizontal=True, help="Select the mode to run the app")
+        mode = st.radio("Mode", [Mode.single, Mode.batch], index=0, horizontal=True,
+                        help="Select the mode to run the app")
         if mode == Mode.single:
             selected = option_menu("", [Menu.home, Menu.image, Menu.automatic_ring_delineation,
-                                              Menu.manual_ring_delineation, Menu.metrics, Menu.save], menu_icon="cast", default_index=0)
-
+                                        Menu.manual_ring_delineation, Menu.metrics, Menu.save], menu_icon="cast",
+                                   default_index=0)
 
     if mode == Mode.single:
         if selected == Menu.home:
@@ -101,7 +98,6 @@ def main():
         elif selected == Menu.save:
             save(RUNTIME_CONFIG_PATH)
 
-
     with st.sidebar:
 
         if st.button("Update", help="Update the app to the latest version"):
@@ -110,7 +106,8 @@ def main():
         st.image("assets/wood_image.jpeg")
 
 
-
-
 if __name__ == "__main__":
     main()
+    #TODO: Add CooRecorder export to the app.
+    # https://github.com/Gregor-Mendel-Institute/TRG-ImageProcessing/blob/826736d3012a2322130850e34c7bfdc873dfef42/CoreProcessingPipelineScripts/CNN/Mask_RCNN/postprocessing/postprocessingCracksRings.py#L779
+    #TODO: Add INBD as automatic pith detection method

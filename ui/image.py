@@ -8,11 +8,12 @@ from PIL import Image
 from streamlit_option_menu import option_menu
 from pathlib import Path
 
-from lib.image import resize_image_using_pil_lib, load_image, write_image
-from lib.io import load_json
-from ui.common import Context, RunningWidget
+from lib.image import resize_image_using_pil_lib, load_image, write_image, remove_salient_object
+from ui.common import Context, RunningWidget, Pith
 from backend.labelme_layer import (LabelmeShapeType,
-                                   LabelmeObject, LabelmeInterface as UserInterface, resize_annotations)
+                                   LabelmeObject, LabelmeInterface as UserInterface, resize_annotations,
+                                   AL_LateWood_EarlyWood)
+
 
 pixels_length = 1
 know_distance = 2
@@ -165,10 +166,15 @@ def main(runtime_config_path):
 
 
     if selected == Menu.preprocess and Path(CTX.image_path).exists():
+        radio = st.radio("Remove Background", (Pith.manual, Pith.automatic), index=0, horizontal=True)
+
         if st.button("Remove Background"):
             gif_runner = RunningWidget()
             interface = BackgroundInterface(CTX.image_path, CTX.background_json_path, CTX.image_no_background_path)
-            interface.interface()
+            if radio == Pith.manual:
+                interface.interface()
+            else:
+                interface.automatic()
             res = interface.parse_output()
             if res is not None:
                 CTX.bg_image_pil_no_background = interface.remove_background()
@@ -176,6 +182,11 @@ def main(runtime_config_path):
                                                                 CTX.display_image_size), Image.Resampling.LANCZOS)
 
             gif_runner.empty()
+        # if st.button("Automatic Remove background"):
+        #     gif_runner = RunningWidget()
+        #     remove_salient_object(CTX.image_path, CTX.image_no_background_path)
+        #
+        #     gif_runner.empty()
 
         if Path(CTX.image_no_background_path).exists():
             CTX.bg_image_pil_no_background = Image.open(CTX.image_no_background_path)
@@ -332,6 +343,22 @@ class BackgroundInterface(UserInterface):
     def from_labelme_shape_to_structure(self, shapes):
         pass
 
+    def automatic(self):
+        disk_mask = remove_salient_object(self.read_file_path, self.output_image_path)
+        # Ensure the mask is binary (values 0 and 255 only)
+        _, binary_mask = cv2.threshold(disk_mask, 127, 255, cv2.THRESH_BINARY)
+
+        # Find the contours in the binary mask
+        contours, hierarchy = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        # Get the largest contour
+        largest_contour = max(contours, key=cv2.contourArea)
+
+        al = AL_LateWood_EarlyWood(None,
+                                   write_file_path=str(self.write_file_path),
+                                   image_path=str(self.read_file_path)
+                                   )
+        al.write_list_of_points_to_labelme_json([largest_contour.squeeze()[:,[1,0]].tolist()])
 
 
 
