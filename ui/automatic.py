@@ -191,6 +191,8 @@ class UI:
                                "st_sigma": st_sigma, "resize": resize}
 
                 self.CTX.apd_params = params_dict
+            else:
+                params_dict = self.CTX.apd_params
 
         annotate = st.button("Run")
         if annotate:
