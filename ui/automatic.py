@@ -10,9 +10,10 @@ from lib.image import  Drawing, Color, load_image, write_image
 from lib.io import load_json, write_binary_file
 from lib.inbd import INBD
 from lib.cstrd import CSTRD
+from lib.apd import APD
+
 from backend.labelme_layer import (LabelmeShapeType, LabelmeObject, AL_LateWood_EarlyWood,
                                    LabelmeInterface as UserInterface)
-from lib.apd import APD
 from ui.common import Context, download_button, RunningWidget, Pith
 
 class LatewoodMethods:
@@ -24,8 +25,6 @@ class Shapes:
     latewood = "Latewood"
     earlywood = "Earlywood"
     knot = "Knot"
-
-
 
 
 class InbdModels:
