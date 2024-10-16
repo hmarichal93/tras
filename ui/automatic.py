@@ -12,7 +12,8 @@ from lib.inbd import INBD
 from lib.cstrd import CSTRD
 from backend.labelme_layer import (LabelmeShapeType, LabelmeObject, AL_LateWood_EarlyWood,
                                    LabelmeInterface as UserInterface)
-from ui.common import Context, download_button, RunningWidget
+from lib.apd import APD
+from ui.common import Context, download_button, RunningWidget, Pith
 
 class LatewoodMethods:
     cstrd = "CS-TRD"
@@ -24,14 +25,7 @@ class Shapes:
     earlywood = "Earlywood"
     knot = "Knot"
 
-class Pith:
-    pixel = "Pixel"
-    boundary = "Boundary"
-    manual = "Manual"
-    automatic = "Automatic"
-    apd = "APD"
-    apd_pl = "APD-PL"
-    apd_dl = "APD-DL"
+
 
 
 class InbdModels:
@@ -71,6 +65,13 @@ class PithInterface(UserInterface):
             return Polygon(shape.points)
 
         return None
+
+    def automatic(self, pith_model,
+                  weights_path="automatic_methods/pith_detection/apd/checkpoints/yolo/all_best_yolov8.pt"):
+        apd = APD( self.read_file_path, self.write_file_path, method=pith_model, weigths_path=weights_path)
+        apd.run()
+
+        return
 
     def generate_center_mask(self, output_path, results):
         if self.pith_model == Pith.pixel:
@@ -152,41 +153,43 @@ class UI:
         selected = st.selectbox( "Select Shape", (Shapes.pith, Shapes.latewood, Shapes.earlywood, Shapes.knot))
         return selected
 
-    def annotate_pith_manual(self, selected):
-            annotate = st.button("Annotate")
-            if annotate:
-                gif_runner = RunningWidget()
+    def get_pith(self, pith_model, pith_method):
+        annotate = st.button("Run")
+        if annotate:
+            gif_runner = RunningWidget()
 
-                self.CTX.pith_mask = self.CTX.output_dir / "pith_mask"
-                self.CTX.pith_mask.mkdir(exist_ok=True, parents=True)
-                self.CTX.pith_mask = self.CTX.output_dir / "pith_mask" / f"{self.CTX.image_orig_path.stem}.png"
-                interface = PithInterface(self.CTX.image_orig_path, self.CTX.output_dir / "pith.json",
-                                          self.CTX.output_dir / "pith.png",
-                                          pith_model=selected)
+            self.CTX.pith_mask = self.CTX.output_dir / "pith_mask"
+            self.CTX.pith_mask.mkdir(exist_ok=True, parents=True)
+            self.CTX.pith_mask = self.CTX.output_dir / "pith_mask" / f"{self.CTX.image_orig_path.stem}.png"
+            interface = PithInterface(self.CTX.image_orig_path, self.CTX.output_dir / "pith.json",
+                                      self.CTX.output_dir / "pith.png",
+                                      pith_model=pith_model)
+
+            if pith_method == Pith.manual:
                 interface.interface()
-                results = interface.parse_output()
+            else:
+                interface.automatic(pith_model)
 
-                gif_runner.empty()
-                if results is None:
-                    return
-                interface.generate_center_mask(self.CTX.pith_mask, results)
-                #display image mask
-                st.image(load_image(self.CTX.pith_mask), use_column_width=True)
+            results = interface.parse_output()
+
+            gif_runner.empty()
+            if results is None:
+                return
+            interface.generate_center_mask(self.CTX.pith_mask, results)
+            #display image mask
+            st.image(load_image(self.CTX.pith_mask), use_column_width=True)
+
+        return
 
     def shape_pith(self):
         pith_model = st.radio("Model", [Pith.pixel, Pith.boundary], horizontal=True)
         pith_method = st.radio("Method", [Pith.manual, Pith.automatic], horizontal=True)
         if pith_method == Pith.manual:
-            self.annotate_pith_manual(pith_model)
-
-        elif pith_model == Pith.pixel:
+            self.get_pith(pith_model, pith_method)
+        else:
             #Pith model automatic
             pith_model = st.radio("Method", [Pith.apd, Pith.apd_pl, Pith.apd_dl], horizontal=True)
-            run_button = st.button("Run")
-            if run_button:
-                # TODO: Implement
-                st.write(f"Running {pith_model} METHOD")
-                pass
+            self.get_pith(pith_model, pith_method)
 
     def cstrd_parameters(self):
         st.subheader("Parameters")

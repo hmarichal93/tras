@@ -12,7 +12,7 @@ conda activate dendrotool
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd $SCRIPT_DIR
-export PYTHONPATH="./automatic_methods/tree_ring_delineation/mlbrief_inbd:$PYTHONPATH"
+#export PYTHONPATH="./automatic_methods/tree_ring_delineation/mlbrief_inbd:$PYTHONPATH"
 streamlit run app.py  --server.port $PORT &
 #open browser at http://localhost:8501/
 open
