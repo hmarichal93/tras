@@ -261,7 +261,7 @@ class UI:
 
         gif_runner = RunningWidget()
 
-        method = CSTRD(self.CTX.image_no_background_path, self.CTX.pith_mask, Path(self.CTX.model_path), self.output_dir_cstrd,
+        method = CSTRD(self.CTX.image_no_background_path, self.CTX.pith_mask_path, Path(self.CTX.model_path), self.output_dir_cstrd,
                     Nr=self.CTX.number_of_rays, resize_factor=self.CTX.inbd_resize_factor,
                     background_path=self.CTX.json_background_path, sigma=self.CTX.sigma, th_low=self.CTX.th_low,
                     th_hight=self.CTX.th_hight,
