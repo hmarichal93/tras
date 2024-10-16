@@ -28,15 +28,20 @@ class APD:
         self.lo_w = lo_w
         self.st_sigma = st_sigma
         self.weigths_path = weights_path
-        self.output_dir = Path(output_dir)
+        self.output_dir = Path(output_dir) if output_dir is not None else None
 
     def run(self):
         debug = True if self.output_dir is not None else False
+        if debug:
+            self.output_dir.mkdir(exist_ok=True, parents=True)
+            import os
+            os.system(f"rm -rf {self.output_dir}/*")
+
         img_in = load_image(self.filename)
         o_height, o_width = img_in.shape[:2]
         # 1.1 resize image
+        self.h_i, self.w_i = img_in.shape[:2]
         if self.new_shape > 0:
-            self.h_i, self.w_i = img_in.shape[:2]
             img_in = resize_image_using_pil_lib(img_in, height_output=self.new_shape, width_output=self.new_shape)
             self.h_o, self.w_o = img_in.shape[:2]
 
@@ -52,15 +57,18 @@ class APD:
 
         elif self.method == Pith.apd_dl:
             print("apd_dl")
-            peak = apd_dl(img_in, self.output_dir, self.weigths_path)
+            peak = apd_dl(img_in, self.output_dir if self.output_dir is not None else Path("/tmp"), self.weigths_path)
 
         else:
             raise ValueError(f"method {self.method} not found")
 
+        if peak is None:
+            return False
         # 3.0 save results
-        self._save_results(peak)
+        radius_size_pith_region = np.maximum(self.w_o, self.h_o) // 100
+        self._save_results(peak, r = radius_size_pith_region)
 
-        return
+        return True
 
     def _save_results(self, peak: np.array, num : int = 8, r : int = 3):
         "Generate a polygon centered at peak. Peak has dimension 2. The radius is 10 px"

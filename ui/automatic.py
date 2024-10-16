@@ -81,7 +81,7 @@ class PithInterface(UserInterface):
         resize = params_dict.get("resize", 1)
         if resize != 1:
             image = load_image(self.read_file_path)
-            new_shape = int(image.shape[0] * resize)
+            new_shape = int(image.shape[0] / resize)
         else:
             new_shape = 0
 
@@ -89,9 +89,9 @@ class PithInterface(UserInterface):
         apd = APD( self.read_file_path, self.write_file_path, method=pith_model, weights_path=weights_path,
                    output_dir= output_dir, percent_lo=percent_lo, st_w=st_w,
                    lo_w=lo_w, st_sigma=st_sigma, new_shape=new_shape)
-        apd.run()
+        status = apd.run()
 
-        return
+        return status
 
     def generate_center_mask(self, output_path, results):
         if self.pith_model == Pith.pixel:
@@ -184,7 +184,7 @@ class UI:
                 st_w = st.slider("ST Window", 1, 10,  int(self.CTX.apd_params["st_w"]))
                 lo_w = st.slider("LO Window", 1, 10,  int(self.CTX.apd_params["lo_w"]))
                 st_sigma = st.slider("ST Sigma", 0.1, 10.0,  float(self.CTX.apd_params["st_sigma"]), step=0.1)
-                resize = st.slider("Resize", 1.0, 10.0,  float(self.CTX.apd_params["resize"]))
+                resize = st.slider("Resize", 1, 10,  int(self.CTX.apd_params["resize"]))
 
 
                 params_dict = {"percent_lo": percent_lo, "st_w": st_w, "lo_w": lo_w,
@@ -207,17 +207,25 @@ class UI:
 
             if pith_method == Pith.manual:
                 interface.interface()
+                status = True
             else:
-                interface.automatic(pith_model, output_dir = self.CTX.pith_mask, params_dict = params_dict)
+                status = interface.automatic(pith_model, output_dir = self.CTX.pith_mask, params_dict = params_dict)
 
-            results = interface.parse_output()
-
+            results = interface.parse_output() if status else None
             gif_runner.empty()
             if results is None:
+                st.write("No results found")
                 return
             interface.generate_center_mask(self.CTX.pith_mask_file, results)
             #display image mask
-            st.image(load_image(self.CTX.pith_mask_file), use_column_width=True)
+            mask  = load_image(self.CTX.pith_mask_file)
+            #convert to gray scale
+            mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+            image = load_image(self.CTX.image_path)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            image[mask > 0] = Color.red
+
+            st.image(image , use_column_width=True)
 
         return
 
