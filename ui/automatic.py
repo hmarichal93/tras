@@ -132,7 +132,7 @@ class ViewContext(Context):
         self.inbd_models = self.config["automatic"]["inbd_models"]
         self.model_path = self.config["automatic"]["model_path"]
         self.upload_model = self.config["automatic"]["upload_model"]
-        self.pith_mask = self.config["automatic"]["pith_mask"]
+        self.pith_mask_path = self.config["automatic"]["pith_mask"]
         self.number_of_rays = self.config["automatic"]["number_of_rays"]
         self.inbd_resize_factor = self.config["automatic"]["inbd_resize_factor"]
 
@@ -149,7 +149,7 @@ class ViewContext(Context):
     def update_config(self):
         self.config["automatic"]["model_path"] = str(self.model_path)
         self.config["automatic"]["upload_model"] = self.upload_model
-        self.config["automatic"]["pith_mask"] = str(self.pith_mask)
+        self.config["automatic"]["pith_mask"] = str(self.pith_mask_path)
         self.config["automatic"]["number_of_rays"] = self.number_of_rays
         self.config["automatic"]["inbd_resize_factor"] = self.inbd_resize_factor
         self.config["automatic"]["sigma"] = self.sigma
@@ -200,7 +200,7 @@ class UI:
 
             self.CTX.pith_mask = self.CTX.output_dir / "pith_mask"
             self.CTX.pith_mask.mkdir(exist_ok=True, parents=True)
-            self.CTX.pith_mask_file = self.CTX.output_dir / "pith_mask" / f"{self.CTX.image_orig_path.stem}.png"
+            self.CTX.pith_mask_path = self.CTX.output_dir / "pith_mask" / f"{self.CTX.image_orig_path.stem}.png"
             interface = PithInterface(self.CTX.image_orig_path, self.CTX.output_dir / "pith.json",
                                       self.CTX.output_dir / "pith.png",
                                       pith_model=pith_model)
@@ -216,9 +216,9 @@ class UI:
             if results is None:
                 st.write("No results found")
                 return
-            interface.generate_center_mask(self.CTX.pith_mask_file, results)
+            interface.generate_center_mask(self.CTX.pith_mask_path, results)
             #display image mask
-            mask  = load_image(self.CTX.pith_mask_file)
+            mask  = load_image(self.CTX.pith_mask_path)
             #convert to gray scale
             mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
             image = load_image(self.CTX.image_path)
@@ -292,7 +292,7 @@ class UI:
 
     def inbd_run(self):
         gif_runner = RunningWidget()
-        inbd = INBD(self.CTX.image_no_background_path, self.CTX.pith_mask, Path(self.CTX.model_path), self.output_dir_inbd,
+        inbd = INBD(self.CTX.image_no_background_path, self.CTX.pith_mask_path, Path(self.CTX.model_path), self.output_dir_inbd,
                     Nr=self.CTX.number_of_rays, resize_factor=self.CTX.inbd_resize_factor,
                     background_path=self.CTX.json_background_path)
         results_path = inbd.run()

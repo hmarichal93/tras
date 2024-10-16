@@ -38,12 +38,13 @@ class APD:
             os.system(f"rm -rf {self.output_dir}/*")
 
         img_in = load_image(self.filename)
-        o_height, o_width = img_in.shape[:2]
         # 1.1 resize image
         self.h_i, self.w_i = img_in.shape[:2]
         if self.new_shape > 0:
             img_in = resize_image_using_pil_lib(img_in, height_output=self.new_shape, width_output=self.new_shape)
             self.h_o, self.w_o = img_in.shape[:2]
+        else:
+            self.h_o, self.w_o = self.h_i, self.w_i
 
         if self.method == Pith.apd:
             print("apd")
@@ -65,7 +66,7 @@ class APD:
         if peak is None:
             return False
         # 3.0 save results
-        radius_size_pith_region = np.maximum(self.w_o, self.h_o) // 100
+        radius_size_pith_region = np.maximum(self.w_o, self.w_o) // 100
         self._save_results(peak, r = radius_size_pith_region)
 
         return True
@@ -82,6 +83,7 @@ class APD:
             shapes = [[[int(x), int(y)] for x, y in zip(xx, yy)]]
         else:
             shapes = [[[int(x * (self.w_i/self.w_o)), int(y * (self.h_i /self.h_o))] for x, y in zip(xx, yy)]]
+
         al = AL_LateWood_EarlyWood(None,
                                    write_file_path=str(self.output_filename),
                                    image_path=str(self.filename)
