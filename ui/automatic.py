@@ -12,7 +12,7 @@ from lib.inbd import INBD
 from lib.cstrd import CSTRD
 from backend.labelme_layer import (LabelmeShapeType, LabelmeObject, AL_LateWood_EarlyWood,
                                    LabelmeInterface as UserInterface)
-from ui.common import Context, download_button, RunningWidget
+from ui.common import Context, download_button, RunningWidget, Pith
 
 class LatewoodMethods:
     cstrd = "CS-TRD"
@@ -24,14 +24,6 @@ class Shapes:
     earlywood = "Earlywood"
     knot = "Knot"
 
-class Pith:
-    pixel = "Pixel"
-    boundary = "Boundary"
-    manual = "Manual"
-    automatic = "Automatic"
-    apd = "APD"
-    apd_pl = "APD-PL"
-    apd_dl = "APD-DL"
 
 
 class InbdModels:

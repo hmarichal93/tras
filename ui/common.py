@@ -5,6 +5,16 @@ import streamlit as st
 from lib.io import load_json, write_json, read_file_as_binary, bytesio_to_dict
 
 
+
+class Pith:
+    pixel = "Pixel"
+    boundary = "Boundary"
+    manual = "Manual"
+    automatic = "Automatic"
+    apd = "APD"
+    apd_pl = "APD-PL"
+    apd_dl = "APD-DL"
+
 class Shapes:
     pith = "Pith"
     latewood = "Late Wood"
