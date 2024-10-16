@@ -12,7 +12,8 @@ from lib.inbd import INBD
 from lib.cstrd import CSTRD
 from backend.labelme_layer import (LabelmeShapeType, LabelmeObject, AL_LateWood_EarlyWood,
                                    LabelmeInterface as UserInterface)
-from ui.common import Context, download_button, RunningWidget
+from lib.apd import APD
+from ui.common import Context, download_button, RunningWidget, Pith
 
 class LatewoodMethods:
     cstrd = "CS-TRD"
@@ -24,14 +25,7 @@ class Shapes:
     earlywood = "Earlywood"
     knot = "Knot"
 
-class Pith:
-    pixel = "Pixel"
-    boundary = "Boundary"
-    manual = "Manual"
-    automatic = "Automatic"
-    apd = "APD"
-    apd_pl = "APD-PL"
-    apd_dl = "APD-DL"
+
 
 
 class InbdModels:
@@ -72,6 +66,33 @@ class PithInterface(UserInterface):
 
         return None
 
+    def automatic(self, pith_model,
+                  weights_path="automatic_methods/pith_detection/apd/checkpoints/yolo/all_best_yolov8.pt",
+                  output_dir=None,
+                  params_dict= None):
+
+        if params_dict is None:
+            params_dict = {}
+
+        lo_w = params_dict.get("lo_w", 3)
+        st_w = params_dict.get("st_w", 3)
+        st_sigma = params_dict.get("st_sigma", 1.2)
+        percent_lo = params_dict.get("percent_lo", 0.7)
+        resize = params_dict.get("resize", 1)
+        if resize != 1:
+            image = load_image(self.read_file_path)
+            new_shape = int(image.shape[0] / resize)
+        else:
+            new_shape = 0
+
+
+        apd = APD( self.read_file_path, self.write_file_path, method=pith_model, weights_path=weights_path,
+                   output_dir= output_dir, percent_lo=percent_lo, st_w=st_w,
+                   lo_w=lo_w, st_sigma=st_sigma, new_shape=new_shape)
+        status = apd.run()
+
+        return status
+
     def generate_center_mask(self, output_path, results):
         if self.pith_model == Pith.pixel:
             mask = np.zeros(load_image(self.read_file_path).shape[:2], dtype=np.uint8)
@@ -111,7 +132,7 @@ class ViewContext(Context):
         self.inbd_models = self.config["automatic"]["inbd_models"]
         self.model_path = self.config["automatic"]["model_path"]
         self.upload_model = self.config["automatic"]["upload_model"]
-        self.pith_mask = self.config["automatic"]["pith_mask"]
+        self.pith_mask_path = self.config["automatic"]["pith_mask"]
         self.number_of_rays = self.config["automatic"]["number_of_rays"]
         self.inbd_resize_factor = self.config["automatic"]["inbd_resize_factor"]
 
@@ -121,17 +142,20 @@ class ViewContext(Context):
         lw_path = self.config["manual"]["annotations_files"]["late_wood"]
         self.lw_annotations = self.output_dir / "none.json" if isinstance(lw_path, list) else Path(lw_path)
 
+        self.apd_params = self.config["automatic"]["apd_params"]
+
         return
 
     def update_config(self):
         self.config["automatic"]["model_path"] = str(self.model_path)
         self.config["automatic"]["upload_model"] = self.upload_model
-        self.config["automatic"]["pith_mask"] = str(self.pith_mask)
+        self.config["automatic"]["pith_mask"] = str(self.pith_mask_path)
         self.config["automatic"]["number_of_rays"] = self.number_of_rays
         self.config["automatic"]["inbd_resize_factor"] = self.inbd_resize_factor
         self.config["automatic"]["sigma"] = self.sigma
         self.config["automatic"]["th_low"] = self.th_low
         self.config["automatic"]["th_hight"] = self.th_hight
+        self.config["automatic"]["apd_params"] = self.apd_params
 
         return
 
@@ -152,41 +176,68 @@ class UI:
         selected = st.selectbox( "Select Shape", (Shapes.pith, Shapes.latewood, Shapes.earlywood, Shapes.knot))
         return selected
 
-    def annotate_pith_manual(self, selected):
-            annotate = st.button("Annotate")
-            if annotate:
-                gif_runner = RunningWidget()
+    def get_pith(self, pith_model, pith_method):
+        if pith_method == Pith.automatic:
+            advanced = st.checkbox("Advanced parameters", value=False)
+            if advanced:
+                percent_lo = st.slider("Percent Lo", 0.0, 1.0, float(self.CTX.apd_params["percent_lo"]), step=0.1)
+                st_w = st.slider("ST Window", 1, 10,  int(self.CTX.apd_params["st_w"]))
+                lo_w = st.slider("LO Window", 1, 10,  int(self.CTX.apd_params["lo_w"]))
+                st_sigma = st.slider("ST Sigma", 0.1, 10.0,  float(self.CTX.apd_params["st_sigma"]), step=0.1)
+                resize = st.slider("Resize", 1, 10,  int(self.CTX.apd_params["resize"]))
 
-                self.CTX.pith_mask = self.CTX.output_dir / "pith_mask"
-                self.CTX.pith_mask.mkdir(exist_ok=True, parents=True)
-                self.CTX.pith_mask = self.CTX.output_dir / "pith_mask" / f"{self.CTX.image_orig_path.stem}.png"
-                interface = PithInterface(self.CTX.image_orig_path, self.CTX.output_dir / "pith.json",
-                                          self.CTX.output_dir / "pith.png",
-                                          pith_model=selected)
+
+                params_dict = {"percent_lo": percent_lo, "st_w": st_w, "lo_w": lo_w,
+                               "st_sigma": st_sigma, "resize": resize}
+
+                self.CTX.apd_params = params_dict
+            else:
+                params_dict = self.CTX.apd_params
+
+        annotate = st.button("Run")
+        if annotate:
+            gif_runner = RunningWidget()
+
+            self.CTX.pith_mask = self.CTX.output_dir / "pith_mask"
+            self.CTX.pith_mask.mkdir(exist_ok=True, parents=True)
+            self.CTX.pith_mask_path = self.CTX.output_dir / "pith_mask" / f"{self.CTX.image_orig_path.stem}.png"
+            interface = PithInterface(self.CTX.image_orig_path, self.CTX.output_dir / "pith.json",
+                                      self.CTX.output_dir / "pith.png",
+                                      pith_model=pith_model)
+
+            if pith_method == Pith.manual:
                 interface.interface()
-                results = interface.parse_output()
+                status = True
+            else:
+                status = interface.automatic(pith_model, output_dir = self.CTX.pith_mask, params_dict = params_dict)
 
-                gif_runner.empty()
-                if results is None:
-                    return
-                interface.generate_center_mask(self.CTX.pith_mask, results)
-                #display image mask
-                st.image(load_image(self.CTX.pith_mask), use_column_width=True)
+            results = interface.parse_output() if status else None
+            gif_runner.empty()
+            if results is None:
+                st.write("No results found")
+                return
+            interface.generate_center_mask(self.CTX.pith_mask_path, results)
+            #display image mask
+            mask  = load_image(self.CTX.pith_mask_path)
+            #convert to gray scale
+            mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+            image = load_image(self.CTX.image_path)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            image[mask > 0] = Color.red
+
+            st.image(image , use_column_width=True)
+
+        return
 
     def shape_pith(self):
         pith_model = st.radio("Model", [Pith.pixel, Pith.boundary], horizontal=True)
         pith_method = st.radio("Method", [Pith.manual, Pith.automatic], horizontal=True)
         if pith_method == Pith.manual:
-            self.annotate_pith_manual(pith_model)
-
-        elif pith_model == Pith.pixel:
+            self.get_pith(pith_model, pith_method)
+        else:
             #Pith model automatic
             pith_model = st.radio("Method", [Pith.apd, Pith.apd_pl, Pith.apd_dl], horizontal=True)
-            run_button = st.button("Run")
-            if run_button:
-                # TODO: Implement
-                st.write(f"Running {pith_model} METHOD")
-                pass
+            self.get_pith(pith_model, pith_method)
 
     def cstrd_parameters(self):
         st.subheader("Parameters")
@@ -210,7 +261,7 @@ class UI:
 
         gif_runner = RunningWidget()
 
-        method = CSTRD(self.CTX.image_no_background_path, self.CTX.pith_mask, Path(self.CTX.model_path), self.output_dir_cstrd,
+        method = CSTRD(self.CTX.image_no_background_path, self.CTX.pith_mask_path, Path(self.CTX.model_path), self.output_dir_cstrd,
                     Nr=self.CTX.number_of_rays, resize_factor=self.CTX.inbd_resize_factor,
                     background_path=self.CTX.json_background_path, sigma=self.CTX.sigma, th_low=self.CTX.th_low,
                     th_hight=self.CTX.th_hight,
@@ -241,7 +292,7 @@ class UI:
 
     def inbd_run(self):
         gif_runner = RunningWidget()
-        inbd = INBD(self.CTX.image_no_background_path, self.CTX.pith_mask, Path(self.CTX.model_path), self.output_dir_inbd,
+        inbd = INBD(self.CTX.image_no_background_path, self.CTX.pith_mask_path, Path(self.CTX.model_path), self.output_dir_inbd,
                     Nr=self.CTX.number_of_rays, resize_factor=self.CTX.inbd_resize_factor,
                     background_path=self.CTX.json_background_path)
         results_path = inbd.run()

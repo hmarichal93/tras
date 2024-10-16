@@ -1,4 +1,12 @@
 import os
+import sys
+
+from pathlib import Path
+
+# Add the desired path to sys.path
+root = Path(__file__).parent.parent
+desired_path = Path(f"{root}/automatic_methods/tree_ring_delineation/mlbrief_inbd")
+sys.path.append(str(desired_path))
 
 from lib.models import Model
 
