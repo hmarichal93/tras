@@ -19,7 +19,8 @@
     "th_hight": 20,
     "inbd_resize_factor":1,
     "number_of_rays":360, 
-    "pith_mask":"",  
+    "pith_mask":"", 
+    "apd_params":{"percent_lo": 0.7, "st_w": 3, "lo_w":3, "st_sigma": 1.2, "resize": 1}, 
     "model_path":"",
     "inbd_models":{"Pinus Taeda":"automatic_methods/tree_ring_delineation/mlbrief_inbd/models/model.update.pt.zip", "INBD-EH":"automatic_methods/tree_ring_delineation/mlbrief_inbd/models/model_eh.update.pt.zip"},
     "upload_model": false

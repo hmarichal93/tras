@@ -104,3 +104,13 @@ class RunningWidget:
 
     def empty(self):
         self.gif_runner.empty()
+
+
+class Pith:
+    pixel = "Pixel"
+    boundary = "Boundary"
+    manual = "Manual"
+    automatic = "Automatic"
+    apd = "APD"
+    apd_pl = "APD-PL"
+    apd_dl = "APD-DL"
