@@ -208,7 +208,7 @@ def apply_mask(image, mask, original_size):
     mask = (mask * 255).astype(np.uint8)
     y, x, _ = np.where(mask == 0)
     image[y, x] = 255
-    return image
+    return image, mask
 
 # Guardar la imagen final sin el objeto saliente
 def save_image(output_path, result_image):
@@ -221,12 +221,6 @@ def remove_salient_object(image_path, output_path, model_path='./models/segmenta
     model = load_model(model_path)
     image_tensor, original_size, original_image = preprocess_image(image_path)
     mask = salient_object_detection(model, image_tensor)
-    result_image = apply_mask(original_image, mask, original_size)
+    result_image, mask_original_dim = apply_mask(original_image, mask, original_size)
     save_image(output_path, result_image)
-
-# Pipeline para eliminar el objeto saliente
-#
-# # Ejecutar el script
-# image_path = 'input_image.jpg'  # Ruta de la imagen original
-# output_path = 'output_image.jpg'  # Ruta para guardar el resultado
-# remove_salient_object(image_path, output_path)
+    return mask_original_dim
