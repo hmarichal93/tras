@@ -11,7 +11,7 @@ opencv-contrib-python-headless==4.10.0.84
 opencv-python==4.10.0.84
 pandas==2.2.3
 pathlib==1.0.1
-pillow==9.5.0
+pillow==10.4.0
 PyQt5==5.15.11
 scikit-image==0.24.0
 scikit-learn==1.5.2
