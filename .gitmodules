@@ -4,3 +4,6 @@
 [submodule "automatic_methods/tree_ring_delineation/cstrd_ipol"]
 	path = automatic_methods/tree_ring_delineation/cstrd_ipol
 	url = https://github.com/hmarichal93/cstrd_ipol.git
+[submodule "automatic_methods/pith_detection/apd"]
+	path = automatic_methods/pith_detection/apd
+	url = https://github.com/hmarichal93/apd.git
