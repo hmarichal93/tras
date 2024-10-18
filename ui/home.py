@@ -41,9 +41,14 @@ def main(default_config_path, runtime_config_path):
         delete_cache_folder(str(inbd_dir))
         pith_dir = Path(config["general"]["output_dir"]) / "pith_mask"
         delete_cache_folder(str(pith_dir))
-
+        #delete streamlit cache
+        st.cache_data.clear()
+        #delete tmp folder
+        tmp_dir = Path(config["general"]["output_dir"]) / "tmp"
+        delete_cache_folder(str(tmp_dir))
 
         reset_runtime_config(runtime_config_path, default_config_path)
+        st.rerun()
 
     folder_picker = st.button("Select Output folder")
     dirname = False
