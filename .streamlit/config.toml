@@ -1,0 +1,10 @@
+[theme] # You have to add this line
+# brown pallete https://www.color-hex.com/color-palette/1049004
+primaryColor = '#8f6b61' # Bright Orange
+
+backgroundColor = '#e1cdbc' # Dark Blue
+
+secondaryBackgroundColor = '#f7f4ef' # Lighter Blue
+
+[server]
+enableStaticServing = true
