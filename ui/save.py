@@ -44,6 +44,7 @@ class UI:
         files_to_export = (list(self.CTX.output_dir.glob("*.json")) +
                            [self.CTX.output_dir / "metrics" / "measurements.csv"] +
                            [self.CTX.output_dir / "metrics" / "coorecorder.csv"] +
+                           [self.CTX.output_dir / "metrics" / "rings.png"] +
                            [self.CTX.output_dir / "metrics" / "metrics.pdf"] +
                            [self.CTX.output_dir / "image.png"])
 
