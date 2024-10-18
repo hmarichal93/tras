@@ -47,6 +47,8 @@ class UI:
 
         #1.0 copy files to tmp dir
         tmp_dir = self.CTX.output_dir / "tmp"
+        if tmp_dir.exists():
+            os.system(f"rm -rf {tmp_dir}")
         tmp_dir.mkdir(exist_ok=True, parents=True)
         for file in files_to_export:
             os.system(f"cp {file} {tmp_dir}")
