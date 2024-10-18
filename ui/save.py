@@ -43,6 +43,7 @@ class UI:
         #1.0 zip the results in self.CTX.output_dir
         files_to_export = (list(self.CTX.output_dir.glob("*.json")) +
                            [self.CTX.output_dir / "metrics" / "measurements.csv"] +
+                           [self.CTX.output_dir / "metrics" / "coorecorder.csv"] +
                            [self.CTX.output_dir / "image.png"])
 
         #1.0 copy files to tmp dir
