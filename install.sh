@@ -71,6 +71,7 @@ fi
 python fetch_pretrained_model.py
 
 #download files stored in git lfs
+cd $ROOT_DIRECTORY
 git lfs install
 git lfs pull
 echo "Installation complete and environment ready."
