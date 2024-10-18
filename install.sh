@@ -61,14 +61,13 @@ fi
 
 echo "Installing APD dependencies..."
 cd $ROOT_DIRECTORY/automatic_methods/pith_detection/apd || { echo "Directory not found: $ROOT_DIRECTORY/automatic_methods/pith_detection/apd"; exit 1; }
-git clone https://github.com/hmarichal93/apd.git
-cd apd
-#if git submodule update --init; then
-#    echo "APD dependencies installed successfully."
-#else
-#    echo "Error installing APD dependencies."
-#    exit 1
-#fi
+#git clone https://github.com/hmarichal93/apd.git
+if git submodule update --init; then
+    echo "APD dependencies installed successfully."
+else
+    echo "Error installing APD dependencies."
+    exit 1
+fi
 python fetch_pretrained_model.py
 
 #download files stored in git lfs
