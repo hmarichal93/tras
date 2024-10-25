@@ -11,12 +11,12 @@ desired_path = Path(f"{root}/automatic_methods/pith_detection/apd")
 sys.path.append(str(desired_path))
 
 from lib.automatic_wood_pith_detector import apd, apd_pcl, apd_dl
-from lib.image import load_image, resize_image_using_pil_lib, write_image, Color
+from lib.image import load_image, resize_image, write_image, Color
 from backend.labelme_layer import LabelmeObject, AL_LateWood_EarlyWood
 from ui.common import Pith
 class APD:
 
-    def __init__(self, filename, output_filename, percent_lo=0.7, st_w=3, method=0, new_shape=640, lo_w=3,
+    def __init__(self, filename, output_filename, percent_lo=0.7, st_w=3, method=0, resize_factor=5, lo_w=3,
                  st_sigma=1.2, weights_path="automatic_methods/pith_detection/apd/checkpoints/yolo/all_best_yolov8.pt",
                  output_dir=None):
         self.filename = filename
@@ -24,7 +24,7 @@ class APD:
         self.percent_lo = percent_lo
         self.st_w = st_w
         self.method = method
-        self.new_shape = new_shape
+        self.resize_factor = resize_factor
         self.lo_w = lo_w
         self.st_sigma = st_sigma
         self.weigths_path = weights_path
@@ -37,11 +37,13 @@ class APD:
             import os
             os.system(f"rm -rf {self.output_dir}/*")
 
+
         img_in = load_image(self.filename)
-        # 1.1 resize image
         self.h_i, self.w_i = img_in.shape[:2]
-        if self.new_shape > 0:
-            img_in = resize_image_using_pil_lib(img_in, height_output=self.new_shape, width_output=self.new_shape)
+        # 1.1 resize image
+        if self.resize_factor != 1:
+            image_resized_path = resize_image(self.filename, self.resize_factor, output_path= f"{self.output_dir}/resized.png")
+            img_in = load_image(image_resized_path)
             self.h_o, self.w_o = img_in.shape[:2]
         else:
             self.h_o, self.w_o = self.h_i, self.w_i
@@ -52,13 +54,19 @@ class APD:
                        max_iter = 11, epsilon =10 ** -3, output_dir=self.output_dir)
 
         elif self.method == Pith.apd_pl:
-            print("apd_pcl")
-            peak = apd_pcl(img_in, self.st_sigma, self.st_w, self.lo_w, rf = 7, percent_lo = self.percent_lo,
-                           max_iter = 11, epsilon =10 ** -3, output_dir=self.output_dir)
+                print("apd_pcl")
+                peak = apd_pcl(img_in, self.st_sigma, self.st_w, self.lo_w, rf = 7, percent_lo = self.percent_lo,
+                               max_iter = 11, epsilon =10 ** -3, output_dir=self.output_dir)
+
 
         elif self.method == Pith.apd_dl:
-            print("apd_dl")
-            peak = apd_dl(img_in, self.output_dir if self.output_dir is not None else Path("/tmp"), self.weigths_path)
+            try:
+                print("apd_dl")
+                peak = apd_dl(img_in, self.output_dir if self.output_dir is not None else Path("/tmp"),
+                              self.weigths_path)
+
+            except FileNotFoundError:
+                peak = None
 
         else:
             raise ValueError(f"method {self.method} not found")
@@ -79,7 +87,7 @@ class APD:
         # Calcular las coordenadas x e y
         xx = x_c + r * np.sin(theta)
         yy = y_c + r * np.cos(theta)
-        if self.new_shape == 0:
+        if self.resize_factor == 0:
             shapes = [[[int(x), int(y)] for x, y in zip(xx, yy)]]
         else:
             shapes = [[[int(x * (self.w_i/self.w_o)), int(y * (self.h_i /self.h_o))] for x, y in zip(xx, yy)]]

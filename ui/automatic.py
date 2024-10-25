@@ -14,7 +14,7 @@ from lib.apd import APD
 
 from backend.labelme_layer import (LabelmeShapeType, LabelmeObject, AL_LateWood_EarlyWood,
                                    LabelmeInterface as UserInterface)
-from ui.common import Context, download_button, RunningWidget, Pith
+from ui.common import Context, download_button, RunningWidget, Pith, display_image
 
 class LatewoodMethods:
     cstrd = "CS-TRD"
@@ -78,16 +78,10 @@ class PithInterface(UserInterface):
         st_sigma = params_dict.get("st_sigma", 1.2)
         percent_lo = params_dict.get("percent_lo", 0.7)
         resize = params_dict.get("resize", 1)
-        if resize != 1:
-            image = load_image(self.read_file_path)
-            new_shape = int(image.shape[0] / resize)
-        else:
-            new_shape = 0
 
-
-        apd = APD( self.read_file_path, self.write_file_path, method=pith_model, weights_path=weights_path,
-                   output_dir= output_dir, percent_lo=percent_lo, st_w=st_w,
-                   lo_w=lo_w, st_sigma=st_sigma, new_shape=new_shape)
+        apd = APD(self.read_file_path, self.write_file_path, method=pith_model, weights_path=weights_path,
+                  output_dir= output_dir, percent_lo=percent_lo, st_w=st_w,
+                  lo_w=lo_w, st_sigma=st_sigma, resize_factor=resize)
         status = apd.run()
 
         return status
@@ -211,7 +205,7 @@ class UI:
                 status = interface.automatic(pith_model, output_dir = self.CTX.pith_mask, params_dict = params_dict)
 
             results = interface.parse_output() if status else None
-            gif_runner.empty()
+
             if results is None:
                 st.write("No results found")
                 return
@@ -224,7 +218,8 @@ class UI:
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             image[mask > 0] = Color.red
 
-            st.image(image , use_column_width=True)
+            gif_runner.empty()
+            display_image(image)
 
         return
 
@@ -337,7 +332,8 @@ class UI:
             download_button(results_path, "Download", f"{self.CTX.image_orig_path.stem}.json",
                             "application/json")
             image_draw_path = results_path.parent / "contours.png"
-            st.image(cv2.cvtColor(load_image(image_draw_path),cv2.COLOR_BGR2RGB), use_column_width=True)
+            #st.image(cv2.cvtColor(load_image(image_draw_path),cv2.COLOR_BGR2RGB), use_column_width=True)
+            display_image((cv2.cvtColor(load_image(image_draw_path),cv2.COLOR_BGR2RGB)))
 
 
 
@@ -356,7 +352,8 @@ class UI:
                 poly = Polygon(ring.points.tolist())
                 image = Drawing.curve( poly.exterior.coords, image, Color.red, thickness=5)
 
-            st.image(image, use_column_width=True)
+            #st.image(image, use_column_width=True)
+            display_image(image)
         return
 
     def shape_latewood(self):

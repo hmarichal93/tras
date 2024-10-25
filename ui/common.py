@@ -88,6 +88,11 @@ def file_uploader(label, output_file, extension):
     return output_file
 
 
+def display_image(image_path, width: int = 320):
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        st.image(image_path, width=width)
+
 class RunningWidget:
     def __init__(self):
         col1, col2, col3 = st.columns([1, 1, 1])
