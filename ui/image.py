@@ -5,6 +5,8 @@ import datetime
 import os
 
 from PIL import Image
+Image.MAX_IMAGE_PIXELS = None  # O establece un límite más alto
+
 from streamlit_option_menu import option_menu
 from pathlib import Path
 
@@ -145,6 +147,7 @@ def main(runtime_config_path):
                                                 else 1 )
 
         CTX.bg_image = st.file_uploader("Image:", type=["png", "jpg"])
+        gif_runner = RunningWidget()
         if CTX.bg_image is not None:
             os.system(f"rm -rf {CTX.output_dir}/*.png")
             os.system(f"rm -rf {CTX.output_dir}/*.json")
@@ -163,6 +166,7 @@ def main(runtime_config_path):
             bg_image_pil_display = CTX.bg_image_pil.resize((CTX.display_image_size, CTX.display_image_size),
                                                            Image.Resampling.LANCZOS)
             st.image(bg_image_pil_display)
+        gif_runner.empty()
 
 
     if selected == Menu.preprocess and Path(CTX.image_path).exists():
