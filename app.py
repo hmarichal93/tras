@@ -22,8 +22,8 @@ RUNTIME_CONFIG_PATH = "./config/runtime.json"
 class Menu:
     home = "Home"
     image = "Image"
-    automatic_ring_delineation = "Automatic Ring Delineation"
-    manual_ring_delineation = "Manual Ring Delineation"
+    automatic_ring_delineation = "Ring Detection"
+    manual_ring_delineation = "Ring Editing"
     metrics = "Metrics"
     save = "Save"
 

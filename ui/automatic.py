@@ -13,7 +13,7 @@ from lib.cstrd import CSTRD
 from lib.apd import APD
 
 from backend.labelme_layer import (LabelmeShapeType, LabelmeObject, AL_LateWood_EarlyWood,
-                                   LabelmeInterface as UserInterface)
+                                   LabelmeInterface as UserInterface, ring_relabelling)
 from ui.common import Context, download_button, RunningWidget, Pith, display_image
 
 class LatewoodMethods:
@@ -122,12 +122,18 @@ class ViewContext(Context):
             self.image_orig_path = self.image_path
             self.image_no_background_path = self.image_path
 
+        self.autocomplete_ring_date = config["metadata"]["autocomplete_ring_date"]
+        self.harvest_date = int(config["metadata"]["harvest_date"]["year"])
+
         self.inbd_models = self.config["automatic"]["inbd_models"]
         self.model_path = self.config["automatic"]["model_path"]
         self.upload_model = self.config["automatic"]["upload_model"]
         self.pith_mask_path = self.config["automatic"]["pith_mask"]
         self.number_of_rays = self.config["automatic"]["number_of_rays"]
         self.inbd_resize_factor = self.config["automatic"]["inbd_resize_factor"]
+        self.pith_model = self.config["automatic"]["pith_model"]
+        self.pith_mode = self.config["automatic"]["pith_mode"]
+        self.pith_method = self.config["automatic"]["pith_method"]
 
         self.sigma = self.config["automatic"]["sigma"]
         self.th_low = self.config["automatic"]["th_low"]
@@ -140,6 +146,8 @@ class ViewContext(Context):
         return
 
     def update_config(self):
+        self.config["automatic"]["pith_model"] = self.pith_model
+        self.config["automatic"]["pith_mode"] = self.pith_mode
         self.config["automatic"]["model_path"] = str(self.model_path)
         self.config["automatic"]["upload_model"] = self.upload_model
         self.config["automatic"]["pith_mask"] = str(self.pith_mask_path)
@@ -149,6 +157,8 @@ class ViewContext(Context):
         self.config["automatic"]["th_low"] = self.th_low
         self.config["automatic"]["th_hight"] = self.th_hight
         self.config["automatic"]["apd_params"] = self.apd_params
+        self.config["automatic"]["pith_method"] = self.pith_method
+
 
         return
 
@@ -224,14 +234,24 @@ class UI:
         return
 
     def shape_pith(self):
-        pith_model = st.radio("Model", [Pith.pixel, Pith.boundary], horizontal=True)
-        pith_method = st.radio("Method", [Pith.manual, Pith.automatic], horizontal=True)
-        if pith_method == Pith.manual:
-            self.get_pith(pith_model, pith_method)
+        model = [Pith.pixel, Pith.boundary]
+        pith_model = st.radio("Model", model , horizontal=True, index = model.index(self.CTX.pith_model))
+        if pith_model != self.CTX.pith_model:
+            self.CTX.pith_model = pith_model
+        mode = [Pith.manual, Pith.automatic]
+        pith_mode = st.radio("Method", mode, horizontal=True, index = mode.index(self.CTX.pith_mode))
+        if pith_mode != self.CTX.pith_mode:
+            self.CTX.pith_mode = pith_mode
+
+        if pith_mode == Pith.manual:
+            self.get_pith(pith_model, pith_mode)
         else:
             #Pith model automatic
-            pith_model = st.radio("Method", [Pith.apd, Pith.apd_pl, Pith.apd_dl], horizontal=True)
-            self.get_pith(pith_model, pith_method)
+            pith_methods = [Pith.apd, Pith.apd_pl, Pith.apd_dl]
+            pith_method = st.radio("Method", pith_methods, horizontal=True, index = pith_methods.index(self.CTX.pith_method))
+            if pith_method != self.CTX.pith_method:
+                self.CTX.pith_method = pith_method
+            self.get_pith(pith_method, pith_mode)
 
     def cstrd_parameters(self):
         st.subheader("Parameters")
@@ -367,6 +387,9 @@ class UI:
         if run_button:
             results_path = self.inbd_run() if method_latewood == LatewoodMethods.inbd else\
                 self.cstrd_run()
+            #relabel rings
+            if self.CTX.autocomplete_ring_date:
+                ring_relabelling(self.CTX.image_path, results_path, self.CTX.harvest_date)
             st.write("Results saved in: ", results_path)
             download_button(results_path, "Download", f"{self.CTX.image_orig_path.stem}.json",
                             "application/json")

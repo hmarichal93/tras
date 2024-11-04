@@ -46,7 +46,7 @@ class ViewContext(Context):
         self.scale_status = config["scale"]["status"]
 
 
-        self.tree_planting_date = config["metadata"]["tree_planting_date"]
+        #self.tree_planting_date = config["metadata"]["tree_planting_date"]
         self.harvest_date = config["metadata"]["harvest_date"]
         self.location = config["metadata"]["location"]
         self.species = config["metadata"]["species"]
@@ -54,10 +54,12 @@ class ViewContext(Context):
         self.code = config["metadata"]["code"]
         self.latitude = config['metadata']['latitude']
         self.longitude = config['metadata']['longitude']
+        self.autocomplete_ring_date = config['metadata']['autocomplete_ring_date']
 
         self.image_no_background_path = self.output_dir / config["background"]["image_path"]
         self.background_json_path = self.output_dir / config["background"]["json_path"]
         self.resize_factor = config["background"]["resize_factor"]
+
 
         #runtime variables
         self.bg_image = None
@@ -79,7 +81,7 @@ class ViewContext(Context):
         config["scale"]["status"] = self.scale_status
 
 
-        config["metadata"]["tree_planting_date"] = self.tree_planting_date
+        #config["metadata"]["tree_planting_date"] = self.tree_planting_date
         config["metadata"]["harvest_date"] = self.harvest_date
         config["metadata"]["location"] = self.location
         config["metadata"]['latitude'] = self.latitude
@@ -87,6 +89,7 @@ class ViewContext(Context):
         config["metadata"]["species"] = self.species
         config["metadata"]["observations"] = self.observations
         config["metadata"]["code"] = self.code
+        config['metadata']['autocomplete_ring_date'] = self.autocomplete_ring_date
 
         config["background"]["resize_factor"] = self.resize_factor
 
@@ -104,15 +107,21 @@ class Menu:
 
 
 
-def set_date_input(dictionary_date, text="Tree planting date"):
-    year, month, day = (dictionary_date['year'], dictionary_date['month'],
-                        dictionary_date['day'])
-    input_date = st.date_input( text, datetime.date(year, month, day),
-                                min_value = datetime.date(1500, 1, 1),
-                                max_value = datetime.date(3000, 1, 1))
-    dictionary_date['year'] = input_date.year
-    dictionary_date['month'] = input_date.month
-    dictionary_date['day'] = input_date.day
+def set_date_input(dictionary_date, text="Harvest date", help=""):
+
+    current_year = datetime.datetime.now().year
+    min_year = current_year - 200
+    max_year = current_year
+    # year, month, day = (dictionary_date['year'], dictionary_date['month'],
+    #                     dictionary_date['day'])
+    # input_date = st.date_input( text, datetime.date(year, month, day),
+    #                             min_value = datetime.date(1500, 1, 1),
+    #                             max_value = datetime.date(3000, 1, 1))
+    selected_year = st.selectbox(text, reversed(range(min_year, max_year + 1)), index=0, help=help)
+
+    dictionary_date['year'] = selected_year
+    dictionary_date['month'] = 1
+    dictionary_date['day'] = 1
     return dictionary_date
 
 
@@ -126,7 +135,7 @@ def main(runtime_config_path):
     st.header("Image")
     st.markdown(
         """
-        Upload Disk Image, preprocess, set scale unit and remove background
+        Upload Disk Image, preprocess, set scale unit and add metadata
         """
     )
 
@@ -245,28 +254,37 @@ def main(runtime_config_path):
                 CTX.know_distance = know_distance
 
     if selected == Menu.metadata and Path(CTX.image_path).exists():
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            code = st.text_input("Code", value = CTX.code)
+            CTX.code = code
 
-        code = st.text_input("Code", value = CTX.code)
-        CTX.code = code
+            ##tree planting date
+            #CTX.tree_planting_date = set_date_input(CTX.tree_planting_date, "Tree planting date")
+            CTX.harvest_date = set_date_input(CTX.harvest_date, "Harvest date")
 
-        ##tree planting date
-        CTX.tree_planting_date = set_date_input(CTX.tree_planting_date, "Tree planting date")
-        CTX.harvest_date = set_date_input(CTX.tree_planting_date, "Harvest date")
+            autocomplete_ring_date = st.checkbox("Autocomplete ring date", value = CTX.autocomplete_ring_date,
+                                help="If checked, the ring date will be automatically filled with the harvest date. "
+                                    "This means that rings label will be created from the harvest date"
+                                    " (manually labeled rings will be deleted).")
+            if autocomplete_ring_date != CTX.autocomplete_ring_date:
+                CTX.autocomplete_ring_date = autocomplete_ring_date
 
-        location = st.text_input("Location", value = CTX.location)
-        CTX.location = location
+            location = st.text_input("Location", value = CTX.location)
+            CTX.location = location
 
-        latitude = st.number_input("Latitude", value = CTX.latitude, format="%.8f")
-        CTX.latitude = latitude
+            latitude = st.number_input("Latitude", value = CTX.latitude, format="%.8f")
+            CTX.latitude = latitude
 
-        longitude = st.number_input("Longitude", value = CTX.longitude, format="%.8f")
-        CTX.longitude = longitude
+            longitude = st.number_input("Longitude", value = CTX.longitude, format="%.8f")
+            CTX.longitude = longitude
 
-        species = st.text_input("Species", value = CTX.species)
-        CTX.species = species
+        with col2:
+            species = st.text_input("Species", value = CTX.species)
+            CTX.species = species
 
-        observations = st.text_area("Observations", value = CTX.observations)
-        CTX.observations = observations
+            observations = st.text_area("Observations", value = CTX.observations)
+            CTX.observations = observations
 
 
     #save status

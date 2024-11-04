@@ -111,6 +111,8 @@ class RunningWidget:
         self.gif_runner.empty()
 
 
+
+
 class Pith:
     pixel = "Pixel"
     boundary = "Boundary"

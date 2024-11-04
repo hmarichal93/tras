@@ -25,6 +25,8 @@ class LabelmeShape:
         self.points = np.array(shape['points'])[:,[1,0]]
         self.shape_type = shape['shape_type']
         self.flags = shape['flags']
+        if self.shape_type == LabelmeShapeType.polygon:
+            self.area = Polygon(self.points).area
 
     def to_dict(self):
         return dict(
@@ -40,9 +42,10 @@ class LabelmeShape:
     def __repr__(self):
         return f"(main_label={self.label}, shape_type={self.shape_type}, size = {self.points.shape})"
 
-    def area(self):
-        poly  = Polygon(self.points)
-        return poly.area
+
+    # def area(self):
+    #     poly  = Polygon(self.points)
+    #     return poly.area
 
 class LabelmeObject:
     def __init__(self, json_labelme_path = None):
@@ -81,7 +84,7 @@ class LabelmeObject:
             check_if_all_shapes_are_polygon = (len([s for s in self.shapes if s.shape_type == LabelmeShapeType.polygon])
                                                ==len(self.shapes))
             if check_if_all_shapes_are_polygon:
-                self.shapes.sort(key=lambda x: x.area())
+                self.shapes.sort(key=lambda x: x.area)
         self.imagePath = labelme_json["imagePath"]
         self.imageData = labelme_json["imageData"]
         self.imageHeight = labelme_json["imageHeight"]
@@ -119,7 +122,7 @@ class LabelmeInterface(UserInterface):
     def read(self):
         labelme_parser = LabelmeObject(self.read_file_path)
         structure_list = [self.from_labelme_shape_to_structure(shape) for shape in labelme_parser.shapes]
-        structure_list.sort(key=lambda x: x.area())
+        structure_list.sort(key=lambda x: x.area)
         return structure_list
 
     @abstractmethod
@@ -176,9 +179,13 @@ class AL_LateWood_EarlyWood(LabelmeInterface):
     def from_labelme_shape_to_structure(self, shape: LabelmeShape):
         return shape
 
-    def write_list_of_points_to_labelme_json(self, shapes: List[List[List[int]]]):
-        shapes = [LabelmeShape(dict(points=s, shape_type=LabelmeShapeType.polygon, flags={}, label=str(idx)))
-                  for idx, s in enumerate(shapes)]
+    def write_list_of_points_to_labelme_json(self, shapes: List[List[List[int]]], labels = None):
+        if labels is None:
+            shapes = [LabelmeShape(dict(points=s, shape_type=LabelmeShapeType.polygon, flags={}, label=str(idx)))
+                      for idx, s in enumerate(shapes)]
+        else:
+            shapes = [LabelmeShape(dict(points=s, shape_type=LabelmeShapeType.polygon, flags={}, label=str(idx)))
+                      for idx, s in zip(labels, shapes)]
         object = LabelmeObject()
         object.from_memory(shapes=shapes, imagePath=str(Path(self.image_path).name))
         json_content = object.to_dict()
@@ -317,5 +324,30 @@ def draw_circular_region(image, poly_outter, poly_inner, color, opacity):
 
 
 
+def ring_relabelling(image_path: str, json_path: str, harvest_date: int, output_path: str = None):
+    """
+    Relabel the rings according to the harvest date
+    :param json_path: path to the json file
+    :param harvest_date: harvest date
+    :return:
+    """
+    output_path = json_path if output_path is None else output_path
+    al = AL_LateWood_EarlyWood(json_path, output_path, image_path=image_path)
+    shapes = al.read()
+    shapes = shapes[::-1]
+    labels = []
+    for idx, shape in enumerate(shapes):
+        date = harvest_date - (idx)
+        labels.append(date)
+    al.write_list_of_points_to_labelme_json([shape.points for shape in shapes], labels)
+
+    return
+
+if __name__ == "__main__":
+    json_path = "./input/A4/A4_latewood.json"
+    image_path = "./input/A4/A4.jpg"
+    harvest_date = 2016
+    ring_relabelling(image_path, json_path, harvest_date)
+    print("Done")
 
 
