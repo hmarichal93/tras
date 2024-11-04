@@ -104,7 +104,7 @@ def plot_chart(df, title=""):
     x, y = df.columns
 
     line_chart = alt.Chart(df).mark_line(color="#FF5733").encode(
-        x=x if x_ticks is None else alt.X(x, axis=alt.Axis(labels=False)),
+        x=x,
         y=y
     )
 
