@@ -10,7 +10,7 @@ from copy import deepcopy
 from lib.image import Drawing, load_image, write_image
 from ui.common import Context, Shapes, file_uploader, RunningWidget
 from lib.io import load_json, write_json
-from backend.labelme_layer import LabelmeInterface as UserInterface
+from backend.labelme_layer import LabelmeInterface as UserInterface, ring_relabelling
 
 
 
@@ -32,7 +32,8 @@ class VisualizationShape:
 class ViewContext(Context):
     def init_specific_ui_components(self):
         config = self.config["image"]
-
+        self.autocomplete_ring_date = config["metadata"]["autocomplete_ring_date"]
+        self.harvest_date = int(config["metadata"]["harvest_date"]["year"])
         self.image_path = self.output_dir / config["image_path"]
         self.image_no_background_path = self.output_dir / config["background"]["image_path"]
         if Path(self.image_no_background_path).exists():
@@ -313,6 +314,11 @@ class UI:
             shape_edition = ShapeInterface(image_with_drawable_shapes_path, output_path, image_annotations_path)
             shape_edition.parse_input()
             shape_edition.interface()
+
+            #relabel rings
+            if self.CTX.autocomplete_ring_date:
+                ring_relabelling(self.CTX.image_path, output_path, self.CTX.harvest_date)
+
             gif_runner.empty()
             st.write("Annotations saved in", output_path)
 
