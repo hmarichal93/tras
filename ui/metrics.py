@@ -393,7 +393,7 @@ class UI:
                        increment=0.2)
             x_axis = "index"
             y_axis = columns[1]
-            x_axis_values = np.arange(df.shape[0]) #df[x_axis].values
+            x_axis_values = np.arange(df.shape[0])
             y_axis_values = df[y_axis].values
             self.plot(x_axis, y_axis, x_axis_values, y_axis_values)
             y_axis = columns[2]
