@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 import streamlit as st
+import altair as alt
 
 from lib.io import load_json, write_json, read_file_as_binary, bytesio_to_dict
 
@@ -92,6 +93,33 @@ def display_image(image_path, width: int = 320):
     col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
         st.image(image_path, width=width)
+
+def display_chart(chart):
+    col1, col2, col3 = st.columns([0.5, 2, 0.5])
+    with col2:
+        st.altair_chart(chart)
+
+
+def plot_chart(df, title=""):
+    x, y = df.columns
+
+    line_chart = alt.Chart(df).mark_line(color="#FF5733").encode(
+        x=x if x_ticks is None else alt.X(x, axis=alt.Axis(labels=False)),
+        y=y
+    )
+
+    points = alt.Chart(df).mark_point(color="#FF5733", filled=True, size=100).encode(
+        x=x,
+        y=y
+    )
+
+    chart = (line_chart + points).properties(
+        width=800,
+        height=400,
+        title=alt.TitleParams(title, anchor='middle', offset=20)
+    )
+
+    display_chart(chart)
 
 class RunningWidget:
     def __init__(self):

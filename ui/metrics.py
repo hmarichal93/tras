@@ -12,7 +12,7 @@ from pathlib import Path
 from shapely.geometry import LineString, MultiLineString, Polygon, Point, MultiPoint
 
 from lib.image import  Color as ColorCV2, Drawing, load_image, write_image, resize_image_using_pil_lib
-from ui.common import Context, RunningWidget
+from ui.common import Context, RunningWidget, display_chart, plot_chart
 from lib.metrics import  export_results, Table
 from backend.labelme_layer import (LabelmeShapeType,
                                    LabelmeObject, LabelmeInterface as UserInterface)
@@ -305,8 +305,6 @@ class UI:
 
         df_columns = self.df.columns.tolist()
         df_columns.remove('image')
-        #df_columns.remove(table.ew_lw_label)
-        #df_columns.remove(table.main_label)
         index_year = 0#df_columns.index(table.year)
         index_radius_width = 1#df_columns.index(table.cumulative_radius)
         x_axis = st.selectbox("Select x-axis", df_columns, index=index_year)
@@ -318,37 +316,18 @@ class UI:
 
         x_axis_values = self.df[x_axis].values
         y_axis_values = self.df[y_axis].values
-        x_axis = x_axis.split("[")[0]
-        y_axis = y_axis.split("[")[0]
-        df = pd.DataFrame(data={x_axis: x_axis_values, y_axis: y_axis_values}, columns=[x_axis, y_axis])
+        self.plot(x_axis, y_axis, x_axis_values, y_axis_values)
 
-        chart = alt.Chart(df).mark_line(color="#FF5733").encode(
-            x=x_axis,
-            y=y_axis
-        ).properties(
-            width=800,
-            height=400,
-            title=alt.TitleParams(f"Measurement Unit: {self.CTX.units_mode}", anchor='middle', offset=20)
-        )
 
-        st.altair_chart(chart)
         return
 
     def plot(self, x_axis, y_axis, x_axis_values, y_axis_values):
         x_axis = x_axis.split("[")[0]
         y_axis = y_axis.split("[")[0]
         df = pd.DataFrame(data={x_axis: x_axis_values, y_axis: y_axis_values}, columns=[x_axis, y_axis])
+        plot_chart(df, title=f"Measurement Unit: {self.CTX.units_mode}")
 
-        chart = alt.Chart(df).mark_line(color="#FF5733").encode(
-            x=x_axis,
-            y=y_axis
-        ).properties(
-            width=800,
-            height=400,
-            title=alt.TitleParams(f"Measurement Unit: {self.CTX.units_mode}", anchor='middle', offset=20)
-        )
 
-        st.altair_chart(chart)
     def delineate_path(self):
         #add a button for delineating path
         if not self.CTX.scale_status:
@@ -391,15 +370,14 @@ class UI:
             height, width = image_z.shape[:2]
             image_zoom(image, mode="scroll", size=(width, height), keep_aspect_ratio=True, zoom_factor=4.0,
                        increment=0.2)
-            x_axis = "index"
+            x_axis = "year"
             y_axis = columns[1]
-            x_axis_values = np.arange(df.shape[0])
-            y_axis_values = df[y_axis].values
+            x_axis_values = df.label.values[1:]
+            y_axis_values = df[y_axis].values[1:]
             self.plot(x_axis, y_axis, x_axis_values, y_axis_values)
             y_axis = columns[2]
-            y_axis_values = df[y_axis].values
+            y_axis_values = df[y_axis].values[1:]
             self.plot(x_axis, y_axis, x_axis_values, y_axis_values)
-            st.warning("Index 0 refers to the pith position")
 
 
 
