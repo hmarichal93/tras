@@ -27,7 +27,7 @@ class ViewContext(Context):
         self.pixels_length = config["scale"]["pixels_length"]
         self.know_distance = config["scale"]["know_distance"]
         self.dpi = config["scale"]["dpi"]
-        self.tree_planting_date = config["metadata"]["tree_planting_date"]
+        self.harvest_date = config["metadata"]["harvest_date"]
 
 
         config_manual = self.config["manual"]
@@ -217,12 +217,12 @@ class UI:
         run_button = st.button("Run", disabled = not enabled)
 
         if run_button:
+            #os.system(f"rm -rf {self.CTX.output_dir_metrics}")
             metadata = dict(
                 unit = self.CTX.units_mode,
-                pixels_millimeter_relation =  self.CTX.know_distance / self.CTX.pixels_length ,
+                pixels_millimeter_relation = self.CTX.know_distance / self.CTX.pixels_length ,
                 plantation_date = True,
-                year = self.CTX.tree_planting_date['year']
-
+                year = self.CTX.harvest_date['year']
             )
             if Path(self.CTX.lw_annotation_file).exists():
                 lw_file_path = self.CTX.output_dir_metrics / "latewood_read.json"
