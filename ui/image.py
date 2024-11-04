@@ -136,8 +136,8 @@ def main(runtime_config_path):
 
 
     if selected == Menu.image:
-        CTX.mode = st.radio("Mode", ("cross-section", "core"), horizontal=True, index = 0 if CTX.mode == "cross-section"
-                                                else 1 )
+        # CTX.mode = st.radio("Mode", ("cross-section", "core"), horizontal=True, index = 0 if CTX.mode == "cross-section"
+        #                                         else 1 )
 
         CTX.bg_image = st.file_uploader("Image:", type=["png", "jpg"])
         gif_runner = RunningWidget()
