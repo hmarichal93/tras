@@ -1,10 +1,8 @@
 import os
 import base64
-import cv2
 import streamlit as st
 import numpy as np
 import pandas as pd
-import altair as alt
 
 from typing import List
 from streamlit_image_zoom import image_zoom
@@ -12,7 +10,7 @@ from pathlib import Path
 from shapely.geometry import LineString, MultiLineString, Polygon, Point, MultiPoint
 
 from lib.image import  Color as ColorCV2, Drawing, load_image, write_image, resize_image_using_pil_lib
-from ui.common import Context, RunningWidget, display_chart, plot_chart
+from ui.common import Context, RunningWidget,  plot_chart, display_image_with_zoom, display_data_editor
 from lib.metrics import  export_results, Table
 from backend.labelme_layer import (LabelmeShapeType,
                                    LabelmeObject, LabelmeInterface as UserInterface)
@@ -254,13 +252,8 @@ class UI:
         st.write(f"Results are saved in {self.CTX.output_dir_metrics}")
 
         rings_image_path = self.CTX.output_dir_metrics / "rings.png"
-        import cv2
-        image = cv2.cvtColor(load_image(rings_image_path), cv2.COLOR_BGR2RGB)
-
-
 
         self.df = pd.read_csv(self.dataframe_file)
-        #self.df['Year'] = self.df['Year'].astype(int)
 
         #select columns to display
         table =  Table(self.CTX.units_mode)
@@ -287,21 +280,12 @@ class UI:
         cols = cols[-1:] + cols[:-1]
         self.df = self.df[cols]
 
+        display_data_editor(self.df)
+        st.divider()
+        display_image_with_zoom(rings_image_path)
+        st.divider()
 
 
-        st.data_editor(self.df,
-                       column_config= {
-                           'image': st.column_config.ImageColumn('Preview Ring', help="Preview Ring")
-                       },
-                       hide_index = True
-        )
-        height, width = image.shape[:2]
-        height, width = 800, 400
-        image_z = resize_image_using_pil_lib(image, height, width)
-        height, width = image_z.shape[:2]
-        image_zoom(image, mode="scroll", size=(width, height), keep_aspect_ratio=True, zoom_factor=4.0, increment=0.2)
-
-        #tab1, tab2 = st.tabs(["Line plot", "Bar plot"])
 
         df_columns = self.df.columns.tolist()
         df_columns.remove('image')
@@ -363,13 +347,12 @@ class UI:
             df = pd.read_csv(output_path)
             columns = df.columns.tolist()
             st.write(df)
-            image = load_image(self.CTX.output_dir / "debug_path.png")
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            height, width = 800, 400
-            image_z = resize_image_using_pil_lib(image, height, width)
-            height, width = image_z.shape[:2]
-            image_zoom(image, mode="scroll", size=(width, height), keep_aspect_ratio=True, zoom_factor=4.0,
-                       increment=0.2)
+
+            image_path = self.CTX.output_dir / "debug_path.png"
+            st.divider()
+            display_image_with_zoom(image_path)
+
+            st.divider()
             x_axis = "year"
             y_axis = columns[1]
             x_axis_values = df.label.values[1:]

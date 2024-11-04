@@ -118,4 +118,3 @@ if __name__ == "__main__":
     main()
     #TODO: Add CooRecorder export to the app.
     # https://github.com/Gregor-Mendel-Institute/TRG-ImageProcessing/blob/826736d3012a2322130850e34c7bfdc873dfef42/CoreProcessingPipelineScripts/CNN/Mask_RCNN/postprocessing/postprocessingCracksRings.py#L779
-    #TODO: Add INBD as automatic pith detection method

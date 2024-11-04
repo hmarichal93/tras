@@ -1,9 +1,12 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 import streamlit as st
+from streamlit_image_zoom import image_zoom
 import altair as alt
+import cv2
 
 from lib.io import load_json, write_json, read_file_as_binary, bytesio_to_dict
+from lib.image import  load_image, resize_image_using_pil_lib
 
 
 
@@ -138,8 +141,27 @@ class RunningWidget:
     def empty(self):
         self.gif_runner.empty()
 
+def display_image_with_zoom(image_path):
+    image = load_image(image_path)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    height, width = 800, 400
+    image_z = resize_image_using_pil_lib(image, height, width)
+    height, width = image_z.shape[:2]
+    col1, col2, col3 = st.columns([0.5, 2, 0.5])
+    with col2:
+        image_zoom(image_z, mode="scroll", size=(width, height), keep_aspect_ratio=True, zoom_factor=4.0,
+               increment=0.2)
 
+    return
 
+def display_data_editor(data):
+
+    st.data_editor(data,
+                   column_config= {
+                       'image': st.column_config.ImageColumn('Preview Ring', help="Preview Ring")
+                   },
+                   hide_index = True
+    )
 
 class Pith:
     pixel = "Pixel"
