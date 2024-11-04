@@ -14,7 +14,7 @@ from ui.save import main as save
 from ui.update import pull_last_changes_from_remote_repo
 
 
-APP_NAME = "DendroTool: An Interactive Software for tracing Tree Ring Cross Sections"
+APP_NAME = "TRAS: An Interactive Sofware for tracing Tree Ring Cross Sections."
 DEFAULT_CONFIG_PATH = "./config/default.json"
 RUNTIME_CONFIG_PATH = "./config/runtime.json"
 
@@ -64,43 +64,51 @@ def main():
 
     # 1. as sidebar menu
     with st.sidebar:
-        st.markdown(
-            """
-            <a href="https://github.com/hmarichal93/dendrotool" target="_blank">
-                <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" width="30" height="30">
-            </a>
-            """,
-            unsafe_allow_html=True
-        )
-        mode = st.radio("Mode", [Mode.single, Mode.batch], index=0, horizontal=True,
-                        help="Select the mode to run the app")
-        if mode == Mode.single:
-            selected = option_menu("", [Menu.home, Menu.image, Menu.automatic_ring_delineation,
-                                        Menu.manual_ring_delineation, Menu.metrics, Menu.save], menu_icon="cast",
-                                   default_index=0)
 
-    if mode == Mode.single:
-        if selected == Menu.home:
-            home(DEFAULT_CONFIG_PATH, RUNTIME_CONFIG_PATH)
+        # mode = st.radio("Mode", [Mode.single, Mode.batch], index=0, horizontal=True,
+        #                 help="Select the mode to run the app")
+        # if mode == Mode.single:
+        selected = option_menu("", [Menu.home, Menu.image, Menu.automatic_ring_delineation,
+                                    Menu.manual_ring_delineation, Menu.metrics, Menu.save], menu_icon="cast",
+                               default_index=0)
 
-        elif selected == Menu.image:
-            image(RUNTIME_CONFIG_PATH)
+    #if mode == Mode.single:
+    if selected == Menu.home:
+        home(DEFAULT_CONFIG_PATH, RUNTIME_CONFIG_PATH)
 
-        elif selected == Menu.automatic_ring_delineation:
-            automatic_ring_delineation(RUNTIME_CONFIG_PATH)
+    elif selected == Menu.image:
+        image(RUNTIME_CONFIG_PATH)
 
-        elif selected == Menu.manual_ring_delineation:
-            manual(RUNTIME_CONFIG_PATH)
+    elif selected == Menu.automatic_ring_delineation:
+        automatic_ring_delineation(RUNTIME_CONFIG_PATH)
 
-        elif selected == Menu.metrics:
-            metrics(RUNTIME_CONFIG_PATH)
+    elif selected == Menu.manual_ring_delineation:
+        manual(RUNTIME_CONFIG_PATH)
 
-        elif selected == Menu.save:
-            save(RUNTIME_CONFIG_PATH)
+    elif selected == Menu.metrics:
+        metrics(RUNTIME_CONFIG_PATH)
+
+    elif selected == Menu.save:
+        save(RUNTIME_CONFIG_PATH)
 
     with st.sidebar:
 
-        if st.button("Update", help="Update the app to the latest version"):
+        st.markdown(
+            """
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                    <!-- Enlace de GitHub -->
+                    <a href="https://github.com/hmarichal93/dendrotool" target="_blank">
+                        <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" width="30" height="30">
+                    </a>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        # Botón de Streamlit (el verdadero funcional)
+        if st.button("Update", key="streamlit_button", help="Update the app to the latest version"):
             pull_last_changes_from_remote_repo(os.path.dirname(os.path.abspath(__file__)))
 
         st.image("assets/wood_image.jpeg")
