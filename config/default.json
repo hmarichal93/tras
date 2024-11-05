@@ -63,6 +63,7 @@
     "annual_ring_width": true,
     "ew_width": true,
     "lw_width_ratio": true,
-    "ring_path":""
+    "ring_path":"",
+    "ew_measurements": true
   }
 }

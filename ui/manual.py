@@ -180,11 +180,11 @@ class UI:
 
         self.CTX.ew_annotation_file = file_uploader( self.bold_text_depending_on_main_shape(Shapes.earlywood,
                          f"Choose {Shapes.earlywood} annotations file"),
-                              self.CTX.output_dir / "earlywood_read.json", "json")
+                              self.CTX.output_dir / "earlywood_read.json", "json", CTX=self.CTX)
 
         self.CTX.lw_annotation_file = file_uploader(self.bold_text_depending_on_main_shape(Shapes.latewood,
                             f"Choose {Shapes.latewood} annotations file"),
-                                 self.CTX.output_dir / "latewood_read.json", "json")
+                                 self.CTX.output_dir / "latewood_read.json", "json", CTX=self.CTX)
 
         self.annotations_files_dict = { Shapes.earlywood: self.CTX.ew_annotation_file,
                                         Shapes.latewood: self.CTX.lw_annotation_file,

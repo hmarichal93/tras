@@ -7,7 +7,7 @@ import cv2
 
 from lib.io import load_json, write_json, read_file_as_binary, bytesio_to_dict
 from lib.image import  load_image, resize_image_using_pil_lib
-
+from backend.labelme_layer import ring_relabelling
 
 
 class Pith:
@@ -84,10 +84,14 @@ def save_annotation_file_locally(filename, file_uploader_instance):
     config = bytesio_to_dict(file_uploader_instance)
     write_json(config, filename)
 
-def file_uploader(label, output_file, extension):
+def file_uploader(label, output_file, extension, CTX = None):
     uploaded_cw_annotation_file = st.file_uploader(label, type=[extension])
     if uploaded_cw_annotation_file:
         save_annotation_file_locally(output_file, uploaded_cw_annotation_file)
+        if CTX is not None:
+            # relabel rings
+            if CTX.autocomplete_ring_date:
+                ring_relabelling(CTX.image_path, output_file, CTX.harvest_date)
 
     return output_file
 
