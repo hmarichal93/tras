@@ -399,6 +399,8 @@ class UI:
         tab1, tab2, tab3 = st.tabs(["Image", "table", "Charts"])
         with tab2:
             df = pd.read_csv(output_path)
+            #set two decimal
+            df = df.round(2)
             columns = df.columns.tolist()
             st.write(df)
 
