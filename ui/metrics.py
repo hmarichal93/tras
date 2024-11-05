@@ -396,6 +396,9 @@ class UI:
         return True
     def path_display_results(self, output_path):
         st.divider()
+        st.markdown("To avoid confusion when earlywood and latewood measurements are calculated together, "
+                    "earlywood measurements are prefixed with 'ew,' and latewood measurements are prefixed"
+                    " with 'lw.'")
         tab1, tab2, tab3 = st.tabs(["Image", "table", "Charts"])
         with tab2:
             df = pd.read_csv(output_path)
