@@ -12,6 +12,17 @@ from lib.image import Color, Drawing, load_image
 from backend.abstraction_layer import UserInterface
 from backend.disk_wood_structure import AnnualRing
 
+class PointLabelme(Point):
+    def __init__(self, x, y, label):
+        self.label = label
+        super().__init__([x, y])
+
+    def scale(self, new_width, new_height):
+        x, y = self.coords.xy
+        x = x[0] * new_width
+        y = y[0] * new_height
+        return PointLabelme(x, y, self.label)
+
 class LabelmeShapeType:
     polygon = "polygon"
     point = "point"
@@ -360,6 +371,7 @@ def ring_relabelling(image_path: str, json_path: str, harvest_date: int, output_
     al.write_list_of_points_to_labelme_json([shape.points for shape in shapes], labels)
 
     return
+
 
 
 def add_prefix_to_labels(json_path, image_path, prefix, output_path):

@@ -15,7 +15,9 @@ from ui.common import (Context, RunningWidget,  plot_chart, display_image_with_z
 from lib.metrics import  export_results, Table
 from backend.labelme_layer import (LabelmeShapeType,
                                    LabelmeObject, LabelmeInterface as UserInterface, add_prefix_to_labels,
-                                   AL_LateWood_EarlyWood, load_ring_shapes, write_ring_shapes)
+                                   AL_LateWood_EarlyWood, load_ring_shapes, write_ring_shapes, PointLabelme)
+
+
 
 
 class ViewContext(Context):
@@ -63,6 +65,7 @@ class ViewContext(Context):
         self.ew_width = config_metric["ew_width"]
         self.lw_width_ratio = config_metric["lw_width_ratio"]
         self.ew_measurements = config_metric["ew_measurements"]
+        self.two_dim_annotations = config_metric["two_dim_annotations"]
 
         self.ring_path = config_metric["ring_path"]
 
@@ -91,6 +94,7 @@ class ViewContext(Context):
         config_metric["lw_width_ratio"] = self.lw_width_ratio
         config_metric["ring_path"] = str(self.ring_path)
         config_metric["ew_measurements"] = self.ew_measurements
+        config_metric["two_dim_annotations"] = self.two_dim_annotations
 
 
 
@@ -210,13 +214,14 @@ class UI:
 
 
 
-    def run_metrics(self):
-        if not self.CTX.scale_status:
-            os.system(f"rm -rf {self.CTX.output_dir_metrics}")
-            st.warning("Please set the scale")
+    def area_metrics(self):
+        if self.check_scale():
+            return
 
-        enabled = self.CTX.lw_annotation_file is not None and self.CTX.scale_status
-        run_button = st.button("Run", disabled = not enabled)
+        if self.check_lw_file():
+            return
+
+        run_button = st.button("Run")
 
         if run_button:
             #os.system(f"rm -rf {self.CTX.output_dir_metrics}")
@@ -354,7 +359,16 @@ class UI:
 
         return shapes
 
-    def compute_intersection(self, interface, path):
+    def compute_intersection(self, interface, path, use_annotations=True):
+        if not use_annotations:
+            l_intersections = []
+            year = int(self.CTX.harvest_date['year']) - (len(path) -1)
+            for idx, l in enumerate(path):
+                x, y = l.coords[0]
+                l_intersections.append(PointLabelme(x=x, y=y, label=f"{year+ idx}"))
+
+            return l_intersections
+
         if self.CTX.ew_measurements:
             shapes_ew = self.ring_shapes_processing(self.CTX.ew_annotation_file, self.CTX.image_path,
                                                     "ew",Shapes.earlywood)
@@ -385,11 +399,11 @@ class UI:
             st.error("Path not delineated or saved. Please save the path")
             return []
 
-        results = interface.parse_output()
+        results = interface.parse_output(two_dim_annotations=self.CTX.two_dim_annotations)
         if results is None:
             return []
 
-        l_intersections = self.compute_intersection(interface, results)
+        l_intersections = self.compute_intersection(interface, results, use_annotations= self.CTX.two_dim_annotations)
 
         interface.compute_metrics(l_intersections, output_path,
                                   scale=self.CTX.know_distance / self.CTX.pixels_length,
@@ -424,18 +438,35 @@ class UI:
             self.plot(x_axis, y_axis, x_axis_values, y_axis_values)
 
         return
-    def delineate_path(self):
+
+    def check_2d_annotations(self):
+        check = st.checkbox("2D Annotations", value = self.CTX.two_dim_annotations,
+                            help = "Use two 2D annotations. Otherwise, ring boundaries need to be marked manually."
+                                   " Measurements start from the first marked point, but the last marked point "
+                                   "is not included.")
+        if check != self.CTX.two_dim_annotations:
+            self.CTX.two_dim_annotations = check
+
+
+    def path_metrics(self):
         if self.check_scale():
             return
 
         if self.check_lw_file():
             return
 
-        col1, col2 = st.columns([0.3,1])
+        col1, col2, col3 = st.columns([0.3,0.3, 1])
+
+        with col3:
+            self.check_2d_annotations()
+
         with col2:
             self.check_ew_measurements()
+
+
         with col1:
             button = st.button("Delineate Path")
+
 
         output_path = self.CTX.output_dir_metrics / "coorecorder.csv"
 
@@ -465,15 +496,21 @@ class PathInterface(UserInterface):
         super().__init__(read_file_path = image_path, write_file_path=output_json_path)
         self.output_image_path = output_image_path
 
-    def parse_output(self):
+    def parse_output(self, two_dim_annotations = True):
         object = LabelmeObject(self.write_file_path)
         if len(object.shapes) > 1:
             st.error("More than one shape found. Add only one shape")
             return None
 
         shape = object.shapes[0]
+
+
         if not(shape.shape_type == LabelmeShapeType.line or  shape.shape_type == LabelmeShapeType.linestrip):
             st.error("Shape is not a line or linestrip. Remember that you are delineating the ring path")
+            return None
+
+        if not two_dim_annotations and shape.shape_type != LabelmeShapeType.linestrip:
+            st.error("Please delineate the path as a linestrip, where each points in the ring boundary")
             return None
 
         if shape.shape_type == LabelmeShapeType.line:
@@ -493,16 +530,7 @@ class PathInterface(UserInterface):
             image = load_image(self.read_file_path)
             debug_image_path = self.read_file_path.parent / f"debug_path.png"
 
-        class PointLabelme(Point):
-            def __init__(self, x, y, label):
-                self.label = label
-                super().__init__([ x, y])
 
-            def scale(self, new_width, new_height):
-                x, y = self.coords.xy
-                x = x[0] * new_width
-                y = y[0] * new_height
-                return PointLabelme(x, y, self.label)
 
         pith = True
         #compute intersections
@@ -585,11 +613,11 @@ def main(runtime_config_path):
         #area based
         ui.options()
         st.divider()
-        selected = ui.run_metrics()
+        selected = ui.area_metrics()
 
     with tab2:
         #path based
-        ui.delineate_path()
+        ui.path_metrics()
 
     st.divider()
 
