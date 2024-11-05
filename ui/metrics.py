@@ -441,7 +441,7 @@ class UI:
 
     def check_2d_annotations(self):
         check = st.checkbox("2D Annotations", value = self.CTX.two_dim_annotations,
-                            help = "Use two 2D annotations. Otherwise, ring boundaries need to be marked manually."
+                            help = "Use two 2D annotations. Otherwise, ring boundaries need to be marked manually using the LineStrip object."
                                    " Measurements start from the first marked point, but the last marked point "
                                    "is not included.")
         if check != self.CTX.two_dim_annotations:
