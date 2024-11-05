@@ -343,38 +343,34 @@ class UI:
             return True
         return False
 
+    @staticmethod
+    def ring_shapes_processing(json_path, image_path, prefix, flag):
+        output_path = Path(json_path).parent / f"tmp.json"
+        add_prefix_to_labels(json_path, image_path, prefix, output_path)
+        shapes = load_ring_shapes(output_path)
+        for s in shapes:
+            s.set_flag({'0': flag})
+
+        return shapes
+
     def compute_intersection(self, interface, path):
         if self.CTX.ew_measurements:
-            add_prefix_to_labels(self.CTX.ew_annotation_file, self.CTX.image_path, "ew",
-                                 self.CTX.ew_annotation_file)
-
-            add_prefix_to_labels(self.CTX.lw_annotation_file, self.CTX.image_path, "lw",
-                                 self.CTX.lw_annotation_file)
-
-
-
-            shapes_lw = load_ring_shapes(self.CTX.lw_annotation_file)
-            for s in shapes_lw:
-                s.set_flag({'0': Shapes.latewood})
-
-            shapes_ew = load_ring_shapes(self.CTX.ew_annotation_file)
-            for s in shapes_ew:
-                s.set_flag({'0': Shapes.earlywood})
+            shapes_ew = self.ring_shapes_processing(self.CTX.ew_annotation_file, self.CTX.image_path,
+                                                    "ew",Shapes.earlywood)
+            shapes_lw = self.ring_shapes_processing(self.CTX.lw_annotation_file, self.CTX.image_path, "lw",
+                                                    Shapes.latewood)
 
             shapes = shapes_lw + shapes_ew
             shapes.sort(key=lambda x: x.area)
-
             #write shapes to labelme json
             output_path_ann = self.CTX.output_dir_metrics / "lw_ew.json"
             write_ring_shapes(shapes, output_path_ann, self.CTX.image_path)
 
-            object = LabelmeObject(output_path_ann)
-            l_intersections = interface.compute_intersections(object, path)
-
         else:
-            object_lw = LabelmeObject(self.CTX.lw_annotation_file)
-            l_intersections = interface.compute_intersections(object_lw, path)
+            output_path_ann = self.CTX.lw_annotation_file
 
+        object = LabelmeObject(output_path_ann)
+        l_intersections = interface.compute_intersections(object, path)
         return l_intersections
 
     def path_computation(self, output_path):
@@ -419,6 +415,7 @@ class UI:
             y_axis = columns[2]
             y_axis_values = df[y_axis].values[1:]
             self.plot(x_axis, y_axis, x_axis_values, y_axis_values)
+
         return
     def delineate_path(self):
         if self.check_scale():
@@ -448,8 +445,6 @@ class UI:
             st.write(f"Results are saved in {self.CTX.output_dir_metrics}")
             self.path_display_results(output_path)
 
-        # if output_path.exists():
-        #     self.path_display_results(output_path)
 
 
 

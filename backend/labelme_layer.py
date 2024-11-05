@@ -368,9 +368,11 @@ def add_prefix_to_labels(json_path, image_path, prefix, output_path):
     shapes = shapes[::-1]
     labels = []
     for idx, shape in enumerate(shapes):
+        #if prefix  not in shape.label:
         labels.append(f"{prefix}_{shape.label}")
+        #return
     al.write_list_of_points_to_labelme_json([shape.points for shape in shapes], labels)
-
+    return
 
 def write_ring_shapes(shapes, output_path_ann, image_path):
     al = AL_LateWood_EarlyWood(write_file_path=str(output_path_ann), image_path=str(image_path))
