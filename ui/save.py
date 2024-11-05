@@ -1,6 +1,6 @@
 import os
 
-from ui.common import Context, download_button
+from ui.common import Context, download_button, check_image
 
 
 
@@ -23,7 +23,8 @@ class VisualizationShape:
 
 class ViewContext(Context):
     def init_specific_ui_components(self):
-        pass
+        config = self.config["image"]
+        self.image_path = self.output_dir / config["image_path"]
 
     def update_config(self):
         pass
@@ -74,6 +75,8 @@ class UI:
 
 def main(runtime_config_path):
     ui = UI(runtime_config_path)
+    if check_image(ui.CTX):
+        return
 
     ui.download_results()
 

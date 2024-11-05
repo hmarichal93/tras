@@ -10,7 +10,7 @@ from pathlib import Path
 from shapely.geometry import LineString, MultiLineString, Polygon, Point, MultiPoint
 
 from lib.image import  Color as ColorCV2, Drawing, load_image, write_image, resize_image_using_pil_lib
-from ui.common import Context, RunningWidget,  plot_chart, display_image_with_zoom, display_data_editor
+from ui.common import Context, RunningWidget,  plot_chart, display_image_with_zoom, display_data_editor, check_image
 from lib.metrics import  export_results, Table
 from backend.labelme_layer import (LabelmeShapeType,
                                    LabelmeObject, LabelmeInterface as UserInterface, add_prefix_to_labels,
@@ -315,25 +315,52 @@ class UI:
         plot_chart(df, title=f"Measurement Unit: {self.CTX.units_mode}")
 
 
-    def delineate_path(self):
-        #add a button for delineating path
-        if not self.CTX.scale_status:
-            os.system(f"rm -rf {self.CTX.output_dir_metrics}")
-            st.warning("Please set the scale")
-
-        enabled = self.CTX.lw_annotation_file is not None and self.CTX.scale_status
-        ew_measurements = st.checkbox("EW", value=self.CTX.ew_measurements, help="Add early wood measurements",
-                                      disabled = self.CTX.ew_annotation_file is None)
+    def check_ew_measurements(self):
+        ew_measurements = st.checkbox("EW", value = self.CTX.ew_measurements, help = "Add early wood measurements")
         if ew_measurements != self.CTX.ew_measurements:
             self.CTX.ew_measurements = ew_measurements
-        button = st.button("Delineate Path", disabled= not enabled)
+
+    def check_scale(self):
+        if not self.CTX.scale_status:
+            os.system(f"rm -rf {self.CTX.output_dir_metrics}")
+            st.error("Please set the scale in the *Image* page")
+            return True
+
+        return False
+
+    def check_if_exist_ew_file(self):
+        if self.CTX.ew_measurements:
+            if not Path(self.CTX.ew_annotation_file).exists():
+                st.error("Please upload the earlywood annotation file in the *Ring Editing* page")
+                return True
+        return False
+
+    def check_lw_file(self):
+        enabled = self.CTX.lw_annotation_file is not None and self.CTX.scale_status
         if not enabled:
-            st.error("Please upload the latewood annotation file")
+            st.error("Please upload the latewood annotation file in the *Ring Editing* page")
+            return True
+        return False
+
+    def delineate_path(self):
+        if self.check_scale():
             return
+
+        if self.check_lw_file():
+            return
+
+        col1, col2 = st.columns([0.3,1])
+        with col2:
+            self.check_ew_measurements()
+        with col1:
+            button = st.button("Delineate Path")
 
         output_path = self.CTX.output_dir_metrics / "coorecorder.csv"
 
         if button:
+            if self.check_if_exist_ew_file():
+                return
+
             gif_running = RunningWidget()
             self.CTX.ring_path = self.CTX.output_dir / "path.json"
             interface = PathInterface(self.CTX.image_path, self.CTX.ring_path)
@@ -511,19 +538,20 @@ class PathInterface(UserInterface):
 
 def main(runtime_config_path):
     ui = UI(runtime_config_path)
+    if check_image(ui.CTX):
+        return
 
     st.divider()
     tab1, tab2 = st.tabs(["Area-Based", "Path-Based"])
 
     with tab1:
-        st.header("Area-Based Metrics")
+        #area based
         ui.options()
-
         st.divider()
         selected = ui.run_metrics()
 
     with tab2:
-        st.header("Path-Based Metrics")
+        #path based
         ui.delineate_path()
 
     st.divider()

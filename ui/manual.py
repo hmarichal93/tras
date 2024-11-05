@@ -8,7 +8,7 @@ from pathlib import Path
 from copy import deepcopy
 
 from lib.image import Drawing, load_image, write_image
-from ui.common import Context, Shapes, file_uploader, RunningWidget
+from ui.common import Context, Shapes, file_uploader, RunningWidget, check_image
 from lib.io import load_json, write_json
 from backend.labelme_layer import LabelmeInterface as UserInterface, ring_relabelling
 
@@ -417,6 +417,8 @@ class PithBoundaryInterface(UserInterface):
 ########################################################################################################################
 def main(runtime_config_path):
     ui = UI(runtime_config_path)
+    if check_image(ui.CTX):
+        return
 
     st.divider()
     selected = ui.main_shape()

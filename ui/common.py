@@ -171,3 +171,10 @@ class Pith:
     apd = "APD"
     apd_pl = "APD-PL"
     apd_dl = "APD-DL"
+
+
+def check_image(CTX):
+    if not Path(CTX.image_path).exists():
+        st.error("Image not found. Please upload an image in the *Upload Image* view")
+        return True
+    return False

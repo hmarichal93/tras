@@ -14,7 +14,7 @@ from lib.apd import APD
 
 from backend.labelme_layer import (LabelmeShapeType, LabelmeObject, AL_LateWood_EarlyWood,
                                    LabelmeInterface as UserInterface, ring_relabelling)
-from ui.common import Context, download_button, RunningWidget, Pith, display_image
+from ui.common import Context, download_button, RunningWidget, Pith, display_image, check_image
 
 class LatewoodMethods:
     cstrd = "CS-TRD"
@@ -400,6 +400,8 @@ class UI:
 
 def main(runtime_config_path):
     ui = UI(runtime_config_path)
+    if check_image(ui.CTX):
+        return
     selected = ui.select_shape()
     st.divider()
 

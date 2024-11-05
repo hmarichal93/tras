@@ -11,7 +11,7 @@ from streamlit_option_menu import option_menu
 from pathlib import Path
 
 from lib.image import  write_image, remove_salient_object, resize_image
-from ui.common import Context, RunningWidget, Pith, display_image
+from ui.common import Context, RunningWidget, Pith, display_image, check_image
 from backend.labelme_layer import (LabelmeShapeType,
                                    LabelmeObject, LabelmeInterface as UserInterface, resize_annotations,
                                    AL_LateWood_EarlyWood)
@@ -145,9 +145,6 @@ def main(runtime_config_path):
 
 
     if selected == Menu.image:
-        # CTX.mode = st.radio("Mode", ("cross-section", "core"), horizontal=True, index = 0 if CTX.mode == "cross-section"
-        #                                         else 1 )
-
         CTX.bg_image = st.file_uploader("Image:", type=["png", "jpg"])
         gif_runner = RunningWidget()
         if CTX.bg_image is not None:
@@ -173,7 +170,10 @@ def main(runtime_config_path):
         gif_runner.empty()
 
 
-    if selected == Menu.preprocess and Path(CTX.image_path).exists():
+    if selected == Menu.preprocess:
+        if check_image(CTX):
+            return None
+
         radio = st.radio("Remove Background", (Pith.manual, Pith.automatic), index=0, horizontal=True)
 
         if st.button("Remove Background"):
@@ -224,7 +224,10 @@ def main(runtime_config_path):
             gif_runner.empty()
             st.warning("Image resized. Please set the scale again")
 
-    if selected == Menu.scale and Path(CTX.image_path).exists():
+    if selected == Menu.scale:
+        if check_image(CTX):
+            return None
+
         CTX.units_mode = st.radio(
             "Unit:",
             ("nm", r"$\mu$m", "mm", "cm", "dpi"), horizontal=True, index=scale_index_unit(CTX.units_mode)
@@ -253,7 +256,9 @@ def main(runtime_config_path):
                 CTX.scale_status = True
                 CTX.know_distance = know_distance
 
-    if selected == Menu.metadata and Path(CTX.image_path).exists():
+    if selected == Menu.metadata:
+        if check_image(CTX):
+            return None
         col1, col2 = st.columns([1, 1])
         with col1:
             code = st.text_input("Code", value = CTX.code)
