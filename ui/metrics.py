@@ -10,11 +10,12 @@ from pathlib import Path
 from shapely.geometry import LineString, MultiLineString, Polygon, Point, MultiPoint
 
 from lib.image import  Color as ColorCV2, Drawing, load_image, write_image, resize_image_using_pil_lib
-from ui.common import Context, RunningWidget,  plot_chart, display_image_with_zoom, display_data_editor, check_image
+from ui.common import (Context, RunningWidget,  plot_chart, display_image_with_zoom, display_data_editor, check_image,
+                       Shapes)
 from lib.metrics import  export_results, Table
 from backend.labelme_layer import (LabelmeShapeType,
                                    LabelmeObject, LabelmeInterface as UserInterface, add_prefix_to_labels,
-                                   AL_LateWood_EarlyWood)
+                                   AL_LateWood_EarlyWood, load_ring_shapes, write_ring_shapes)
 
 
 class ViewContext(Context):
@@ -342,6 +343,83 @@ class UI:
             return True
         return False
 
+    def compute_intersection(self, interface, path):
+        if self.CTX.ew_measurements:
+            add_prefix_to_labels(self.CTX.ew_annotation_file, self.CTX.image_path, "ew",
+                                 self.CTX.ew_annotation_file)
+
+            add_prefix_to_labels(self.CTX.lw_annotation_file, self.CTX.image_path, "lw",
+                                 self.CTX.lw_annotation_file)
+
+
+
+            shapes_lw = load_ring_shapes(self.CTX.lw_annotation_file)
+            for s in shapes_lw:
+                s.set_flag({'0': Shapes.latewood})
+
+            shapes_ew = load_ring_shapes(self.CTX.ew_annotation_file)
+            for s in shapes_ew:
+                s.set_flag({'0': Shapes.earlywood})
+
+            shapes = shapes_lw + shapes_ew
+            shapes.sort(key=lambda x: x.area)
+
+            #write shapes to labelme json
+            output_path_ann = self.CTX.output_dir_metrics / "lw_ew.json"
+            write_ring_shapes(shapes, output_path_ann, self.CTX.image_path)
+
+            object = LabelmeObject(output_path_ann)
+            l_intersections = interface.compute_intersections(object, path)
+
+        else:
+            object_lw = LabelmeObject(self.CTX.lw_annotation_file)
+            l_intersections = interface.compute_intersections(object_lw, path)
+
+        return l_intersections
+
+    def path_computation(self, output_path):
+        self.CTX.ring_path = self.CTX.output_dir / "path.json"
+        if self.CTX.ring_path.exists():
+            os.system(f"rm {self.CTX.ring_path}")
+
+        interface = PathInterface(self.CTX.image_path, self.CTX.ring_path)
+        interface.interface()
+        if not self.CTX.ring_path.exists():
+            st.error("Path not delineated or saved. Please save the path")
+            return False
+
+        results = interface.parse_output()
+        if results is None:
+            return False
+
+        l_intersections = self.compute_intersection(interface, results)
+
+        interface.compute_metrics(l_intersections, output_path,
+                                  scale=self.CTX.know_distance / self.CTX.pixels_length,
+                                  unit=self.CTX.units_mode)
+        return True
+    def path_display_results(self, output_path):
+        st.divider()
+        tab1, tab2, tab3 = st.tabs(["Image", "table", "Charts"])
+        with tab2:
+            df = pd.read_csv(output_path)
+            columns = df.columns.tolist()
+            st.write(df)
+
+        with tab1:
+            image_path = self.CTX.output_dir / "debug_path.png"
+            display_image_with_zoom(image_path)
+
+        with tab3:
+            x_axis = "year"
+            y_axis = columns[1]
+            x_axis_values = df.label.values[1:]
+            y_axis_values = df[y_axis].values[1:]
+            self.plot(x_axis, y_axis, x_axis_values, y_axis_values)
+            y_axis = columns[2]
+            y_axis_values = df[y_axis].values[1:]
+            self.plot(x_axis, y_axis, x_axis_values, y_axis_values)
+        return
     def delineate_path(self):
         if self.check_scale():
             return
@@ -362,68 +440,16 @@ class UI:
                 return
 
             gif_running = RunningWidget()
-            self.CTX.ring_path = self.CTX.output_dir / "path.json"
-            interface = PathInterface(self.CTX.image_path, self.CTX.ring_path)
-            interface.interface()
-            results = interface.parse_output()
-
-            if self.CTX.ew_annotation_file is not None and self.CTX.ew_measurements:
-                #TODO:
-                json_path = self.CTX.ew_annotation_file
-                image_path = self.CTX.image_path
-                prefix = "ew"
-                add_prefix_to_labels(json_path, image_path, prefix, json_path)
-
-                json_path = self.CTX.lw_annotation_file
-                image_path = self.CTX.image_path
-                prefix = "lw"
-                add_prefix_to_labels(json_path, image_path, prefix, json_path)
-                output_path_ann = self.CTX.output_dir_metrics / "lw_ew.json"
-                al = AL_LateWood_EarlyWood(self.CTX.lw_annotation_file, output_path_ann, image_path=image_path)
-                shapes_lw = al.read()
-
-                al = AL_LateWood_EarlyWood(self.CTX.ew_annotation_file, output_path_ann, image_path=image_path)
-                shapes_ew = al.read()
-
-                shapes = shapes_lw + shapes_ew
-                shapes.sort(key=lambda x: x.area)
-                labels = [shape.label for shape in shapes]
-                al.write_list_of_points_to_labelme_json([shape.points for shape in shapes], labels)
-
-                object_lw = LabelmeObject(output_path_ann)
-                l_intersections = interface.compute_intersections( object_lw, results)
-
-            else:
-                object_lw = LabelmeObject(self.CTX.lw_annotation_file)
-                l_intersections_lw = interface.compute_intersections(object_lw, results)
-                l_intersections = l_intersections_lw
-
-            interface.compute_metrics(l_intersections, output_path,
-                                      scale = self.CTX.know_distance / self.CTX.pixels_length,
-                                      unit = self.CTX.units_mode)
-
+            res = self.path_computation(output_path)
             gif_running.empty()
+            if not res:
+                return
 
             st.write(f"Results are saved in {self.CTX.output_dir_metrics}")
+            self.path_display_results(output_path)
 
-        if output_path.exists():
-            df = pd.read_csv(output_path)
-            columns = df.columns.tolist()
-            st.write(df)
-
-            image_path = self.CTX.output_dir / "debug_path.png"
-            st.divider()
-            display_image_with_zoom(image_path)
-
-            st.divider()
-            x_axis = "year"
-            y_axis = columns[1]
-            x_axis_values = df.label.values[1:]
-            y_axis_values = df[y_axis].values[1:]
-            self.plot(x_axis, y_axis, x_axis_values, y_axis_values)
-            y_axis = columns[2]
-            y_axis_values = df[y_axis].values[1:]
-            self.plot(x_axis, y_axis, x_axis_values, y_axis_values)
+        # if output_path.exists():
+        #     self.path_display_results(output_path)
 
 
 
@@ -473,8 +499,11 @@ class PathInterface(UserInterface):
         pith = True
         #compute intersections
         l_intersection = []
-        for ring in rings.shapes:
+        flags = []
+        colors = {}
+        c = ColorCV2()
 
+        for ring in rings.shapes:
             ring_polygon = Polygon(ring.points)
             if pith:
                 centroid = ring_polygon.centroid
@@ -482,7 +511,17 @@ class PathInterface(UserInterface):
                 l_intersection.append(PointLabelme(x=centroid.x, y=centroid.y, label="Pith"))
 
             if debug:
-                image = Drawing.curve(ring_polygon.exterior, image, color=ColorCV2.red, thickness=2)
+                rings_has_flag = len(ring.flags)>0
+                if rings_has_flag:
+                    exist_flag_within_list = len([f for f in flags if f == ring.flags['0']])
+                    if not exist_flag_within_list:
+                        flags.append(ring.flags['0'])
+                        colors[ring.flags['0']] = c.get_next_color()
+
+                    image = Drawing.curve(ring_polygon.exterior, image, color=colors[ring.flags['0']], thickness=2)
+                else:
+                    image = Drawing.curve(ring_polygon.exterior, image, color=c.red, thickness=2)
+
             intersection = path.intersects(ring_polygon)
             if intersection:
                 #get intersected points
@@ -495,16 +534,6 @@ class PathInterface(UserInterface):
                     intersection_points[0].coords.xy
                 l_intersection.append(PointLabelme(x= x[0], y=y[0], label=ring.label))
 
-                if debug:
-                    image = Drawing.curve(ring_polygon.exterior, image, color=ColorCV2.red, thickness=2)
-                    if isinstance(x, np.ndarray):
-                        for idx in range(len(x)):
-                            image = Drawing.circle(image, (int(y[idx]), int(x[idx])), radius=5,
-                                                   color=ColorCV2.blue, thickness=-1)
-                    else:
-                        image = Drawing.circle(image, (int(y[0]), int(x[0])), radius=5,
-                                               color=ColorCV2.blue, thickness=-1)
-                        image = Drawing.put_text(ring.label, image, (int(y[0]), int(x[0])), color=ColorCV2.black, fontScale=1.0)
 
         if debug:
             write_image(str(debug_image_path), image)

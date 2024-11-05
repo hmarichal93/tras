@@ -19,6 +19,21 @@ class LabelmeShapeType:
     line = "line"
 
 
+
+def load_ring_shapes(json_file):
+    al = AL_LateWood_EarlyWood(json_file)
+    shapes = al.read()
+    #tranpose points
+    shapes_l = []
+    for s in shapes:
+        l = LabelmeShape(dict(
+            label = s.label,
+            points = s.points,
+            shape_type = s.shape_type,
+            flags = s.flags
+        ))
+        shapes_l.append(l)
+    return shapes_l
 class LabelmeShape:
     def __init__(self, shape):
         self.label = shape['label']
@@ -36,11 +51,14 @@ class LabelmeShape:
             flags = self.flags
         )
 
+    def set_flag(self, value):
+        self.flags = value
+
     def __str__(self):
-        return f"(main_label={self.label}, shape_type={self.shape_type}, size = {self.points.shape})"
+        return f"(main_label={self.label}, shape_type={self.shape_type}, size = {self.points.shape}, flag = {self.flags })"
 
     def __repr__(self):
-        return f"(main_label={self.label}, shape_type={self.shape_type}, size = {self.points.shape})"
+        return f"(main_label={self.label}, shape_type={self.shape_type}, size = {self.points.shape}, flag = {self.flags })"
 
 
     # def area(self):
@@ -169,7 +187,7 @@ class LabelmeInterface(UserInterface):
 
 class AL_LateWood_EarlyWood(LabelmeInterface):
 
-    def __init__(self, json_labelme_path, write_file_path, image_path = None):
+    def __init__(self, json_labelme_path = None, write_file_path = None, image_path = None):
         super().__init__(read_file_path = json_labelme_path, write_file_path = write_file_path)
         self.image_path = image_path
 
@@ -352,6 +370,15 @@ def add_prefix_to_labels(json_path, image_path, prefix, output_path):
     for idx, shape in enumerate(shapes):
         labels.append(f"{prefix}_{shape.label}")
     al.write_list_of_points_to_labelme_json([shape.points for shape in shapes], labels)
+
+
+def write_ring_shapes(shapes, output_path_ann, image_path):
+    al = AL_LateWood_EarlyWood(write_file_path=str(output_path_ann), image_path=str(image_path))
+    object = LabelmeObject()
+    object.from_memory(shapes=shapes, imagePath=str(Path(image_path)))
+    json_content = object.to_dict()
+    al.write(json_content)
+    return
 
 if __name__ == "__main__":
     json_path = "./input/A4/A4_latewood.json"
