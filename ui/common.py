@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
+
+import numpy as np
 import streamlit as st
 from streamlit_image_zoom import image_zoom
 import altair as alt
@@ -157,6 +159,58 @@ def display_image_with_zoom(image_path):
                increment=0.2)
 
     return
+
+def preprocess_image(image_path, points, min_size_th=1500):
+    img = load_image(image_path)
+    # reshape image if too big
+
+    height_i, width_i = img.shape[:2]
+    min_size = np.minimum(height_i, width_i)
+    if min_size > min_size_th:
+        img = resize_image_using_pil_lib(img, min_size_th, min_size_th)
+        height, width = img.shape[:2]
+        points = [p.scale(height / height_i, width / width_i) for p in points]
+
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    return img, points
+
+def display_image_plotly(image_path, points = [] , df_points_info = None):
+    import plotly.graph_objects as go
+    import plotly.express as px
+    import pandas as pd
+
+    # Create figure
+    img, points = preprocess_image(image_path, points)
+    fig = px.imshow(img)
+    if len(points)>0:
+        columns = df_points_info.columns
+        df = pd.DataFrame(dict(x=[p.y for p in points],
+                               y=[p.x for p in points],
+                               label=[p.label for p in points],
+                               width = df_points_info[columns[-2]].values.tolist(),
+                               cumulative_width = df_points_info[columns[-1]].values.tolist()
+                               )
+                          )
+        df["hover_text"] = df.apply(lambda row: f"Label: {row['label']}<br>Width: {row['width']}<br>Cumulative Width:"
+                                                f" {row['cumulative_width']}", axis=1)
+
+        # Add scatter trace with labels
+        fig.add_trace(go.Scatter(
+            x=df["x"],
+            y=df["y"],
+            mode='markers',
+            marker=dict(color='black', size=5),
+            text=df["hover_text"],
+            hoverinfo="text"
+        ))
+
+    height, width = img.shape[:2]
+    fig.update_layout(
+        width=height,
+        height=width
+    )
+
+    st.plotly_chart(fig)
 
 def display_data_editor(data):
 

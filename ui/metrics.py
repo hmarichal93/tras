@@ -11,7 +11,7 @@ from shapely.geometry import LineString, MultiLineString, Polygon, Point, MultiP
 
 from lib.image import  Color as ColorCV2, Drawing, load_image, write_image, resize_image_using_pil_lib
 from ui.common import (Context, RunningWidget,  plot_chart, display_image_with_zoom, display_data_editor, check_image,
-                       Shapes)
+                       Shapes, display_image_plotly)
 from lib.metrics import  export_results, Table
 from backend.labelme_layer import (LabelmeShapeType,
                                    LabelmeObject, LabelmeInterface as UserInterface, add_prefix_to_labels,
@@ -286,7 +286,8 @@ class UI:
 
         display_data_editor(self.df)
         st.divider()
-        display_image_with_zoom(rings_image_path)
+        #display_image_with_zoom(rings_image_path)
+        display_image_plotly(rings_image_path)
         st.divider()
 
 
@@ -382,19 +383,19 @@ class UI:
         interface.interface()
         if not self.CTX.ring_path.exists():
             st.error("Path not delineated or saved. Please save the path")
-            return False
+            return []
 
         results = interface.parse_output()
         if results is None:
-            return False
+            return []
 
         l_intersections = self.compute_intersection(interface, results)
 
         interface.compute_metrics(l_intersections, output_path,
                                   scale=self.CTX.know_distance / self.CTX.pixels_length,
                                   unit=self.CTX.units_mode)
-        return True
-    def path_display_results(self, output_path):
+        return l_intersections
+    def path_display_results(self, output_path, points):
         st.divider()
         st.markdown("To avoid confusion when earlywood and latewood measurements are calculated together, "
                     "earlywood measurements are prefixed with 'ew,' and latewood measurements are prefixed"
@@ -409,7 +410,8 @@ class UI:
 
         with tab1:
             image_path = self.CTX.output_dir / "debug_path.png"
-            display_image_with_zoom(image_path)
+            #display_image_with_zoom(image_path)
+            display_image_plotly(image_path, points, df )
 
         with tab3:
             x_axis = "year"
@@ -444,11 +446,11 @@ class UI:
             gif_running = RunningWidget()
             res = self.path_computation(output_path)
             gif_running.empty()
-            if not res:
+            if len(res)==0 :
                 return
 
             st.write(f"Results are saved in {self.CTX.output_dir_metrics}")
-            self.path_display_results(output_path)
+            self.path_display_results(output_path, res)
 
 
 
@@ -495,6 +497,12 @@ class PathInterface(UserInterface):
             def __init__(self, x, y, label):
                 self.label = label
                 super().__init__([ x, y])
+
+            def scale(self, new_width, new_height):
+                x, y = self.coords.xy
+                x = x[0] * new_width
+                y = y[0] * new_height
+                return PointLabelme(x, y, self.label)
 
         pith = True
         #compute intersections
