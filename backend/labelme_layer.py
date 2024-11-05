@@ -343,6 +343,16 @@ def ring_relabelling(image_path: str, json_path: str, harvest_date: int, output_
 
     return
 
+
+def add_prefix_to_labels(json_path, image_path, prefix, output_path):
+    al = AL_LateWood_EarlyWood(json_path, output_path, image_path=image_path)
+    shapes = al.read()
+    shapes = shapes[::-1]
+    labels = []
+    for idx, shape in enumerate(shapes):
+        labels.append(f"{prefix}_{shape.label}")
+    al.write_list_of_points_to_labelme_json([shape.points for shape in shapes], labels)
+
 if __name__ == "__main__":
     json_path = "./input/A4/A4_latewood.json"
     image_path = "./input/A4/A4.jpg"
