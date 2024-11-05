@@ -111,12 +111,12 @@ def plot_chart(df, title=""):
     x, y = df.columns
 
     line_chart = alt.Chart(df).mark_line(color="#FF5733").encode(
-        x=x,
+        x=alt.X(x,sort=None),
         y=y
     )
 
     points = alt.Chart(df).mark_point(color="#FF5733", filled=True, size=100).encode(
-        x=x,
+        x=alt.X(x,sort=None),
         y=y
     )
 
