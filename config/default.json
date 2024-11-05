@@ -64,6 +64,8 @@
     "ew_width": true,
     "lw_width_ratio": true,
     "ring_path":"",
-    "ew_measurements": true
+    "ew_measurements": true,
+    "two_dim_annotations": true,
+    "display_area_settings": true
   }
 }

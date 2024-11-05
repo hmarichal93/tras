@@ -157,6 +157,10 @@ def extract_ring_properties(annual_rings_list, year, plantation_date=False):
 
 
 def debug_images(annual_rings_list, df, image_path, output_dir):
+    if Path(output_dir).exists():
+        import os
+        os.system(f"rm -rf {output_dir}/*ring_properties_label*")
+
     image = load_image(image_path)
     image_full = image.copy()
     for idx, ring in enumerate(annual_rings_list):
@@ -178,7 +182,7 @@ def debug_images(annual_rings_list, df, image_path, output_dir):
         image_debug = resize_image_using_pil_lib(image_debug, 640, 640)
         write_image(output_name, image_debug)
 
-    image_full = resize_image_using_pil_lib(image_full, 640, 640)
+    #image_full = resize_image_using_pil_lib(image_full, 640, 640)
     write_image(f"{output_dir}/rings.png", image_full)
 
     return

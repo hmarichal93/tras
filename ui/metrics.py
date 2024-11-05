@@ -68,6 +68,7 @@ class ViewContext(Context):
         self.two_dim_annotations = config_metric["two_dim_annotations"]
 
         self.ring_path = config_metric["ring_path"]
+        self.display_area_settings = config_metric["display_area_settings"]
 
 
 
@@ -95,6 +96,7 @@ class ViewContext(Context):
         config_metric["ring_path"] = str(self.ring_path)
         config_metric["ew_measurements"] = self.ew_measurements
         config_metric["two_dim_annotations"] = self.two_dim_annotations
+        config_metric["display_area_settings"] = self.display_area_settings
 
 
 
@@ -158,7 +160,12 @@ class UI:
         self.df = None
 
     def options(self):
-        st.subheader("Columns to display in the table")
+        display_settings = st.checkbox("Show Area Metrics", value = self.CTX.display_area_settings,
+                           help = "Show area metrics to be computed")
+        if display_settings != self.CTX.display_area_settings:
+            self.CTX.display_area_settings = display_settings
+        return
+    def show_area_settings(self):
         table = Table(self.CTX.units_mode)
         col1, col2, col3, col4 = st.columns(4)
         with col1:
@@ -213,58 +220,37 @@ class UI:
 
 
 
+    def area_computations(self):
+        metadata = dict(
+            unit = self.CTX.units_mode,
+            pixels_millimeter_relation = self.CTX.know_distance / self.CTX.pixels_length ,
+            plantation_date = True,
+            year = self.CTX.harvest_date['year']
+        )
+        if Path(self.CTX.lw_annotation_file).exists():
+            lw_file_path = self.CTX.output_dir_metrics / "latewood_read.json"
+            os.system(f"cp {self.CTX.lw_annotation_file} {lw_file_path}")
+            lw_file_path = self.CTX.output_dir_metrics / "latewood.json"
+        else:
+            lw_file_path = None
 
-    def area_metrics(self):
-        if self.check_scale():
-            return
+        if Path(self.CTX.ew_annotation_file).exists():
+            ew_file_path = self.CTX.output_dir_metrics / "earlywood_read.json"
+            os.system(f"cp {self.CTX.ew_annotation_file} {ew_file_path}")
+            ew_file_path = self.CTX.output_dir_metrics / "earlywood.json"
+        else:
+            ew_file_path = None
+        export_results(labelme_latewood_path= lw_file_path,
+                       labelme_earlywood_path= ew_file_path,
+                       image_path=self.CTX.image_path,
+                       metadata=metadata,
+                       draw=True,
+                       output_dir=self.CTX.output_dir_metrics)
 
-        if self.check_lw_file():
-            return
+        return
 
-        run_button = st.button("Run")
-
-        if run_button:
-            #os.system(f"rm -rf {self.CTX.output_dir_metrics}")
-            metadata = dict(
-                unit = self.CTX.units_mode,
-                pixels_millimeter_relation = self.CTX.know_distance / self.CTX.pixels_length ,
-                plantation_date = True,
-                year = self.CTX.harvest_date['year']
-            )
-            if Path(self.CTX.lw_annotation_file).exists():
-                lw_file_path = self.CTX.output_dir_metrics / "latewood_read.json"
-                os.system(f"cp {self.CTX.lw_annotation_file} {lw_file_path}")
-                lw_file_path = self.CTX.output_dir_metrics / "latewood.json"
-            else:
-                lw_file_path = None
-
-            if Path(self.CTX.ew_annotation_file).exists():
-                ew_file_path = self.CTX.output_dir_metrics / "earlywood_read.json"
-                os.system(f"cp {self.CTX.ew_annotation_file} {ew_file_path}")
-                ew_file_path = self.CTX.output_dir_metrics / "earlywood.json"
-            else:
-                ew_file_path = None
-            gif_running = RunningWidget()
-            export_results(labelme_latewood_path= lw_file_path,
-                           labelme_earlywood_path= ew_file_path,
-                           image_path=self.CTX.image_path,
-                           metadata=metadata,
-                           draw=True,
-                           output_dir=self.CTX.output_dir_metrics)
-            gif_running.empty()
-
-        self.dataframe_file = self.CTX.output_dir_metrics / "measurements.csv"
-        if not Path(self.dataframe_file).exists():
-            return None
-        #display dataframe_file
-
-        st.write(f"Results are saved in {self.CTX.output_dir_metrics}")
-
-        rings_image_path = self.CTX.output_dir_metrics / "rings.png"
-
+    def area_dataframe_logic(self):
         self.df = pd.read_csv(self.dataframe_file)
-
-        #select columns to display
         table =  Table(self.CTX.units_mode)
         columns = select_columns_to_display(self.CTX, table)
         self.df = self.df[columns]
@@ -277,6 +263,9 @@ class UI:
         script_path = os.path.abspath(__file__)
         root = Path(script_path).parent.parent
         static_files_dir = Path(root) / "static"
+        if static_files_dir.exists():
+            os.system(f"rm -rf {static_files_dir}")
+
         static_files_dir.mkdir(parents=True, exist_ok=True)
         for image_path in ring_images:
             #copy image_path to static_files_dir
@@ -288,15 +277,9 @@ class UI:
         cols = self.df.columns.tolist()
         cols = cols[-1:] + cols[:-1]
         self.df = self.df[cols]
+        return self.df
 
-        display_data_editor(self.df)
-        st.divider()
-        #display_image_with_zoom(rings_image_path)
-        display_image_plotly(rings_image_path)
-        st.divider()
-
-
-
+    def area_chart(self):
         df_columns = self.df.columns.tolist()
         df_columns.remove('image')
         index_year = 0#df_columns.index(table.year)
@@ -311,7 +294,53 @@ class UI:
         x_axis_values = self.df[x_axis].values
         y_axis_values = self.df[y_axis].values
         self.plot(x_axis, y_axis, x_axis_values, y_axis_values)
+        return
 
+    def area_metrics(self):
+        if self.check_scale():
+            return
+
+        if self.check_lw_file():
+            return
+        #self.options()
+        col1, col2, col3 = st.columns([0.3, 0.3, 1])
+        with col2:
+            display_settings = st.checkbox("Show Area Metrics", value = self.CTX.display_area_settings,
+                               help = "Show area metrics to be computed")
+            if display_settings != self.CTX.display_area_settings:
+                self.CTX.display_area_settings = display_settings
+
+        with col1:
+            run_button = st.button("Run")
+
+
+        if display_settings:
+            st.divider()
+            self.show_area_settings()
+
+        if run_button:
+            gif_running = RunningWidget()
+            self.area_computations()
+            gif_running.empty()
+
+            self.dataframe_file = self.CTX.output_dir_metrics / "measurements.csv"
+            if not Path(self.dataframe_file).exists():
+                return None
+
+
+            st.write(f"Results are saved in {self.CTX.output_dir_metrics}")
+
+            tab1, tab2, tab3 = st.tabs(["Image", "table", "Charts"])
+            with tab2:
+                self.df = self.area_dataframe_logic()
+                display_data_editor(self.df)
+
+            with tab1:
+                rings_image_path = self.CTX.output_dir_metrics / "rings.png"
+                display_image_plotly(rings_image_path)
+
+            with tab3:
+                self.area_chart()
 
         return
 
@@ -424,7 +453,6 @@ class UI:
 
         with tab1:
             image_path = self.CTX.output_dir / "debug_path.png"
-            #display_image_with_zoom(image_path)
             display_image_plotly(image_path, points, df )
 
         with tab3:
@@ -611,8 +639,6 @@ def main(runtime_config_path):
 
     with tab1:
         #area based
-        ui.options()
-        st.divider()
         selected = ui.area_metrics()
 
     with tab2:
