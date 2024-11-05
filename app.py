@@ -43,7 +43,7 @@ class Mode:
 
 # Configura la página al inicio del script
 im = Image.open('assets/pixels_wood.jpg')
-st.set_page_config(page_icon=im, layout='wide')
+st.set_page_config( page_title=APP_NAME, page_icon=im, layout='wide')
 
 # Define el decorador para el título de la aplicación
 def app_title_decorator(app_name):
