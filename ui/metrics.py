@@ -13,7 +13,8 @@ from lib.image import  Color as ColorCV2, Drawing, load_image, write_image, resi
 from ui.common import Context, RunningWidget,  plot_chart, display_image_with_zoom, display_data_editor
 from lib.metrics import  export_results, Table
 from backend.labelme_layer import (LabelmeShapeType,
-                                   LabelmeObject, LabelmeInterface as UserInterface)
+                                   LabelmeObject, LabelmeInterface as UserInterface, add_prefix_to_labels,
+                                   AL_LateWood_EarlyWood)
 
 
 class ViewContext(Context):
@@ -60,6 +61,7 @@ class ViewContext(Context):
         self.annual_ring_width = config_metric["annual_ring_width"]
         self.ew_width = config_metric["ew_width"]
         self.lw_width_ratio = config_metric["lw_width_ratio"]
+        self.ew_measurements = config_metric["ew_measurements"]
 
         self.ring_path = config_metric["ring_path"]
 
@@ -87,6 +89,7 @@ class ViewContext(Context):
         config_metric["ew_width"] = self.ew_width
         config_metric["lw_width_ratio"] = self.lw_width_ratio
         config_metric["ring_path"] = str(self.ring_path)
+        config_metric["ew_measurements"] = self.ew_measurements
 
 
 
@@ -319,6 +322,10 @@ class UI:
             st.warning("Please set the scale")
 
         enabled = self.CTX.lw_annotation_file is not None and self.CTX.scale_status
+        ew_measurements = st.checkbox("EW", value=self.CTX.ew_measurements, help="Add early wood measurements",
+                                      disabled = self.CTX.ew_annotation_file is None)
+        if ew_measurements != self.CTX.ew_measurements:
+            self.CTX.ew_measurements = ew_measurements
         button = st.button("Delineate Path", disabled= not enabled)
         if not enabled:
             st.error("Please upload the latewood annotation file")
@@ -332,8 +339,37 @@ class UI:
             interface = PathInterface(self.CTX.image_path, self.CTX.ring_path)
             interface.interface()
             results = interface.parse_output()
-            object_lw = LabelmeObject(self.CTX.lw_annotation_file)
-            l_intersections = interface.compute_intersections( object_lw, results)
+
+            if self.CTX.ew_annotation_file is not None and self.CTX.ew_measurements:
+                #TODO:
+                json_path = self.CTX.ew_annotation_file
+                image_path = self.CTX.image_path
+                prefix = "ew"
+                add_prefix_to_labels(json_path, image_path, prefix, json_path)
+
+                json_path = self.CTX.lw_annotation_file
+                image_path = self.CTX.image_path
+                prefix = "lw"
+                add_prefix_to_labels(json_path, image_path, prefix, json_path)
+                output_path_ann = self.CTX.output_dir_metrics / "lw_ew.json"
+                al = AL_LateWood_EarlyWood(self.CTX.lw_annotation_file, output_path_ann, image_path=image_path)
+                shapes_lw = al.read()
+
+                al = AL_LateWood_EarlyWood(self.CTX.ew_annotation_file, output_path_ann, image_path=image_path)
+                shapes_ew = al.read()
+
+                shapes = shapes_lw + shapes_ew
+                shapes.sort(key=lambda x: x.area)
+                labels = [shape.label for shape in shapes]
+                al.write_list_of_points_to_labelme_json([shape.points for shape in shapes], labels)
+
+                object_lw = LabelmeObject(output_path_ann)
+                l_intersections = interface.compute_intersections( object_lw, results)
+
+            else:
+                object_lw = LabelmeObject(self.CTX.lw_annotation_file)
+                l_intersections_lw = interface.compute_intersections(object_lw, results)
+                l_intersections = l_intersections_lw
 
             interface.compute_metrics(l_intersections, output_path,
                                       scale = self.CTX.know_distance / self.CTX.pixels_length,
