@@ -24,3 +24,4 @@ streamlit-option-menu==0.3.13
 torch==2.4.1
 torchvision==0.19.1
 ultralytics==8.3.13
+plotly==5.24.1
