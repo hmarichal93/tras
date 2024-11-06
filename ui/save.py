@@ -1,4 +1,5 @@
 import os
+import streamlit as st
 
 from ui.common import Context, download_button, check_image
 
@@ -36,6 +37,13 @@ class ViewContext(Context):
 class UI:
 
     def __init__(self, runtime_config_path):
+        st.header("Save")
+        st.markdown(
+            """
+            This page allows you to download the results of the analysis.
+            """
+        )
+        st.divider()
         CTX = ViewContext(runtime_config_path)
         CTX.init_specific_ui_components()
         self.CTX = CTX

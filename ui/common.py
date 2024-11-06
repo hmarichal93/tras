@@ -135,10 +135,10 @@ class RunningWidget:
         col1, col2, col3 = st.columns([1, 1, 1])
         with col2:
             gif_runner = st.empty()
-
-            with gif_runner.container():
-                st.markdown('<div class="centered"><img src="./assets/rotating_wood.gif" width="300"></div>',
-                            unsafe_allow_html=True)
+            #
+            # with gif_runner.container():
+            #     st.markdown('<div class="centered"><img src="./assets/rotating_wood.gif" width="300"></div>',
+            #                 unsafe_allow_html=True)
 
             gif_runner.image("./assets/rotating_wood.gif")
 
@@ -236,3 +236,11 @@ def check_image(CTX):
         st.error("Image not found. Please upload an image in the *Upload Image* view")
         return True
     return False
+
+def resize_slider(default=1, legend = "Resize Factor", help = "Resize factor for the image.\n "
+                                          "Be aware that the image will \nbe resized, which means"
+                                          " that metrics\nwill be affected",
+                  min=1, max=10, step=1):
+    resize_factor = st.slider(legend, min_value= int(min), max_value =  int(max),
+                              value = int(default), step = step , help=help)
+    return resize_factor

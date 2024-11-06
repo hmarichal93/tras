@@ -171,6 +171,14 @@ class ViewContext(Context):
 class UI:
 
     def __init__(self, runtime_config_path):
+        st.header("Ring Detection")
+        st.markdown(
+            """
+            Two methods are available for the automatic detection of rings: CS-TRD and INBD. Pith annotations is required.
+            """
+        )
+        st.divider()
+
         CTX = ViewContext(runtime_config_path)
         CTX.init_specific_ui_components()
         self.CTX = CTX

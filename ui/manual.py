@@ -123,6 +123,13 @@ class ViewContext(Context):
 class UI:
 
     def __init__(self, runtime_config_path):
+        st.header("Ring Editing")
+        st.markdown(
+            """
+            This interface allows you to edit the ring annotations. You can select the shape you want to edit.
+            """
+        )
+        st.divider()
         CTX = ViewContext(runtime_config_path)
         CTX.init_specific_ui_components()
         self.CTX = CTX
@@ -420,7 +427,6 @@ def main(runtime_config_path):
     if check_image(ui.CTX):
         return
 
-    st.divider()
     selected = ui.main_shape()
     st.divider()
 
