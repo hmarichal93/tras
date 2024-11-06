@@ -98,7 +98,7 @@ def compute_angle(vector):
     return angle_360
 
 
-def extract_ring_properties(annual_rings_list, year, plantation_date):
+def extract_ring_properties(annual_rings_list, year, plantation_date=False):
     pith = Point(0, 0)
     #image_full = image.copy()
     ring_area_list = []
@@ -110,7 +110,7 @@ def extract_ring_properties(annual_rings_list, year, plantation_date):
     year_list = []
     annual_ring_label_list = []
     ew_lw_label_list = []
-
+    year = year - (len(annual_rings_list) -1)* datetime.timedelta(days=365)
     for idx, ring in enumerate(annual_rings_list):
         #area
         ring_area_list.append(ring.area)
@@ -151,12 +151,16 @@ def extract_ring_properties(annual_rings_list, year, plantation_date):
         annual_ring_label_list.append(ring.main_label)
         ew_lw_label_list.append(ring.secondary_label)
         #save results
-        year = year + datetime.timedelta(days=366) if plantation_date else year - datetime.timedelta(days=365)
+        year = year + datetime.timedelta(days=366) #if not plantation_date else year - datetime.timedelta(days=365)
 
     return annual_ring_label_list, year_list, ew_lw_label_list, ring_area_list, ew_area_list, eccentricity_module_list, eccentricity_phase_list, ring_perimeter_list
 
 
 def debug_images(annual_rings_list, df, image_path, output_dir):
+    if Path(output_dir).exists():
+        import os
+        os.system(f"rm -rf {output_dir}/*ring_properties_label*")
+
     image = load_image(image_path)
     image_full = image.copy()
     for idx, ring in enumerate(annual_rings_list):
@@ -178,7 +182,7 @@ def debug_images(annual_rings_list, df, image_path, output_dir):
         image_debug = resize_image_using_pil_lib(image_debug, 640, 640)
         write_image(output_name, image_debug)
 
-    image_full = resize_image_using_pil_lib(image_full, 640, 640)
+    #image_full = resize_image_using_pil_lib(image_full, 640, 640)
     write_image(f"{output_dir}/rings.png", image_full)
 
     return
@@ -202,7 +206,7 @@ def export_results(labelme_latewood_path: str = None, labelme_earlywood_path: st
     annual_rings_list = al_annual_rings.read()
 
     (annual_ring_label_list, year_list, ew_lw_label_list, ring_area_list, ew_area_list, eccentricity_module_list,
-     eccentricity_phase_list, ring_perimeter_list) = extract_ring_properties(annual_rings_list, year, plantation_date)
+     eccentricity_phase_list, ring_perimeter_list) = extract_ring_properties(annual_rings_list, year)
 
     df, table = fill_df(
         annual_ring_label_list, year_list, ew_lw_label_list, ring_area_list, ew_area_list,

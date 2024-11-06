@@ -13,8 +13,8 @@ from lib.cstrd import CSTRD
 from lib.apd import APD
 
 from backend.labelme_layer import (LabelmeShapeType, LabelmeObject, AL_LateWood_EarlyWood,
-                                   LabelmeInterface as UserInterface)
-from ui.common import Context, download_button, RunningWidget, Pith
+                                   LabelmeInterface as UserInterface, ring_relabelling)
+from ui.common import Context, download_button, RunningWidget, Pith, display_image, check_image, resize_slider
 
 class LatewoodMethods:
     cstrd = "CS-TRD"
@@ -78,16 +78,10 @@ class PithInterface(UserInterface):
         st_sigma = params_dict.get("st_sigma", 1.2)
         percent_lo = params_dict.get("percent_lo", 0.7)
         resize = params_dict.get("resize", 1)
-        if resize != 1:
-            image = load_image(self.read_file_path)
-            new_shape = int(image.shape[0] / resize)
-        else:
-            new_shape = 0
 
-
-        apd = APD( self.read_file_path, self.write_file_path, method=pith_model, weights_path=weights_path,
-                   output_dir= output_dir, percent_lo=percent_lo, st_w=st_w,
-                   lo_w=lo_w, st_sigma=st_sigma, new_shape=new_shape)
+        apd = APD(self.read_file_path, self.write_file_path, method=pith_model, weights_path=weights_path,
+                  output_dir= output_dir, percent_lo=percent_lo, st_w=st_w,
+                  lo_w=lo_w, st_sigma=st_sigma, resize_factor=resize)
         status = apd.run()
 
         return status
@@ -128,12 +122,18 @@ class ViewContext(Context):
             self.image_orig_path = self.image_path
             self.image_no_background_path = self.image_path
 
+        self.autocomplete_ring_date = config["metadata"]["autocomplete_ring_date"]
+        self.harvest_date = int(config["metadata"]["harvest_date"]["year"])
+
         self.inbd_models = self.config["automatic"]["inbd_models"]
         self.model_path = self.config["automatic"]["model_path"]
         self.upload_model = self.config["automatic"]["upload_model"]
         self.pith_mask_path = self.config["automatic"]["pith_mask"]
         self.number_of_rays = self.config["automatic"]["number_of_rays"]
         self.inbd_resize_factor = self.config["automatic"]["inbd_resize_factor"]
+        self.pith_model = self.config["automatic"]["pith_model"]
+        self.pith_mode = self.config["automatic"]["pith_mode"]
+        self.pith_method = self.config["automatic"]["pith_method"]
 
         self.sigma = self.config["automatic"]["sigma"]
         self.th_low = self.config["automatic"]["th_low"]
@@ -142,10 +142,13 @@ class ViewContext(Context):
         self.lw_annotations = self.output_dir / "none.json" if isinstance(lw_path, list) else Path(lw_path)
 
         self.apd_params = self.config["automatic"]["apd_params"]
+        self.code = self.config["image"]["metadata"]["code"]
 
         return
 
     def update_config(self):
+        self.config["automatic"]["pith_model"] = self.pith_model
+        self.config["automatic"]["pith_mode"] = self.pith_mode
         self.config["automatic"]["model_path"] = str(self.model_path)
         self.config["automatic"]["upload_model"] = self.upload_model
         self.config["automatic"]["pith_mask"] = str(self.pith_mask_path)
@@ -155,6 +158,8 @@ class ViewContext(Context):
         self.config["automatic"]["th_low"] = self.th_low
         self.config["automatic"]["th_hight"] = self.th_hight
         self.config["automatic"]["apd_params"] = self.apd_params
+        self.config["automatic"]["pith_method"] = self.pith_method
+
 
         return
 
@@ -167,6 +172,14 @@ class ViewContext(Context):
 class UI:
 
     def __init__(self, runtime_config_path):
+        st.header("Ring Detection")
+        st.markdown(
+            """
+            Two methods are available for the automatic detection of rings: CS-TRD and INBD. Pith annotations is required.
+            """
+        )
+        st.divider()
+
         CTX = ViewContext(runtime_config_path)
         CTX.init_specific_ui_components()
         self.CTX = CTX
@@ -183,7 +196,8 @@ class UI:
                 st_w = st.slider("ST Window", 1, 10,  int(self.CTX.apd_params["st_w"]))
                 lo_w = st.slider("LO Window", 1, 10,  int(self.CTX.apd_params["lo_w"]))
                 st_sigma = st.slider("ST Sigma", 0.1, 10.0,  float(self.CTX.apd_params["st_sigma"]), step=0.1)
-                resize = st.slider("Resize", 1, 10,  int(self.CTX.apd_params["resize"]))
+                resize = resize_slider(default=  int(self.CTX.apd_params["resize"]), legend="Resize", help="Resize factor for the image.\n",
+                                       max=10, min=1)
 
 
                 params_dict = {"percent_lo": percent_lo, "st_w": st_w, "lo_w": lo_w,
@@ -211,7 +225,7 @@ class UI:
                 status = interface.automatic(pith_model, output_dir = self.CTX.pith_mask, params_dict = params_dict)
 
             results = interface.parse_output() if status else None
-            gif_runner.empty()
+
             if results is None:
                 st.write("No results found")
                 return
@@ -224,19 +238,30 @@ class UI:
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             image[mask > 0] = Color.red
 
-            st.image(image , use_column_width=True)
+            gif_runner.empty()
+            display_image(image)
 
         return
 
     def shape_pith(self):
-        pith_model = st.radio("Model", [Pith.pixel, Pith.boundary], horizontal=True)
-        pith_method = st.radio("Method", [Pith.manual, Pith.automatic], horizontal=True)
-        if pith_method == Pith.manual:
-            self.get_pith(pith_model, pith_method)
+        model = [Pith.pixel, Pith.boundary]
+        pith_model = st.radio("Model", model , horizontal=True, index = model.index(self.CTX.pith_model))
+        if pith_model != self.CTX.pith_model:
+            self.CTX.pith_model = pith_model
+        mode = [Pith.manual, Pith.automatic]
+        pith_mode = st.radio("Method", mode, horizontal=True, index = mode.index(self.CTX.pith_mode))
+        if pith_mode != self.CTX.pith_mode:
+            self.CTX.pith_mode = pith_mode
+
+        if pith_mode == Pith.manual:
+            self.get_pith(pith_model, pith_mode)
         else:
             #Pith model automatic
-            pith_model = st.radio("Method", [Pith.apd, Pith.apd_pl, Pith.apd_dl], horizontal=True)
-            self.get_pith(pith_model, pith_method)
+            pith_methods = [Pith.apd, Pith.apd_pl, Pith.apd_dl]
+            pith_method = st.radio("Method", pith_methods, horizontal=True, index = pith_methods.index(self.CTX.pith_method))
+            if pith_method != self.CTX.pith_method:
+                self.CTX.pith_method = pith_method
+            self.get_pith(pith_method, pith_mode)
 
     def cstrd_parameters(self):
         st.subheader("Parameters")
@@ -308,11 +333,11 @@ class UI:
         if nr != self.CTX.number_of_rays:
             self.CTX.number_of_rays = nr
 
-        resize_factor = st.slider("Resize Factor", 0.0, 10.0, float(self.CTX.inbd_resize_factor) , help="Resize factor for the image.\n"
-                                                                                       "Be aware that the image will \n"
-                                                                                       "be resized, which means that the \n"
-                                                                                       "automatic method will work at a \n"
-                                                                                        "lower resolution")
+        resize_factor = resize_slider(default=int(self.CTX.inbd_resize_factor), legend="Resize Factor",
+                               help="Resize factor for the image.\n""Be aware that the image will \n"
+                               "be resized, which means that the \n""automatic method will work at a \n"
+                               "lower resolution", max=10, min=1)
+
         if resize_factor != self.CTX.inbd_resize_factor:
             self.CTX.inbd_resize_factor = resize_factor
         return
@@ -334,10 +359,11 @@ class UI:
         if run_button:
             results_path = self.cstrd_run(str(self.CTX.lw_annotations))
             st.write("Results saved in: ", results_path)
-            download_button(results_path, "Download", f"{self.CTX.image_orig_path.stem}.json",
+            download_button(results_path, "Download", f"{self.CTX.code}_ew.json",
                             "application/json")
             image_draw_path = results_path.parent / "contours.png"
-            st.image(cv2.cvtColor(load_image(image_draw_path),cv2.COLOR_BGR2RGB), use_column_width=True)
+            #st.image(cv2.cvtColor(load_image(image_draw_path),cv2.COLOR_BGR2RGB), use_column_width=True)
+            display_image((cv2.cvtColor(load_image(image_draw_path),cv2.COLOR_BGR2RGB)))
 
 
 
@@ -356,7 +382,8 @@ class UI:
                 poly = Polygon(ring.points.tolist())
                 image = Drawing.curve( poly.exterior.coords, image, Color.red, thickness=5)
 
-            st.image(image, use_column_width=True)
+            #st.image(image, use_column_width=True)
+            display_image(image)
         return
 
     def shape_latewood(self):
@@ -370,8 +397,12 @@ class UI:
         if run_button:
             results_path = self.inbd_run() if method_latewood == LatewoodMethods.inbd else\
                 self.cstrd_run()
+            #relabel rings
+            if self.CTX.autocomplete_ring_date:
+                ring_relabelling(self.CTX.image_path, results_path, self.CTX.harvest_date)
             st.write("Results saved in: ", results_path)
-            download_button(results_path, "Download", f"{self.CTX.image_orig_path.stem}.json",
+            output_name = f"{self.CTX.code}_lw_{method_latewood}.json"
+            download_button(results_path, "Download", output_name,
                             "application/json")
             self.display_results(results_path)
 
@@ -380,6 +411,8 @@ class UI:
 
 def main(runtime_config_path):
     ui = UI(runtime_config_path)
+    if check_image(ui.CTX):
+        return
     selected = ui.select_shape()
     st.divider()
 

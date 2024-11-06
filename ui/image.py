@@ -5,11 +5,13 @@ import datetime
 import os
 
 from PIL import Image
+Image.MAX_IMAGE_PIXELS = None
+
 from streamlit_option_menu import option_menu
 from pathlib import Path
 
-from lib.image import resize_image_using_pil_lib, load_image, write_image, remove_salient_object
-from ui.common import Context, RunningWidget, Pith
+from lib.image import  write_image, remove_salient_object, resize_image
+from ui.common import Context, RunningWidget, Pith, display_image, check_image, resize_slider
 from backend.labelme_layer import (LabelmeShapeType,
                                    LabelmeObject, LabelmeInterface as UserInterface, resize_annotations,
                                    AL_LateWood_EarlyWood)
@@ -44,7 +46,7 @@ class ViewContext(Context):
         self.scale_status = config["scale"]["status"]
 
 
-        self.tree_planting_date = config["metadata"]["tree_planting_date"]
+        #self.tree_planting_date = config["metadata"]["tree_planting_date"]
         self.harvest_date = config["metadata"]["harvest_date"]
         self.location = config["metadata"]["location"]
         self.species = config["metadata"]["species"]
@@ -52,10 +54,12 @@ class ViewContext(Context):
         self.code = config["metadata"]["code"]
         self.latitude = config['metadata']['latitude']
         self.longitude = config['metadata']['longitude']
+        self.autocomplete_ring_date = config['metadata']['autocomplete_ring_date']
 
         self.image_no_background_path = self.output_dir / config["background"]["image_path"]
         self.background_json_path = self.output_dir / config["background"]["json_path"]
         self.resize_factor = config["background"]["resize_factor"]
+
 
         #runtime variables
         self.bg_image = None
@@ -77,7 +81,7 @@ class ViewContext(Context):
         config["scale"]["status"] = self.scale_status
 
 
-        config["metadata"]["tree_planting_date"] = self.tree_planting_date
+        #config["metadata"]["tree_planting_date"] = self.tree_planting_date
         config["metadata"]["harvest_date"] = self.harvest_date
         config["metadata"]["location"] = self.location
         config["metadata"]['latitude'] = self.latitude
@@ -85,13 +89,12 @@ class ViewContext(Context):
         config["metadata"]["species"] = self.species
         config["metadata"]["observations"] = self.observations
         config["metadata"]["code"] = self.code
+        config['metadata']['autocomplete_ring_date'] = self.autocomplete_ring_date
 
         config["background"]["resize_factor"] = self.resize_factor
 
         return
 
-        # config["background"]["image_path"] = self.image_no_background_path
-        # config["background"]["json_path"] = self.background_json_path
 
 
 class Menu:
@@ -102,180 +105,237 @@ class Menu:
 
 
 
-def set_date_input(dictionary_date, text="Tree planting date"):
-    year, month, day = (dictionary_date['year'], dictionary_date['month'],
-                        dictionary_date['day'])
-    input_date = st.date_input( text, datetime.date(year, month, day),
-                                min_value = datetime.date(1500, 1, 1),
-                                max_value = datetime.date(3000, 1, 1))
-    dictionary_date['year'] = input_date.year
-    dictionary_date['month'] = input_date.month
-    dictionary_date['day'] = input_date.day
+def set_date_input(dictionary_date, text="Harvest date", help=""):
+    default_year = int(dictionary_date['year'])
+    current_year = datetime.datetime.now().year
+    min_year = current_year - 200
+    max_year = current_year
+    years_list = list(reversed(range(min_year, max_year + 1)))
+    selected_year = st.selectbox(text, years_list , index=years_list.index(default_year), help=help)
+
+    dictionary_date['year'] = selected_year
+    dictionary_date['month'] = 1
+    dictionary_date['day'] = 1
     return dictionary_date
 
-def resize_image(image_path : Path, resize_factor : float):
-    image = load_image(image_path)
-    H, W = image.shape[:2]
-    H_new = int(H  / resize_factor)
-    W_new = int(W  / resize_factor)
-    image = resize_image_using_pil_lib(image,  H_new, W_new)
-    write_image(str(image_path), image)
-    return str(image_path)
-
-
-def main(runtime_config_path):
-    global CTX
-    CTX = ViewContext(runtime_config_path)
-    CTX.init_specific_ui_components()
-
-    st.header("Image")
-    st.markdown(
-        """
-        Upload Disk Image, preprocess, set scale unit and remove background
-        """
-    )
-
-    selected = option_menu(None, [Menu.image, Menu.preprocess, Menu.scale,  Menu.metadata],
-                           menu_icon="cast", default_index=0, orientation="horizontal")
 
 
 
-    if selected == Menu.image:
-        CTX.mode = st.radio("Mode", ("cross-section", "core"), horizontal=True, index = 0 if CTX.mode == "cross-section"
-                                                else 1 )
 
-        CTX.bg_image = st.file_uploader("Image:", type=["png", "jpg"])
-        if CTX.bg_image is not None:
-            os.system(f"rm -rf {CTX.output_dir}/*.png")
-            os.system(f"rm -rf {CTX.output_dir}/*.json")
-            os.system(f"rm -rf {CTX.output_dir}/metrics")
-            Path(CTX.output_dir).mkdir(parents=True, exist_ok=True)
-            CTX.scale_status = False
 
-            CTX.bg_image_pil = Image.open(CTX.bg_image)
-            CTX.bg_image_pil.save(CTX.image_path)
-            bg_image_pil_display = CTX.bg_image_pil.resize((CTX.display_image_size, CTX.display_image_size),
+class UI:
+
+    def __init__(self, runtime_config_path):
+        st.header("Image")
+        st.markdown(
+            """
+            Upload Disk Image, preprocess, set scale unit and add metadata. We suggest to resize images with dimensions
+            higher than 1500px.
+            """
+        )
+        st.divider()
+        CTX = ViewContext(runtime_config_path)
+        CTX.init_specific_ui_components()
+        self.CTX = CTX
+
+    def option_menu(self):
+        selected = option_menu(None, [Menu.image, Menu.preprocess, Menu.scale, Menu.metadata],
+                               menu_icon="cast", default_index=0, orientation="horizontal")
+        return selected
+
+
+    def upload_image(self):
+        self.CTX.bg_image = st.file_uploader("Image:", type=["png", "jpg"])
+        gif_runner = RunningWidget()
+        if self.CTX.bg_image is not None:
+            #get code
+            image_name = self.CTX.bg_image.name
+            if image_name.endswith(".png"):
+                self.CTX.code = image_name.replace(".png", "")
+            elif image_name.endswith(".jpg"):
+                self.CTX.code = image_name.replace(".jpg", "")
+            os.system(f"rm -rf {self.CTX.output_dir}/*.png")
+            os.system(f"rm -rf {self.CTX.output_dir}/*.json")
+            os.system(f"rm -rf {self.CTX.output_dir}/metrics")
+            Path(self.CTX.output_dir).mkdir(parents=True, exist_ok=True)
+            self.CTX.scale_status = False
+
+            self.CTX.bg_image_pil = Image.open(self.CTX.bg_image)
+            self.CTX.bg_image_pil.save(self.CTX.image_path)
+            bg_image_pil_display = self.CTX.bg_image_pil.resize((self.CTX.display_image_size,
+                                                                 self.CTX.display_image_size),
                                                            Image.Resampling.LANCZOS)
-            st.image(bg_image_pil_display)
 
-        elif Path(CTX.image_path).exists():
-            CTX.bg_image_pil = Image.open(CTX.image_path)
-            bg_image_pil_display = CTX.bg_image_pil.resize((CTX.display_image_size, CTX.display_image_size),
+            height, width = self.CTX.bg_image_pil.size
+            st.write(f"Image dimensions: (H,W) = ({height}, {width})")
+            display_image(bg_image_pil_display)
+
+        elif Path(self.CTX.image_path).exists():
+            self.CTX.bg_image_pil = Image.open(self.CTX.image_path)
+            bg_image_pil_display = self.CTX.bg_image_pil.resize((self.CTX.display_image_size,
+                                                                 self.CTX.display_image_size),
                                                            Image.Resampling.LANCZOS)
-            st.image(bg_image_pil_display)
+            #st.image(bg_image_pil_display)
+            display_image(bg_image_pil_display)
+        gif_runner.empty()
 
+    def remove_background(self, radio):
+        interface = BackgroundInterface(self.CTX.image_path, self.CTX.background_json_path,
+                                        self.CTX.image_no_background_path)
+        if radio == Pith.manual:
+            interface.interface()
+        else:
+            interface.automatic()
+        res = interface.parse_output()
+        if res is not None:
+            self.CTX.bg_image_pil_no_background = interface.remove_background()
+            self.CTX.bg_image_pil_no_background = self.CTX.bg_image_pil_no_background.resize(
+                (self.CTX.display_image_size, self.CTX.display_image_size), Image.Resampling.LANCZOS)
 
-    if selected == Menu.preprocess and Path(CTX.image_path).exists():
+        return
+
+    def resize_image(self, resize_factor):
+        _, height, width = resize_image(self.CTX.image_path, resize_factor)
+
+        if Path(self.CTX.image_no_background_path).exists():
+            backup_image_path = str(self.CTX.image_no_background_path).replace(".png", "_bkp.png")
+            os.system(f"cp {self.CTX.image_no_background_path} {backup_image_path}")
+            self.CTX.image_no_background_path, _, _ = resize_image(self.CTX.image_no_background_path, resize_factor)
+            resize_image(str(self.CTX.image_no_background_path).replace(".png", "_mask.png"),
+                         resize_factor)
+            new_annotations_path = resize_annotations(backup_image_path, self.CTX.image_no_background_path,
+                                                      self.CTX.background_json_path)
+            os.system(f"cp {new_annotations_path} {self.CTX.background_json_path}")
+
+        self.CTX.scale_status = False
+        return height, width
+
+    def preprocess(self):
+        if check_image(self.CTX):
+            return None
+
         radio = st.radio("Remove Background", (Pith.manual, Pith.automatic), index=0, horizontal=True)
 
         if st.button("Remove Background"):
             gif_runner = RunningWidget()
-            interface = BackgroundInterface(CTX.image_path, CTX.background_json_path, CTX.image_no_background_path)
-            if radio == Pith.manual:
-                interface.interface()
-            else:
-                interface.automatic()
-            res = interface.parse_output()
-            if res is not None:
-                CTX.bg_image_pil_no_background = interface.remove_background()
-                CTX.bg_image_pil_no_background = CTX.bg_image_pil_no_background.resize((CTX.display_image_size,
-                                                                CTX.display_image_size), Image.Resampling.LANCZOS)
-
+            self.remove_background(radio)
             gif_runner.empty()
-        # if st.button("Automatic Remove background"):
-        #     gif_runner = RunningWidget()
-        #     remove_salient_object(CTX.image_path, CTX.image_no_background_path)
-        #
-        #     gif_runner.empty()
 
-        if Path(CTX.image_no_background_path).exists():
-            CTX.bg_image_pil_no_background = Image.open(CTX.image_no_background_path)
-            CTX.bg_image_pil_no_background = CTX.bg_image_pil_no_background.resize((CTX.display_image_size,
-                                                                                    CTX.display_image_size),
-                                                                                   Image.Resampling.LANCZOS)
-            st.image(CTX.bg_image_pil_no_background)
+        if Path(self.CTX.image_no_background_path).exists():
+            self.CTX.bg_image_pil_no_background = Image.open(self.CTX.image_no_background_path)
+            self.CTX.bg_image_pil_no_background = self.CTX.bg_image_pil_no_background.resize(
+                (self.CTX.display_image_size, self.CTX.display_image_size), Image.Resampling.LANCZOS)
+            display_image(self.CTX.bg_image_pil_no_background)
 
-        resize_factor = st.slider("Resize Factor", 0.0, 10.0, CTX.resize_factor , help="Resize factor for the image.\n"
-                                                                                       "Be aware that the image will \n"
-                                                                                       "be resized, which means that metrics\n"
-                                                                                       "will be affected")
-        if resize_factor != CTX.resize_factor and resize_factor > 0:
-            CTX.resize_factor = resize_factor
+        resize_factor = resize_slider(default=self.CTX.resize_factor)
+        if resize_factor != self.CTX.resize_factor and resize_factor > 0:
+            self.CTX.resize_factor = resize_factor
 
         if st.button("Resize Image"):
             gif_runner = RunningWidget()
-
-            _ = resize_image(CTX.image_path, resize_factor)
-
-            if Path(CTX.image_no_background_path).exists():
-                backup_image_path = str(CTX.image_no_background_path).replace(".png", "_bkp.png")
-                os.system(f"cp {CTX.image_no_background_path} {backup_image_path}")
-                CTX.image_no_background_path = resize_image(CTX.image_no_background_path, resize_factor)
-                resize_image(str(CTX.image_no_background_path).replace(".png", "_mask.png"), resize_factor)
-                new_annotations_path = resize_annotations(backup_image_path, CTX.image_no_background_path, CTX.background_json_path)
-                os.system(f"cp {new_annotations_path} {CTX.background_json_path}")
-
-
-            CTX.scale_status = False
+            height, width = self.resize_image(resize_factor)
             gif_runner.empty()
-            st.warning("Image resized. Please set the scale again")
+            st.warning(f"Image resized. Please set the scale again. Image new dimensions are:"
+                       f" (H,W)=( {int(height)}, {int(width)}). Ring detection method works with dimentions lower"
+                       f" than 1500px")
 
-    if selected == Menu.scale and Path(CTX.image_path).exists():
-        CTX.units_mode = st.radio(
+        return
+
+    def set_scale(self):
+        if check_image(self.CTX):
+            return None
+
+        self.CTX.units_mode = st.radio(
             "Unit:",
-            ("nm", r"$\mu$m", "mm", "cm", "dpi"), horizontal=True, index=scale_index_unit(CTX.units_mode)
+            ("nm", r"$\mu$m", "mm", "cm", "dpi"), horizontal=True, index=scale_index_unit(self.CTX.units_mode)
         )
-        if CTX.units_mode == "dpi":
-            dpi = st.number_input("DPI scale:", 1, 2000, CTX.dpi)
-            if CTX.dpi != dpi:
-                CTX.scale_status = True
-                CTX.dpi = dpi
+        if self.CTX.units_mode == "dpi":
+            dpi = st.number_input("DPI scale:", 1, 2000, self.CTX.dpi)
+            if self.CTX.dpi != dpi:
+                self.CTX.scale_status = True
+                self.CTX.dpi = dpi
 
         else:
             button = st.button("Set Distance in Pixels")
             if button:
                 gif_runner = RunningWidget()
-                CTX.pixels_length = set_scale(CTX)
-                CTX.scale_status = True
+                self.CTX.pixels_length = set_scale(self.CTX)
+                self.CTX.scale_status = True
                 gif_runner.empty()
-            pixels_length = st.number_input("Distance in Pixels", 1.0, 10000.0, float(CTX.pixels_length))
-            #input float number
+            pixels_length = st.number_input("Distance in Pixels", 1.0, 10000.0, float(self.CTX.pixels_length))
+            # input float number
 
-            if pixels_length != CTX.pixels_length:
-                CTX.scale_status = True
-                CTX.pixels_length = pixels_length
-            know_distance = st.number_input("Know distance", 1, 100, CTX.know_distance)
-            if know_distance != CTX.know_distance:
-                CTX.scale_status = True
-                CTX.know_distance = know_distance
+            if pixels_length != self.CTX.pixels_length:
+                self.CTX.scale_status = True
+                self.CTX.pixels_length = pixels_length
 
-    if selected == Menu.metadata and Path(CTX.image_path).exists():
+            know_distance = st.number_input("Know distance", 1, 100, self.CTX.know_distance)
+            if know_distance != self.CTX.know_distance:
+                self.CTX.scale_status = True
+                self.CTX.know_distance = know_distance
 
-        code = st.text_input("Code", value = CTX.code)
-        CTX.code = code
+            scale = self.CTX.pixels_length / self.CTX.know_distance
+            st.write(f"Scale: {scale:.2f} pixels/{self.CTX.units_mode}")
 
-        ##tree planting date
-        CTX.tree_planting_date = set_date_input(CTX.tree_planting_date, "Tree planting date")
-        CTX.harvest_date = set_date_input(CTX.tree_planting_date, "Harvest date")
+        return
 
-        location = st.text_input("Location", value = CTX.location)
-        CTX.location = location
+    def metadata(self):
+        if check_image(self.CTX):
+            return None
 
-        latitude = st.number_input("Latitude", value = CTX.latitude, format="%.8f")
-        CTX.latitude = latitude
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            code = st.text_input("Code", value=self.CTX.code)
+            self.CTX.code = code
 
-        longitude = st.number_input("Longitude", value = CTX.longitude, format="%.8f")
-        CTX.longitude = longitude
+            self.CTX.harvest_date = set_date_input(self.CTX.harvest_date, "Harvest date")
 
-        species = st.text_input("Species", value = CTX.species)
-        CTX.species = species
+            autocomplete_ring_date = st.checkbox("Autocomplete ring date", value=self.CTX.autocomplete_ring_date,
+                                                 help="If checked, the ring date will be automatically filled with the harvest date. "
+                                                      "This means that rings label will be created from the harvest date"
+                                                      " (manually labeled rings will be deleted).")
+            if autocomplete_ring_date != self.CTX.autocomplete_ring_date:
+                self.CTX.autocomplete_ring_date = autocomplete_ring_date
 
-        observations = st.text_area("Observations", value = CTX.observations)
-        CTX.observations = observations
+            location = st.text_input("Location", value=self.CTX.location)
+            self.CTX.location = location
 
+            latitude = st.number_input("Latitude", value=self.CTX.latitude, format="%.8f")
+            self.CTX.latitude = latitude
+
+            longitude = st.number_input("Longitude", value=self.CTX.longitude, format="%.8f")
+            self.CTX.longitude = longitude
+
+        with col2:
+            species = st.text_input("Species", value=self.CTX.species)
+            self.CTX.species = species
+
+            observations = st.text_area("Observations", value=self.CTX.observations)
+            self.CTX.observations = observations
+
+
+def main(runtime_config_path):
+    ui = UI(runtime_config_path)
+
+    selected = ui.option_menu()
+
+
+    if selected == Menu.image:
+        ui.upload_image()
+
+    if selected == Menu.preprocess:
+        ui.preprocess()
+
+    if selected == Menu.scale:
+        ui.set_scale()
+
+    if selected == Menu.metadata:
+        ui.metadata()
 
     #save status
-    CTX.save_config()
+    ui.CTX.save_config()
+
+    return
 
 def scale_index_unit(unit):
     if unit == "cm":

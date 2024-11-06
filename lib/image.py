@@ -5,6 +5,7 @@ import cv2
 from abc import ABC, abstractmethod
 from PIL import Image
 from shapely.geometry import Polygon
+from pathlib import Path
 
 from lib.io import load_json
 from lib.segmentation.u2net import U2NET
@@ -123,6 +124,16 @@ class Drawing:
         return img
 
 
+def resize_image(image_path : Path, resize_factor : float, output_path : str = None):
+    image = load_image(image_path)
+    H, W = image.shape[:2]
+    H_new = int(H  / resize_factor)
+    W_new = int(W  / resize_factor)
+    image = resize_image_using_pil_lib(image,  H_new, W_new)
+    image_path = image_path if output_path is None else Path(output_path)
+    write_image(str(image_path), image)
+    height, width = image.shape[:2]
+    return str(image_path), height, width
 
 def resize_image_using_pil_lib(im_in: np.array, height_output: object, width_output: object, keep_ratio= True) -> np.ndarray:
     """
