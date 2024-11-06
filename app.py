@@ -41,11 +41,9 @@ class Mode:
 
 
 
-# Configura la página al inicio del script
 im = Image.open('assets/pixels_wood.jpg')
 st.set_page_config( page_title=APP_NAME, page_icon=im, layout='wide')
 
-# Define el decorador para el título de la aplicación
 def app_title_decorator(app_name):
     def decorator(func):
         def wrapper(*args, **kwargs):
@@ -86,7 +84,6 @@ def main():
                                     Menu.manual_ring_delineation, Menu.metrics, Menu.save], menu_icon="cast",
                                default_index=0)
 
-    #if mode == Mode.single:
     if selected == Menu.home:
         home(DEFAULT_CONFIG_PATH, RUNTIME_CONFIG_PATH)
 
