@@ -10,20 +10,24 @@
                     "tree_planting_date":  {"year":  1993, "month":  1, "day":  1},"harvest_date": {"year":  1993, "month":  1, "day":  1},
                     "location":  "Montevideo, Uruguay",
                     "species":  "Pinus taeda", "observations":  "None", "code" : "AAA-1234",
-                    "latitude": -34.83794967897183, "longitude": -56.189290811877314
+                    "latitude": -34.83794967897183, "longitude": -56.189290811877314,
+                    "autocomplete_ring_date": true
            }
   },
   "automatic":{
-    "sigma": 1.1,
+    "sigma": 3,
     "th_low": 5,
     "th_hight": 20,
     "inbd_resize_factor":1,
     "number_of_rays":360, 
     "pith_mask":"", 
-    "apd_params":{"percent_lo": 0.7, "st_w": 3, "lo_w":3, "st_sigma": 1.2, "resize": 1}, 
+    "apd_params":{"percent_lo": 0.7, "st_w": 3, "lo_w":3, "st_sigma": 1.2, "resize": 3}, 
+    "pith_method": "APD",
     "model_path":"",
     "inbd_models":{"Pinus Taeda":"automatic_methods/tree_ring_delineation/mlbrief_inbd/models/model.update.pt.zip", "INBD-EH":"automatic_methods/tree_ring_delineation/mlbrief_inbd/models/model_eh.update.pt.zip"},
-    "upload_model": false
+    "upload_model": false,
+    "pith_model": "Boundary",
+    "pith_mode": "Automatic"
   }
   ,
   "manual": {
@@ -42,23 +46,26 @@
   "metric":{
     "main_label": true,
     "ring_area": true, 
-    "ew_area":true,
-    "lw_area": true,
-    "eccentricity_module": true,
-    "perimeter": true,
-    "ew_lw_label": true, 
+    "ew_area":false,
+    "lw_area": false,
+    "eccentricity_module": false,
+    "perimeter": false,
+    "ew_lw_label": false, 
     "cumulative_area": true, 
-    "cumulative_ew_area": true, 
-    "lw_width": true,
-    "eccentricity_phase": true,
-    "ring_similarity_factor": true,
+    "cumulative_ew_area": false, 
+    "lw_width": false,
+    "eccentricity_phase": false,
+    "ring_similarity_factor": false,
     "year": true,
     "cumulative_radius": true,
-    "cumulative_ew_radius": true,
-    "lw_ratio": true,
+    "cumulative_ew_radius": false,
+    "lw_ratio": false,
     "annual_ring_width": true,
-    "ew_width": true,
+    "ew_width": false,
     "lw_width_ratio": true,
-    "ring_path":""
+    "ring_path":"",
+    "ew_measurements": true,
+    "two_dim_annotations": true,
+    "display_area_settings": true
   }
 }

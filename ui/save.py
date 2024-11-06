@@ -1,6 +1,7 @@
 import os
+import streamlit as st
 
-from ui.common import Context, download_button
+from ui.common import Context, download_button, check_image
 
 
 
@@ -23,7 +24,8 @@ class VisualizationShape:
 
 class ViewContext(Context):
     def init_specific_ui_components(self):
-        pass
+        config = self.config["image"]
+        self.image_path = self.output_dir / config["image_path"]
 
     def update_config(self):
         pass
@@ -35,6 +37,13 @@ class ViewContext(Context):
 class UI:
 
     def __init__(self, runtime_config_path):
+        st.header("Save")
+        st.markdown(
+            """
+            This page allows you to download the results of the analysis.
+            """
+        )
+        st.divider()
         CTX = ViewContext(runtime_config_path)
         CTX.init_specific_ui_components()
         self.CTX = CTX
@@ -74,6 +83,8 @@ class UI:
 
 def main(runtime_config_path):
     ui = UI(runtime_config_path)
+    if check_image(ui.CTX):
+        return
 
     ui.download_results()
 

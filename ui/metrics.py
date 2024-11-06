@@ -1,10 +1,8 @@
 import os
 import base64
-import cv2
 import streamlit as st
 import numpy as np
 import pandas as pd
-import altair as alt
 
 from typing import List
 from streamlit_image_zoom import image_zoom
@@ -12,10 +10,14 @@ from pathlib import Path
 from shapely.geometry import LineString, MultiLineString, Polygon, Point, MultiPoint
 
 from lib.image import  Color as ColorCV2, Drawing, load_image, write_image, resize_image_using_pil_lib
-from ui.common import Context, RunningWidget
+from ui.common import (Context, RunningWidget,  plot_chart, display_image_with_zoom, display_data_editor, check_image,
+                       Shapes, display_image_plotly)
 from lib.metrics import  export_results, Table
 from backend.labelme_layer import (LabelmeShapeType,
-                                   LabelmeObject, LabelmeInterface as UserInterface)
+                                   LabelmeObject, LabelmeInterface as UserInterface, add_prefix_to_labels,
+                                   AL_LateWood_EarlyWood, load_ring_shapes, write_ring_shapes, PointLabelme)
+
+
 
 
 class ViewContext(Context):
@@ -27,7 +29,7 @@ class ViewContext(Context):
         self.pixels_length = config["scale"]["pixels_length"]
         self.know_distance = config["scale"]["know_distance"]
         self.dpi = config["scale"]["dpi"]
-        self.tree_planting_date = config["metadata"]["tree_planting_date"]
+        self.harvest_date = config["metadata"]["harvest_date"]
 
 
         config_manual = self.config["manual"]
@@ -62,8 +64,11 @@ class ViewContext(Context):
         self.annual_ring_width = config_metric["annual_ring_width"]
         self.ew_width = config_metric["ew_width"]
         self.lw_width_ratio = config_metric["lw_width_ratio"]
+        self.ew_measurements = config_metric["ew_measurements"]
+        self.two_dim_annotations = config_metric["two_dim_annotations"]
 
         self.ring_path = config_metric["ring_path"]
+        self.display_area_settings = config_metric["display_area_settings"]
 
 
 
@@ -89,6 +94,9 @@ class ViewContext(Context):
         config_metric["ew_width"] = self.ew_width
         config_metric["lw_width_ratio"] = self.lw_width_ratio
         config_metric["ring_path"] = str(self.ring_path)
+        config_metric["ew_measurements"] = self.ew_measurements
+        config_metric["two_dim_annotations"] = self.two_dim_annotations
+        config_metric["display_area_settings"] = self.display_area_settings
 
 
 
@@ -146,13 +154,25 @@ def select_columns_to_display(CTX, table: Table):
 class UI:
 
     def __init__(self, runtime_config_path):
+        st.header("Metrics")
+        st.markdown(
+            """
+            This interface allows you to edit the ring annotations. You can select the shape you want to edit.
+            """
+        )
+        st.divider()
         CTX = ViewContext(runtime_config_path)
         CTX.init_specific_ui_components()
         self.CTX = CTX
         self.df = None
 
     def options(self):
-        st.subheader("Columns to display in the table")
+        display_settings = st.checkbox("Show Area Metrics", value = self.CTX.display_area_settings,
+                           help = "Show area metrics to be computed")
+        if display_settings != self.CTX.display_area_settings:
+            self.CTX.display_area_settings = display_settings
+        return
+    def show_area_settings(self):
         table = Table(self.CTX.units_mode)
         col1, col2, col3, col4 = st.columns(4)
         with col1:
@@ -207,62 +227,37 @@ class UI:
 
 
 
+    def area_computations(self):
+        metadata = dict(
+            unit = self.CTX.units_mode,
+            pixels_millimeter_relation = self.CTX.know_distance / self.CTX.pixels_length ,
+            plantation_date = True,
+            year = self.CTX.harvest_date['year']
+        )
+        if Path(self.CTX.lw_annotation_file).exists():
+            lw_file_path = self.CTX.output_dir_metrics / "latewood_read.json"
+            os.system(f"cp {self.CTX.lw_annotation_file} {lw_file_path}")
+            lw_file_path = self.CTX.output_dir_metrics / "latewood.json"
+        else:
+            lw_file_path = None
 
-    def run_metrics(self):
-        if not self.CTX.scale_status:
-            os.system(f"rm -rf {self.CTX.output_dir_metrics}")
-            st.warning("Please set the scale")
+        if Path(self.CTX.ew_annotation_file).exists():
+            ew_file_path = self.CTX.output_dir_metrics / "earlywood_read.json"
+            os.system(f"cp {self.CTX.ew_annotation_file} {ew_file_path}")
+            ew_file_path = self.CTX.output_dir_metrics / "earlywood.json"
+        else:
+            ew_file_path = None
+        export_results(labelme_latewood_path= lw_file_path,
+                       labelme_earlywood_path= ew_file_path,
+                       image_path=self.CTX.image_path,
+                       metadata=metadata,
+                       draw=True,
+                       output_dir=self.CTX.output_dir_metrics)
 
-        enabled = self.CTX.lw_annotation_file is not None and self.CTX.scale_status
-        run_button = st.button("Run", disabled = not enabled)
+        return
 
-        if run_button:
-            metadata = dict(
-                unit = self.CTX.units_mode,
-                pixels_millimeter_relation =  self.CTX.know_distance / self.CTX.pixels_length ,
-                plantation_date = True,
-                year = self.CTX.tree_planting_date['year']
-
-            )
-            if Path(self.CTX.lw_annotation_file).exists():
-                lw_file_path = self.CTX.output_dir_metrics / "latewood_read.json"
-                os.system(f"cp {self.CTX.lw_annotation_file} {lw_file_path}")
-                lw_file_path = self.CTX.output_dir_metrics / "latewood.json"
-            else:
-                lw_file_path = None
-
-            if Path(self.CTX.ew_annotation_file).exists():
-                ew_file_path = self.CTX.output_dir_metrics / "earlywood_read.json"
-                os.system(f"cp {self.CTX.ew_annotation_file} {ew_file_path}")
-                ew_file_path = self.CTX.output_dir_metrics / "earlywood.json"
-            else:
-                ew_file_path = None
-            gif_running = RunningWidget()
-            export_results(labelme_latewood_path= lw_file_path,
-                           labelme_earlywood_path= ew_file_path,
-                           image_path=self.CTX.image_path,
-                           metadata=metadata,
-                           draw=True,
-                           output_dir=self.CTX.output_dir_metrics)
-            gif_running.empty()
-
-        self.dataframe_file = self.CTX.output_dir_metrics / "measurements.csv"
-        if not Path(self.dataframe_file).exists():
-            return None
-        #display dataframe_file
-
-        st.write(f"Results are saved in {self.CTX.output_dir_metrics}")
-
-        rings_image_path = self.CTX.output_dir_metrics / "rings.png"
-        import cv2
-        image = cv2.cvtColor(load_image(rings_image_path), cv2.COLOR_BGR2RGB)
-
-
-
+    def area_dataframe_logic(self):
         self.df = pd.read_csv(self.dataframe_file)
-        #self.df['Year'] = self.df['Year'].astype(int)
-
-        #select columns to display
         table =  Table(self.CTX.units_mode)
         columns = select_columns_to_display(self.CTX, table)
         self.df = self.df[columns]
@@ -275,6 +270,9 @@ class UI:
         script_path = os.path.abspath(__file__)
         root = Path(script_path).parent.parent
         static_files_dir = Path(root) / "static"
+        if static_files_dir.exists():
+            os.system(f"rm -rf {static_files_dir}")
+
         static_files_dir.mkdir(parents=True, exist_ok=True)
         for image_path in ring_images:
             #copy image_path to static_files_dir
@@ -286,27 +284,11 @@ class UI:
         cols = self.df.columns.tolist()
         cols = cols[-1:] + cols[:-1]
         self.df = self.df[cols]
+        return self.df
 
-
-
-        st.data_editor(self.df,
-                       column_config= {
-                           'image': st.column_config.ImageColumn('Preview Ring', help="Preview Ring")
-                       },
-                       hide_index = True
-        )
-        height, width = image.shape[:2]
-        height, width = 800, 400
-        image_z = resize_image_using_pil_lib(image, height, width)
-        height, width = image_z.shape[:2]
-        image_zoom(image, mode="scroll", size=(width, height), keep_aspect_ratio=True, zoom_factor=4.0, increment=0.2)
-
-        #tab1, tab2 = st.tabs(["Line plot", "Bar plot"])
-
+    def area_chart(self):
         df_columns = self.df.columns.tolist()
         df_columns.remove('image')
-        #df_columns.remove(table.ew_lw_label)
-        #df_columns.remove(table.main_label)
         index_year = 0#df_columns.index(table.year)
         index_radius_width = 1#df_columns.index(table.cumulative_radius)
         x_axis = st.selectbox("Select x-axis", df_columns, index=index_year)
@@ -318,88 +300,224 @@ class UI:
 
         x_axis_values = self.df[x_axis].values
         y_axis_values = self.df[y_axis].values
-        x_axis = x_axis.split("[")[0]
-        y_axis = y_axis.split("[")[0]
-        df = pd.DataFrame(data={x_axis: x_axis_values, y_axis: y_axis_values}, columns=[x_axis, y_axis])
+        self.plot(x_axis, y_axis, x_axis_values, y_axis_values)
+        return
 
-        chart = alt.Chart(df).mark_line(color="#FF5733").encode(
-            x=x_axis,
-            y=y_axis
-        ).properties(
-            width=800,
-            height=400,
-            title=alt.TitleParams(f"Measurement Unit: {self.CTX.units_mode}", anchor='middle', offset=20)
-        )
+    def area_metrics(self):
+        if self.check_scale():
+            return
 
-        st.altair_chart(chart)
+        if self.check_lw_file():
+            return
+        #self.options()
+        col1, col2, col3 = st.columns([0.3, 0.3, 1])
+        with col2:
+            display_settings = st.checkbox("Show Area Metrics", value = self.CTX.display_area_settings,
+                               help = "Show area metrics to be computed")
+            if display_settings != self.CTX.display_area_settings:
+                self.CTX.display_area_settings = display_settings
+
+        with col1:
+            run_button = st.button("Run")
+
+
+        if display_settings:
+            st.divider()
+            self.show_area_settings()
+
+        if run_button:
+            gif_running = RunningWidget()
+            self.area_computations()
+            gif_running.empty()
+
+            self.dataframe_file = self.CTX.output_dir_metrics / "measurements.csv"
+            if not Path(self.dataframe_file).exists():
+                return None
+
+
+            st.write(f"Results are saved in {self.CTX.output_dir_metrics}")
+
+            tab1, tab2, tab3 = st.tabs(["Image", "table", "Charts"])
+            with tab2:
+                self.df = self.area_dataframe_logic()
+                display_data_editor(self.df)
+
+            with tab1:
+                rings_image_path = self.CTX.output_dir_metrics / "rings.png"
+                display_image_plotly(rings_image_path)
+
+            with tab3:
+                self.area_chart()
+
         return
 
     def plot(self, x_axis, y_axis, x_axis_values, y_axis_values):
         x_axis = x_axis.split("[")[0]
         y_axis = y_axis.split("[")[0]
         df = pd.DataFrame(data={x_axis: x_axis_values, y_axis: y_axis_values}, columns=[x_axis, y_axis])
+        plot_chart(df, title=f"Measurement Unit: {self.CTX.units_mode}")
 
-        chart = alt.Chart(df).mark_line(color="#FF5733").encode(
-            x=x_axis,
-            y=y_axis
-        ).properties(
-            width=800,
-            height=400,
-            title=alt.TitleParams(f"Measurement Unit: {self.CTX.units_mode}", anchor='middle', offset=20)
-        )
 
-        st.altair_chart(chart)
-    def delineate_path(self):
-        #add a button for delineating path
+    def check_ew_measurements(self):
+        ew_measurements = st.checkbox("EW", value = self.CTX.ew_measurements, help = "Add early wood measurements")
+        if ew_measurements != self.CTX.ew_measurements:
+            self.CTX.ew_measurements = ew_measurements
+
+    def check_scale(self):
         if not self.CTX.scale_status:
             os.system(f"rm -rf {self.CTX.output_dir_metrics}")
-            st.warning("Please set the scale")
+            st.error("Please set the scale in the *Image* page")
+            return True
 
+        return False
+
+    def check_if_exist_ew_file(self):
+        if self.CTX.ew_measurements:
+            if not Path(self.CTX.ew_annotation_file).exists():
+                st.error("Please upload the earlywood annotation file in the *Ring Editing* page")
+                return True
+        return False
+
+    def check_lw_file(self):
         enabled = self.CTX.lw_annotation_file is not None and self.CTX.scale_status
-        button = st.button("Delineate Path", disabled= not enabled)
         if not enabled:
-            st.error("Please upload the latewood annotation file")
+            st.error("Please upload the latewood annotation file in the *Ring Editing* page")
+            return True
+        return False
+
+    @staticmethod
+    def ring_shapes_processing(json_path, image_path, prefix, flag):
+        output_path = Path(json_path).parent / f"tmp.json"
+        add_prefix_to_labels(json_path, image_path, prefix, output_path)
+        shapes = load_ring_shapes(output_path)
+        for s in shapes:
+            s.set_flag({'0': flag})
+
+        return shapes
+
+    def compute_intersection(self, interface, path, use_annotations=True):
+        if not use_annotations:
+            l_intersections = []
+            year = int(self.CTX.harvest_date['year']) - (len(path) -1)
+            for idx, l in enumerate(path):
+                x, y = l.coords[0]
+                l_intersections.append(PointLabelme(x=x, y=y, label=f"{year+ idx}"))
+
+            return l_intersections
+
+        if self.CTX.ew_measurements:
+            shapes_ew = self.ring_shapes_processing(self.CTX.ew_annotation_file, self.CTX.image_path,
+                                                    "ew",Shapes.earlywood)
+            shapes_lw = self.ring_shapes_processing(self.CTX.lw_annotation_file, self.CTX.image_path, "lw",
+                                                    Shapes.latewood)
+
+            shapes = shapes_lw + shapes_ew
+            shapes.sort(key=lambda x: x.area)
+            #write shapes to labelme json
+            output_path_ann = self.CTX.output_dir_metrics / "lw_ew.json"
+            write_ring_shapes(shapes, output_path_ann, self.CTX.image_path)
+
+        else:
+            output_path_ann = self.CTX.lw_annotation_file
+
+        object = LabelmeObject(output_path_ann)
+        l_intersections = interface.compute_intersections(object, path)
+        return l_intersections
+
+    def path_computation(self, output_path):
+        self.CTX.ring_path = self.CTX.output_dir / "path.json"
+        if self.CTX.ring_path.exists():
+            os.system(f"rm {self.CTX.ring_path}")
+
+        interface = PathInterface(self.CTX.image_path, self.CTX.ring_path)
+        interface.interface()
+        if not self.CTX.ring_path.exists():
+            st.error("Path not delineated or saved. Please save the path")
+            return []
+
+        results = interface.parse_output(two_dim_annotations=self.CTX.two_dim_annotations)
+        if results is None:
+            return []
+
+        l_intersections = self.compute_intersection(interface, results, use_annotations= self.CTX.two_dim_annotations)
+
+        interface.compute_metrics(l_intersections, output_path,
+                                  scale=self.CTX.know_distance / self.CTX.pixels_length,
+                                  unit=self.CTX.units_mode)
+        return l_intersections
+    def path_display_results(self, output_path, points):
+        st.divider()
+        st.markdown("To avoid confusion when earlywood and latewood measurements are calculated together, "
+                    "earlywood measurements are prefixed with 'ew,' and latewood measurements are prefixed"
+                    " with 'lw.'")
+        tab1, tab2, tab3 = st.tabs(["Image", "table", "Charts"])
+        with tab2:
+            df = pd.read_csv(output_path)
+            #set two decimal
+            df = df.round(2)
+            columns = df.columns.tolist()
+            st.write(df)
+
+        with tab1:
+            image_path = self.CTX.output_dir / "debug_path.png"
+            display_image_plotly(image_path, points, df )
+
+        with tab3:
+            x_axis = "year"
+            y_axis = columns[1]
+            x_axis_values = df.label.values[1:]
+            y_axis_values = df[y_axis].values[1:]
+            self.plot(x_axis, y_axis, x_axis_values, y_axis_values)
+            y_axis = columns[2]
+            y_axis_values = df[y_axis].values[1:]
+            self.plot(x_axis, y_axis, x_axis_values, y_axis_values)
+
+        return
+
+    def check_2d_annotations(self):
+        check = st.checkbox("2D Annotations", value = self.CTX.two_dim_annotations,
+                            help = "Use two 2D annotations. Otherwise, ring boundaries need to be marked manually using the LineStrip object."
+                                   " Measurements start from the first marked point, but the last marked point "
+                                   "is not included.")
+        if check != self.CTX.two_dim_annotations:
+            self.CTX.two_dim_annotations = check
+
+
+    def path_metrics(self):
+        if self.check_scale():
             return
+
+        if self.check_lw_file():
+            return
+
+        col1, col2, col3 = st.columns([0.3,0.3, 1])
+
+        with col3:
+            self.check_2d_annotations()
+
+        with col2:
+            self.check_ew_measurements()
+
+
+        with col1:
+            button = st.button("Delineate Path")
+
 
         output_path = self.CTX.output_dir_metrics / "coorecorder.csv"
 
         if button:
+            if self.check_if_exist_ew_file():
+                return
+
             gif_running = RunningWidget()
-            self.CTX.ring_path = self.CTX.output_dir / "path.json"
-            interface = PathInterface(self.CTX.image_path, self.CTX.ring_path)
-            interface.interface()
-            results = interface.parse_output()
-            object_lw = LabelmeObject(self.CTX.lw_annotation_file)
-            l_intersections = interface.compute_intersections( object_lw, results)
-
-            interface.compute_metrics(l_intersections, output_path,
-                                      scale = self.CTX.know_distance / self.CTX.pixels_length,
-                                      unit = self.CTX.units_mode)
-
+            res = self.path_computation(output_path)
             gif_running.empty()
+            if len(res)==0 :
+                return
 
             st.write(f"Results are saved in {self.CTX.output_dir_metrics}")
+            self.path_display_results(output_path, res)
 
-        if output_path.exists():
-            df = pd.read_csv(output_path)
-            columns = df.columns.tolist()
-            st.write(df)
-            image = load_image(self.CTX.output_dir / "debug_path.png")
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            height, width = 800, 400
-            image_z = resize_image_using_pil_lib(image, height, width)
-            height, width = image_z.shape[:2]
-            image_zoom(image, mode="scroll", size=(width, height), keep_aspect_ratio=True, zoom_factor=4.0,
-                       increment=0.2)
-            x_axis = "index"
-            y_axis = columns[1]
-            x_axis_values = np.arange(df.shape[0]) #df[x_axis].values
-            y_axis_values = df[y_axis].values
-            self.plot(x_axis, y_axis, x_axis_values, y_axis_values)
-            y_axis = columns[2]
-            y_axis_values = df[y_axis].values
-            self.plot(x_axis, y_axis, x_axis_values, y_axis_values)
-            st.warning("Index 0 refers to the pith position")
 
 
 
@@ -413,15 +531,21 @@ class PathInterface(UserInterface):
         super().__init__(read_file_path = image_path, write_file_path=output_json_path)
         self.output_image_path = output_image_path
 
-    def parse_output(self):
+    def parse_output(self, two_dim_annotations = True):
         object = LabelmeObject(self.write_file_path)
         if len(object.shapes) > 1:
             st.error("More than one shape found. Add only one shape")
             return None
 
         shape = object.shapes[0]
+
+
         if not(shape.shape_type == LabelmeShapeType.line or  shape.shape_type == LabelmeShapeType.linestrip):
             st.error("Shape is not a line or linestrip. Remember that you are delineating the ring path")
+            return None
+
+        if not two_dim_annotations and shape.shape_type != LabelmeShapeType.linestrip:
+            st.error("Please delineate the path as a linestrip, where each points in the ring boundary")
             return None
 
         if shape.shape_type == LabelmeShapeType.line:
@@ -441,16 +565,16 @@ class PathInterface(UserInterface):
             image = load_image(self.read_file_path)
             debug_image_path = self.read_file_path.parent / f"debug_path.png"
 
-        class PointLabelme(Point):
-            def __init__(self, x, y, label):
-                self.label = label
-                super().__init__([ x, y])
+
 
         pith = True
         #compute intersections
         l_intersection = []
-        for ring in rings.shapes:
+        flags = []
+        colors = {}
+        c = ColorCV2()
 
+        for ring in rings.shapes:
             ring_polygon = Polygon(ring.points)
             if pith:
                 centroid = ring_polygon.centroid
@@ -458,7 +582,17 @@ class PathInterface(UserInterface):
                 l_intersection.append(PointLabelme(x=centroid.x, y=centroid.y, label="Pith"))
 
             if debug:
-                image = Drawing.curve(ring_polygon.exterior, image, color=ColorCV2.red, thickness=2)
+                rings_has_flag = len(ring.flags)>0
+                if rings_has_flag:
+                    exist_flag_within_list = len([f for f in flags if f == ring.flags['0']])
+                    if not exist_flag_within_list:
+                        flags.append(ring.flags['0'])
+                        colors[ring.flags['0']] = c.get_next_color()
+
+                    image = Drawing.curve(ring_polygon.exterior, image, color=colors[ring.flags['0']], thickness=2)
+                else:
+                    image = Drawing.curve(ring_polygon.exterior, image, color=c.red, thickness=2)
+
             intersection = path.intersects(ring_polygon)
             if intersection:
                 #get intersected points
@@ -471,16 +605,6 @@ class PathInterface(UserInterface):
                     intersection_points[0].coords.xy
                 l_intersection.append(PointLabelme(x= x[0], y=y[0], label=ring.label))
 
-                if debug:
-                    image = Drawing.curve(ring_polygon.exterior, image, color=ColorCV2.red, thickness=2)
-                    if isinstance(x, np.ndarray):
-                        for idx in range(len(x)):
-                            image = Drawing.circle(image, (int(y[idx]), int(x[idx])), radius=5,
-                                                   color=ColorCV2.blue, thickness=-1)
-                    else:
-                        image = Drawing.circle(image, (int(y[0]), int(x[0])), radius=5,
-                                               color=ColorCV2.blue, thickness=-1)
-                        image = Drawing.put_text(ring.label, image, (int(y[0]), int(x[0])), color=ColorCV2.black, fontScale=1.0)
 
         if debug:
             write_image(str(debug_image_path), image)
@@ -514,20 +638,18 @@ class PathInterface(UserInterface):
 
 def main(runtime_config_path):
     ui = UI(runtime_config_path)
+    if check_image(ui.CTX):
+        return
 
-    st.divider()
     tab1, tab2 = st.tabs(["Area-Based", "Path-Based"])
 
     with tab1:
-        st.header("Area-Based Metrics")
-        ui.options()
-
-        st.divider()
-        selected = ui.run_metrics()
+        #area based
+        selected = ui.area_metrics()
 
     with tab2:
-        st.header("Path-Based Metrics")
-        ui.delineate_path()
+        #path based
+        ui.path_metrics()
 
     st.divider()
 

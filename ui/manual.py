@@ -8,9 +8,9 @@ from pathlib import Path
 from copy import deepcopy
 
 from lib.image import Drawing, load_image, write_image
-from ui.common import Context, Shapes, file_uploader, RunningWidget
+from ui.common import Context, Shapes, file_uploader, RunningWidget, check_image
 from lib.io import load_json, write_json
-from backend.labelme_layer import LabelmeInterface as UserInterface
+from backend.labelme_layer import LabelmeInterface as UserInterface, ring_relabelling
 
 
 
@@ -32,7 +32,8 @@ class VisualizationShape:
 class ViewContext(Context):
     def init_specific_ui_components(self):
         config = self.config["image"]
-
+        self.autocomplete_ring_date = config["metadata"]["autocomplete_ring_date"]
+        self.harvest_date = int(config["metadata"]["harvest_date"]["year"])
         self.image_path = self.output_dir / config["image_path"]
         self.image_no_background_path = self.output_dir / config["background"]["image_path"]
         if Path(self.image_no_background_path).exists():
@@ -122,6 +123,13 @@ class ViewContext(Context):
 class UI:
 
     def __init__(self, runtime_config_path):
+        st.header("Ring Editing")
+        st.markdown(
+            """
+            This interface allows you to edit the ring annotations. You can select the shape you want to edit.
+            """
+        )
+        st.divider()
         CTX = ViewContext(runtime_config_path)
         CTX.init_specific_ui_components()
         self.CTX = CTX
@@ -179,11 +187,11 @@ class UI:
 
         self.CTX.ew_annotation_file = file_uploader( self.bold_text_depending_on_main_shape(Shapes.earlywood,
                          f"Choose {Shapes.earlywood} annotations file"),
-                              self.CTX.output_dir / "earlywood_read.json", "json")
+                              self.CTX.output_dir / "earlywood_read.json", "json", CTX=self.CTX)
 
         self.CTX.lw_annotation_file = file_uploader(self.bold_text_depending_on_main_shape(Shapes.latewood,
                             f"Choose {Shapes.latewood} annotations file"),
-                                 self.CTX.output_dir / "latewood_read.json", "json")
+                                 self.CTX.output_dir / "latewood_read.json", "json", CTX=self.CTX)
 
         self.annotations_files_dict = { Shapes.earlywood: self.CTX.ew_annotation_file,
                                         Shapes.latewood: self.CTX.lw_annotation_file,
@@ -313,6 +321,11 @@ class UI:
             shape_edition = ShapeInterface(image_with_drawable_shapes_path, output_path, image_annotations_path)
             shape_edition.parse_input()
             shape_edition.interface()
+
+            #relabel rings
+            if self.CTX.autocomplete_ring_date:
+                ring_relabelling(self.CTX.image_path, output_path, self.CTX.harvest_date)
+
             gif_runner.empty()
             st.write("Annotations saved in", output_path)
 
@@ -411,8 +424,9 @@ class PithBoundaryInterface(UserInterface):
 ########################################################################################################################
 def main(runtime_config_path):
     ui = UI(runtime_config_path)
+    if check_image(ui.CTX):
+        return
 
-    st.divider()
     selected = ui.main_shape()
     st.divider()
 

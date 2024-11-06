@@ -42,7 +42,7 @@ class APD:
         self.h_i, self.w_i = img_in.shape[:2]
         # 1.1 resize image
         if self.resize_factor != 1:
-            image_resized_path = resize_image(self.filename, self.resize_factor, output_path= f"{self.output_dir}/resized.png")
+            image_resized_path,_,_ = resize_image(self.filename, self.resize_factor, output_path= f"{self.output_dir}/resized.png")
             img_in = load_image(image_resized_path)
             self.h_o, self.w_o = img_in.shape[:2]
         else:
