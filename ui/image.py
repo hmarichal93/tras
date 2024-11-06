@@ -148,6 +148,12 @@ class UI:
         self.CTX.bg_image = st.file_uploader("Image:", type=["png", "jpg"])
         gif_runner = RunningWidget()
         if self.CTX.bg_image is not None:
+            #get code
+            image_name = self.CTX.bg_image.name
+            if image_name.endswith(".png"):
+                self.CTX.code = image_name.replace(".png", "")
+            elif image_name.endswith(".jpg"):
+                self.CTX.code = image_name.replace(".jpg", "")
             os.system(f"rm -rf {self.CTX.output_dir}/*.png")
             os.system(f"rm -rf {self.CTX.output_dir}/*.json")
             os.system(f"rm -rf {self.CTX.output_dir}/metrics")
@@ -159,7 +165,9 @@ class UI:
             bg_image_pil_display = self.CTX.bg_image_pil.resize((self.CTX.display_image_size,
                                                                  self.CTX.display_image_size),
                                                            Image.Resampling.LANCZOS)
-            #st.image(bg_image_pil_display)
+
+            height, width = self.CTX.bg_image_pil.size
+            st.write(f"Image dimensions: (H,W) = ({height}, {width})")
             display_image(bg_image_pil_display)
 
         elif Path(self.CTX.image_path).exists():

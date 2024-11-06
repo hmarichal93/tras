@@ -14,7 +14,7 @@ from lib.apd import APD
 
 from backend.labelme_layer import (LabelmeShapeType, LabelmeObject, AL_LateWood_EarlyWood,
                                    LabelmeInterface as UserInterface, ring_relabelling)
-from ui.common import Context, download_button, RunningWidget, Pith, display_image, check_image
+from ui.common import Context, download_button, RunningWidget, Pith, display_image, check_image, resize_slider
 
 class LatewoodMethods:
     cstrd = "CS-TRD"
@@ -142,6 +142,7 @@ class ViewContext(Context):
         self.lw_annotations = self.output_dir / "none.json" if isinstance(lw_path, list) else Path(lw_path)
 
         self.apd_params = self.config["automatic"]["apd_params"]
+        self.code = self.config["image"]["metadata"]["code"]
 
         return
 
@@ -195,7 +196,8 @@ class UI:
                 st_w = st.slider("ST Window", 1, 10,  int(self.CTX.apd_params["st_w"]))
                 lo_w = st.slider("LO Window", 1, 10,  int(self.CTX.apd_params["lo_w"]))
                 st_sigma = st.slider("ST Sigma", 0.1, 10.0,  float(self.CTX.apd_params["st_sigma"]), step=0.1)
-                resize = st.slider("Resize", 1, 10,  int(self.CTX.apd_params["resize"]))
+                resize = resize_slider(default=  int(self.CTX.apd_params["resize"]), legend="Resize", help="Resize factor for the image.\n",
+                                       max=10, min=1)
 
 
                 params_dict = {"percent_lo": percent_lo, "st_w": st_w, "lo_w": lo_w,
@@ -331,11 +333,11 @@ class UI:
         if nr != self.CTX.number_of_rays:
             self.CTX.number_of_rays = nr
 
-        resize_factor = st.slider("Resize Factor", 0.0, 10.0, float(self.CTX.inbd_resize_factor) , help="Resize factor for the image.\n"
-                                                                                       "Be aware that the image will \n"
-                                                                                       "be resized, which means that the \n"
-                                                                                       "automatic method will work at a \n"
-                                                                                        "lower resolution")
+        resize_factor = resize_slider(default=int(self.CTX.inbd_resize_factor), legend="Resize Factor",
+                               help="Resize factor for the image.\n""Be aware that the image will \n"
+                               "be resized, which means that the \n""automatic method will work at a \n"
+                               "lower resolution", max=10, min=1)
+
         if resize_factor != self.CTX.inbd_resize_factor:
             self.CTX.inbd_resize_factor = resize_factor
         return
@@ -357,7 +359,7 @@ class UI:
         if run_button:
             results_path = self.cstrd_run(str(self.CTX.lw_annotations))
             st.write("Results saved in: ", results_path)
-            download_button(results_path, "Download", f"{self.CTX.image_orig_path.stem}.json",
+            download_button(results_path, "Download", f"{self.CTX.code}_ew.json",
                             "application/json")
             image_draw_path = results_path.parent / "contours.png"
             #st.image(cv2.cvtColor(load_image(image_draw_path),cv2.COLOR_BGR2RGB), use_column_width=True)
@@ -399,7 +401,8 @@ class UI:
             if self.CTX.autocomplete_ring_date:
                 ring_relabelling(self.CTX.image_path, results_path, self.CTX.harvest_date)
             st.write("Results saved in: ", results_path)
-            download_button(results_path, "Download", f"{self.CTX.image_orig_path.stem}.json",
+            output_name = f"{self.CTX.code}_lw_{method_latewood}.json"
+            download_button(results_path, "Download", output_name,
                             "application/json")
             self.display_results(results_path)
 
