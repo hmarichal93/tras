@@ -132,7 +132,8 @@ def resize_image(image_path : Path, resize_factor : float, output_path : str = N
     image = resize_image_using_pil_lib(image,  H_new, W_new)
     image_path = image_path if output_path is None else Path(output_path)
     write_image(str(image_path), image)
-    return str(image_path)
+    height, width = image.shape[:2]
+    return str(image_path), height, width
 
 def resize_image_using_pil_lib(im_in: np.array, height_output: object, width_output: object, keep_ratio= True) -> np.ndarray:
     """
