@@ -1,4 +1,4 @@
-name: dendrotool
+name: tras
 channels:
   - conda-forge
   - defaults
