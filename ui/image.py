@@ -256,7 +256,7 @@ class UI:
                 self.CTX.dpi = dpi
 
         else:
-            button = st.button("Set Distance in Pixels")
+            button = st.button("Set Distance in Pixels", help="Mark a line with the distance in pixels.")
             if button:
                 gif_runner = RunningWidget()
                 self.CTX.pixels_length = set_scale(self.CTX)

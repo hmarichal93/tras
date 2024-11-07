@@ -215,10 +215,11 @@ def display_image_plotly(image_path, points = [] , df_points_info = None, save_i
     if save_image:
         #image with no preprocess
         image = load_image(image_path)
+        height, width = image.shape[:2]
         for p in points:
             x, y = p.x, p.y
-            image = Drawing.circle( image= image,  center_coordinates = (int(y), int(x)))
-        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+            image = Drawing.circle( image= image,  center_coordinates = (int(y), int(x)), radius= height // 1000)
+        #image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
         write_image(output_path, image)
 
 
