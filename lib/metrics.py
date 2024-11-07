@@ -329,6 +329,14 @@ class PathMetrics:
         self.scale = scale
         self.image_name = image_name
         self.unit = unit
+        class Columns:
+            x = "x [px]"
+            y = "y [px]"
+            label = "label"
+            width = f"Width [{self.unit}]"
+            cumulative = f"Cumulative Width [{self.unit}]"
+
+        self.Columns = Columns
 
     def export_coorecorder_format(self, dpi: float = 2400, output_path: Path = None) -> None:
         date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -345,38 +353,31 @@ class PathMetrics:
 
         return
 
-    def compute(self, output_path: Path) -> pd.DataFrame:
-        class Columns:
-            x = "x"
-            y = "y"
-            label = "label"
-            width = f"Width [{self.unit}]"
-            cumulative = f"Cumulative Width [{self.unit}]"
+    def compute(self) -> pd.DataFrame:
+
 
         df = pd.DataFrame( data = {
-                Columns.label: [point.label for point in self.l_points],
-                Columns.x: [point.x for point in self.l_points],
-                Columns.y: [point.y for point in self.l_points]
+                self.Columns.label: [point.label for point in self.l_points],
+                self.Columns.x: [point.x for point in self.l_points],
+                self.Columns.y: [point.y for point in self.l_points]
             }
         )
 
-        df[Columns.width] = self._compute_ring_width(df)
-        df[Columns.width] = df[Columns.width].fillna(0)
+        df[self.Columns.width] = self._compute_ring_width(df)
+        df[self.Columns.width] = df[self.Columns.width].fillna(0)
 
         # commulative width
-        df[Columns.cumulative] = df[Columns.width].cumsum()
+        df[self.Columns.cumulative] = df[self.Columns.width].cumsum()
         df.round(3)
-        #save
-        df[[Columns.label, Columns.width, Columns.cumulative]].to_csv(output_path, index=False)
 
-        return df
+        return df[[self.Columns.label, self.Columns.width, self.Columns.cumulative, self.Columns.x, self.Columns.y]]
 
     def _compute_ring_width(self, df):
-        x = df["x"].values
-        x_shift = df["x"].shift(1).values
+        x = df[self.Columns.x].values
+        x_shift = df[self.Columns.x].shift(1).values
 
-        y = df["y"].values
-        y_shift = df["y"].shift(1).values
+        y = df[self.Columns.y].values
+        y_shift = df[self.Columns.y].shift(1).values
         width = np.sqrt(((x - x_shift) ** 2 + (y - y_shift) ** 2)) * self.scale
 
         return width

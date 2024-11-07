@@ -50,6 +50,24 @@ class UI:
 
     def download_results(self):
         #1.0 zip the results in self.CTX.output_dir
+        files_to_export = []
+        col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+
+        with col1:
+            coorecorder = st.checkbox("Include path files", value = self.CTX.coorecorder,
+                                      help="Include the path metrics in the zip file")
+
+
+
+
+
+        if coorecorder != self.CTX.coorecorder:
+            self.CTX.coorecorder = coorecorder
+
+        if coorecorder:
+            files_to_export += list((self.CTX.output_dir / "metrics").glob("coorecorder*"))
+
+
         files_to_export = (list(self.CTX.output_dir.glob("*.json")) +
                            [self.CTX.output_dir / "metrics" / "measurements.csv"] +
                            [self.CTX.output_dir / "metrics" / "coorecorder.csv"] +

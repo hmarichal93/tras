@@ -8,7 +8,7 @@ import altair as alt
 import cv2
 
 from lib.io import load_json, write_json, read_file_as_binary, bytesio_to_dict
-from lib.image import  load_image, resize_image_using_pil_lib
+from lib.image import  load_image, resize_image_using_pil_lib, Drawing, write_image
 from backend.labelme_layer import ring_relabelling
 
 
@@ -89,6 +89,7 @@ def save_annotation_file_locally(filename, file_uploader_instance):
 def file_uploader(label, output_file, extension, CTX = None):
     uploaded_cw_annotation_file = st.file_uploader(label, type=[extension])
     if uploaded_cw_annotation_file:
+        print(f"Estoy aca: {output_file}")
         save_annotation_file_locally(output_file, uploaded_cw_annotation_file)
         if CTX is not None:
             # relabel rings
@@ -174,7 +175,7 @@ def preprocess_image(image_path, points, min_size_th=1500):
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     return img, points
 
-def display_image_plotly(image_path, points = [] , df_points_info = None):
+def display_image_plotly(image_path, points = [] , df_points_info = None, save_image = False, output_path = None):
     import plotly.graph_objects as go
     import plotly.express as px
     import pandas as pd
@@ -211,6 +212,15 @@ def display_image_plotly(image_path, points = [] , df_points_info = None):
     )
 
     st.plotly_chart(fig)
+    if save_image:
+        for p in points:
+            x, y = p.x, p.y
+            img = Drawing.circle( image= img,  center_coordinates = (int(y), int(x)))
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        write_image(output_path, img)
+
+
+
 
 def display_data_editor(data):
 

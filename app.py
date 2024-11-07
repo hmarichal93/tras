@@ -10,7 +10,7 @@ from ui.automatic import main as automatic_ring_delineation
 from ui.home import main as home
 from ui.manual import main as manual
 from ui.metrics import main as metrics
-from ui.save import main as save
+from ui.report import main as save
 from ui.update import pull_last_changes_from_remote_repo
 
 
