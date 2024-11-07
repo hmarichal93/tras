@@ -338,17 +338,18 @@ class PathMetrics:
 
         self.Columns = Columns
 
-    def export_coorecorder_format(self, dpi: float = 2400, output_path: Path = None) -> None:
+    def export_coorecorder_format(self, dpi: float = 2400, scale : float = 1, output_path: Path = None,
+                                  image_name: str = None) -> None:
         date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         header = (f"#DENDRO (Cybis Dendro program compatible format) Coordinate file written as\n"
-                  f"#Imagefile {self.image_name}\n#DPI {dpi}\n#All coordinates in millimeters (mm)\n"
+                  f"#Imagefile {image_name}\n#DPI {dpi}\n#All coordinates in millimeters (mm)\n"
                   f"SCALE 1\n#C DATED\n#C Written={date};\n#C CooRecorder=;\n#C licensedTo=;\n")
 
         with open(str(output_path), "w") as file:
             file.write(header)
             for idx, point in enumerate(self.l_points):
-                x = point.x * self.scale
-                y = point.y * self.scale
+                x = point.x * scale
+                y = point.y * scale
                 file.write(f"{x:.3f}, {y:.3f}\n")
 
         return

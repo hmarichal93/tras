@@ -453,8 +453,9 @@ class UI:
 
         self.CTX.path_df_file = Path(f"{output_path}_{path.label}.csv")
         self.CTX.path_coorecorder_file = Path(f"{output_path}_{path.label}.pos")
-        self.CTX.path_image_file = Path(f"{output_path}_{path.label}.png")
+        self.CTX.path_image_file = Path(f"{output_path}_{path.label}.jpeg")
         interface.compute_metrics(l_intersections, coorecorder_output_path = self.CTX.path_coorecorder_file,
+                                  coorecorder_image_name = self.CTX.path_image_file.name,
                                   csv_output_path = self.CTX.path_df_file,
                                   scale=self.CTX.know_distance / self.CTX.pixels_length,
                                   unit=self.CTX.units_mode)
@@ -629,14 +630,15 @@ class PathInterface(UserInterface):
         return l_intersection
 
     def compute_metrics(self, l_intersection: List, coorecorder_output_path: Path, unit: str, scale: float = 1.0,
-                        csv_output_path = None)\
+                        csv_output_path = None, coorecorder_image_name = None)\
             -> pd.DataFrame:
         from lib.metrics import PathMetrics
 
         path = PathMetrics(l_intersection, scale, self.read_file_path.name, unit)
 
 
-        path.export_coorecorder_format( output_path = coorecorder_output_path)
+        path.export_coorecorder_format( output_path = coorecorder_output_path, scale=scale,
+                                        image_name= coorecorder_image_name)
 
         df = path.compute()
         df.to_csv(csv_output_path)

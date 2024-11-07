@@ -125,7 +125,7 @@ class UI:
             files_to_export += [file]
 
         if self.CTX.path_images:
-            files = Path(self.CTX.output_dir / "metrics/path").glob("*.png")
+            files = Path(self.CTX.output_dir / "metrics/path").glob("*.jpeg")
             files_to_export += [f for f in files ]
 
         if self.CTX.ann_lw:
