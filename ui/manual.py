@@ -328,6 +328,10 @@ class UI:
 
             gif_runner.empty()
             st.write("Annotations saved in", output_path)
+            st.warning("Remember, if you want to edit the annotations again, you'll need to upload the new annotations "
+                       "file. The path to the new annotations file is displayed above. Otherwise, any edits to "
+                       "previous annotations will be lost")
+
 
 
     def draw_shapes_over_image(self, image_path, drawable_shapes, output_image_name="images_with_shapes.png"):
