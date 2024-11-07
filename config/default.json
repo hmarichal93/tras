@@ -67,5 +67,18 @@
     "ew_measurements": true,
     "two_dim_annotations": true,
     "display_area_settings": true
-  }
+  },
+
+   "export": {
+    "path_csv": true, 
+    "area_metrics_report": true,
+    "image": true, 
+    "path_images": true,
+    "ann_lw": true,
+    "background": true,
+    "path_pos": true,
+    "ann_ew": true,
+    "area_csv": true,
+    "ann_other": true
+   }
 }

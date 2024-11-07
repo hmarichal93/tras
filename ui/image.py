@@ -332,7 +332,7 @@ def main(runtime_config_path):
     if selected == Menu.metadata:
         ui.metadata()
 
-    #save status
+    #export status
     ui.CTX.save_config()
 
     return

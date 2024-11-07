@@ -180,14 +180,14 @@ def display_image_plotly(image_path, points = [] , df_points_info = None, save_i
     import plotly.express as px
     import pandas as pd
 
-    # Create figure
-    img, points = preprocess_image(image_path, points)
+    # preprocess image to display in streamlit
+    img, points_pre = preprocess_image(image_path, points)
     fig = px.imshow(img)
-    if len(points)>0:
+    if len(points_pre)>0:
         columns = df_points_info.columns
-        df = pd.DataFrame(dict(x=[p.y for p in points],
-                               y=[p.x for p in points],
-                               label=[p.label for p in points],
+        df = pd.DataFrame(dict(x=[p.y for p in points_pre],
+                               y=[p.x for p in points_pre],
+                               label=[p.label for p in points_pre],
                                width = df_points_info[columns[-2]].values.tolist(),
                                cumulative_width = df_points_info[columns[-1]].values.tolist()
                                )
@@ -213,11 +213,13 @@ def display_image_plotly(image_path, points = [] , df_points_info = None, save_i
 
     st.plotly_chart(fig)
     if save_image:
+        #image with no preprocess
+        image = load_image(image_path)
         for p in points:
             x, y = p.x, p.y
-            img = Drawing.circle( image= img,  center_coordinates = (int(y), int(x)))
-        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-        write_image(output_path, img)
+            image = Drawing.circle( image= image,  center_coordinates = (int(y), int(x)))
+        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        write_image(output_path, image)
 
 
 

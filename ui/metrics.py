@@ -441,7 +441,7 @@ class UI:
         interface = PathInterface(self.CTX.image_path, self.CTX.ring_path)
         interface.interface()
         if not self.CTX.ring_path.exists():
-            st.error("Path not delineated or saved. Please save the path")
+            st.error("Path not delineated or saved. Please export the path")
             return []
 
         path = interface.parse_output(two_dim_annotations=self.CTX.two_dim_annotations)
