@@ -1,5 +1,5 @@
-# DendroTool: An Interactive Software for tracing Tree Ring Cross-Sections.
-DendroTool is a Python-based interactive software designed for tracing and analyzing tree ring cross-sections. It provides tools for automatic and manual ring delineation, as well as metrics computation. The application leverages Streamlit for the user interface, making it easy to visualize and interact with the data.
+# Tras: An Interactive Software for tracing Tree Ring Cross-Sections.
+Tras is a Python-based interactive software designed for tracing and analyzing tree ring cross-sections. It provides tools for automatic and manual ring delineation, as well as metrics computation. The application leverages Streamlit for the user interface, making it easy to visualize and interact with the data.
 Features
 
 **Automatic Ring Delineation**: Automatically detect and trace tree rings.
