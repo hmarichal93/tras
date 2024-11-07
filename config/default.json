@@ -4,7 +4,7 @@
            },
   "image": {
            "image_path": "image.png" , "mode":"cross-section",
-           "scale": {"unit":"cm", "dpi": 300, "pixels_length":1, "know_distance": 2, "json_path":  "scale.json", "status": false},
+           "scale": {"unit":"cm", "dpi": 300, "pixels_length":1, "know_distance": 2, "json_path":  "scale.json", "status": false, "pixel_per_mm": 1},
            "background": {"image_path": "background.png", "json_path":  "background.json", "resize_factor":1.0},
            "metadata" : {
                     "tree_planting_date":  {"year":  1993, "month":  1, "day":  1},"harvest_date": {"year":  1993, "month":  1, "day":  1},
