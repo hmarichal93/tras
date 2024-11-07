@@ -36,6 +36,7 @@ class ViewContext(Context):
         self.scale_status = config["scale"]["status"]
         self.pixels_length = config["scale"]["pixels_length"]
         self.know_distance = config["scale"]["know_distance"]
+        self.pixel_per_mm = config["scale"]["pixel_per_mm"]
         self.dpi = config["scale"]["dpi"]
         self.harvest_date = config["metadata"]["harvest_date"]
         self.code = config['metadata']['code']
@@ -458,7 +459,8 @@ class UI:
                                   coorecorder_image_name = self.CTX.path_image_file.name,
                                   csv_output_path = self.CTX.path_df_file,
                                   scale=self.CTX.know_distance / self.CTX.pixels_length,
-                                  unit=self.CTX.units_mode)
+                                  unit=self.CTX.units_mode,
+                                  pixel_per_mm = self.CTX.pixel_per_mm)
         self.CTX.path_label = path.label
 
         return l_intersections
@@ -630,7 +632,7 @@ class PathInterface(UserInterface):
         return l_intersection
 
     def compute_metrics(self, l_intersection: List, coorecorder_output_path: Path, unit: str, scale: float = 1.0,
-                        csv_output_path = None, coorecorder_image_name = None)\
+                        csv_output_path = None, coorecorder_image_name = None, pixel_per_mm = 1)\
             -> pd.DataFrame:
         from lib.metrics import PathMetrics
 
@@ -638,7 +640,7 @@ class PathInterface(UserInterface):
 
 
         path.export_coorecorder_format( output_path = coorecorder_output_path, scale=scale,
-                                        image_name= coorecorder_image_name)
+                                        image_name= coorecorder_image_name , pixel_per_mm = pixel_per_mm)
 
         df = path.compute()
         df.to_csv(csv_output_path)

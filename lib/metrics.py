@@ -338,19 +338,12 @@ class PathMetrics:
 
         self.Columns = Columns
 
-    def export_coorecorder_format(self, dpi: float = 2400, scale : float = 1, output_path: Path = None,
-                                  image_name: str = None) -> None:
-        date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        header = (f"#DENDRO (Cybis Dendro program compatible format) Coordinate file written as\n"
-                  f"#Imagefile {image_name}\n#DPI {dpi}\n#All coordinates in millimeters (mm)\n"
-                  f"SCALE 1\n#C DATED\n#C Written={date};\n#C CooRecorder=;\n#C licensedTo=;\n")
+    def export_coorecorder_format(self, dpi: int = 2400, scale : float = 1, output_path: Path = None,
+                                  image_name: str = None, pixel_per_mm : float = 1) -> None:
 
-        with open(str(output_path), "w") as file:
-            file.write(header)
-            for idx, point in enumerate(self.l_points):
-                x = point.x * scale
-                y = point.y * scale
-                file.write(f"{x:.3f}, {y:.3f}\n")
+        exporter = CooRecorderExporter()
+        exporter.write(output_file=output_path, image_name=image_name,
+                       measure_points=self.l_points, pixel_per_mm=pixel_per_mm)
 
         return
 
@@ -383,6 +376,54 @@ class PathMetrics:
 
         return width
 
+class CooRecorderExporter:
+    def __init__(self):
+        pass
+
+    def read(self):
+        pass
+
+    def write(self, output_file : str = None, image_name : str = None,
+              measure_points: List[Point] = None, pixel_per_mm : float = 1) -> None:
+        now = datetime.datetime.now()
+        dt_string = now.strftime("%Y-%m-%d %H:%M:%S")
+        # Prepare unit conversion
+        dpi = int(25.4 * pixel_per_mm)
+        # Create paths for output files
+
+        str_measure_points = self.convert_measure_points_to_str(measure_points, pixel_per_mm)
+
+        # Write to file
+        with open(output_file, 'w') as file:
+            file.write(f"#DENDRO (Cybis Dendro program compatible format) Coordinate file written as\n"
+                       f"#Imagefile {image_name}\n#DPI {dpi}\n#All coordinates in millimeters (mm)\n"
+                       f"SCALE 1\n#C DATED\n#C Written={dt_string};\n#C CooRecorder=;\n#C licensedTo=;\n")
+            for point in str_measure_points:
+                file.write(f"{point}\n")
+
+
+
+    def convert_measure_points_to_str(self, measure_points: List[Point], pixel_per_mm: float) \
+            -> List[str]:
+        number_to_string = lambda x: str(round( x / pixel_per_mm, 3))
+        # Prepare points
+        point = measure_points[0]
+        str_measure_points = [ f"{number_to_string(point.x)}, {number_to_string(point.y)}"]
+
+        for idx, point in enumerate(measure_points[:-1]):
+            current_x, current_y = point.x, point.y
+            next_x, next_y = measure_points[idx + 1].x, measure_points[idx + 1].y
+            str_point = (f"{number_to_string(current_x)}, {number_to_string(current_y)}  "
+                         f"{number_to_string(next_x)}, {number_to_string(next_y)}")
+            str_measure_points.append(str_point)
+
+        # print('should be last measure point', len(measure_points))
+        last_x, last_y = measure_points[- 1].x, measure_points[- 1].y
+        last_point = f"{number_to_string(last_x)}, {number_to_string(last_y)}"
+        str_measure_points.append(last_point)
+
+        return str_measure_points
+
 def main():
     folder_name = "C14"
     #folder_name = "W_F09_T_S2"
@@ -403,6 +444,7 @@ def main():
     export_results(labelme_latewood_path, labelme_earlywood_path, image_path, metadata, draw=True,
                    output_dir=output_dir)
     #export_results(labelme_latewood_path = labelme_latewood_path, image_path= image_path, metadata=metadata, draw=True, output_dir=output_dir)
+
 
 
 if __name__ == "__main__":

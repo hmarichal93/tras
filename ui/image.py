@@ -44,6 +44,7 @@ class ViewContext(Context):
         self.know_distance = config["scale"]["know_distance"]
         self.dpi = config["scale"]["dpi"]
         self.scale_status = config["scale"]["status"]
+        self.pixel_per_mm = config["scale"]["pixel_per_mm"]
 
 
         #self.tree_planting_date = config["metadata"]["tree_planting_date"]
@@ -79,6 +80,7 @@ class ViewContext(Context):
         config["scale"]["know_distance"] = self.know_distance
         config["scale"]["dpi"] = self.dpi
         config["scale"]["status"] = self.scale_status
+        config["scale"]["pixel_per_mm"] = self.pixel_per_mm
 
 
         #config["metadata"]["tree_planting_date"] = self.tree_planting_date
@@ -276,9 +278,22 @@ class UI:
 
             scale = self.CTX.pixels_length / self.CTX.know_distance
             st.write(f"Scale: {scale:.2f} pixels/{self.CTX.units_mode}")
+            self.CTX.pixel_per_mm = self.get_pixel_per_mm(self.CTX.pixels_length, self.CTX.know_distance,
+                                                          self.CTX.units_mode)
 
         return
-
+    @staticmethod
+    def get_pixel_per_mm(pixel_length, know_distance, units_mode):
+        if units_mode == "nm":
+            return pixel_length / know_distance * 10 ** -6
+        elif units_mode == r"$\mu$m":
+            return pixel_length / know_distance * 10 ** -3
+        elif units_mode == "mm":
+            return pixel_length / know_distance
+        elif units_mode == "cm":
+            return pixel_length / know_distance * 10
+        elif units_mode == "dpi":
+            return pixel_length / know_distance
     def metadata(self):
         if check_image(self.CTX):
             return None
