@@ -73,7 +73,7 @@ class APD:
 
         if peak is None:
             return False
-        # 3.0 save results
+        # 3.0 export results
         radius_size_pith_region = np.maximum(self.w_o, self.w_o) // 100
         self._save_results(peak, r = radius_size_pith_region)
 

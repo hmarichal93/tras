@@ -18,7 +18,15 @@ from backend.labelme_layer import (LabelmeShapeType,
                                    AL_LateWood_EarlyWood, load_ring_shapes, write_ring_shapes, PointLabelme)
 
 
+class MultiLineStringLabel(MultiLineString):
+    def __init__(self, lines, label):
+        super().__init__(lines)
+        self.label = label
 
+class LineStringLabel(LineString):
+    def __init__(self, points, label):
+        super().__init__(points)
+        self.label = label
 
 class ViewContext(Context):
     def init_specific_ui_components(self):
@@ -28,8 +36,10 @@ class ViewContext(Context):
         self.scale_status = config["scale"]["status"]
         self.pixels_length = config["scale"]["pixels_length"]
         self.know_distance = config["scale"]["know_distance"]
+        self.pixel_per_mm = config["scale"]["pixel_per_mm"]
         self.dpi = config["scale"]["dpi"]
         self.harvest_date = config["metadata"]["harvest_date"]
+        self.code = config['metadata']['code']
 
 
         config_manual = self.config["manual"]
@@ -432,18 +442,27 @@ class UI:
         interface = PathInterface(self.CTX.image_path, self.CTX.ring_path)
         interface.interface()
         if not self.CTX.ring_path.exists():
-            st.error("Path not delineated or saved. Please save the path")
+            st.error("Path not delineated or saved. Please export the path")
             return []
 
-        results = interface.parse_output(two_dim_annotations=self.CTX.two_dim_annotations)
-        if results is None:
+        path = interface.parse_output(two_dim_annotations=self.CTX.two_dim_annotations)
+        if path is None:
             return []
 
-        l_intersections = self.compute_intersection(interface, results, use_annotations= self.CTX.two_dim_annotations)
+        l_intersections = self.compute_intersection(interface, path, use_annotations= self.CTX.two_dim_annotations)
 
-        interface.compute_metrics(l_intersections, output_path,
+
+        self.CTX.path_df_file = Path(f"{output_path}_{path.label}.csv")
+        self.CTX.path_coorecorder_file = Path(f"{output_path}_{path.label}.pos")
+        self.CTX.path_image_file = Path(f"{output_path}_{path.label}.jpeg")
+        interface.compute_metrics(l_intersections, coorecorder_output_path = self.CTX.path_coorecorder_file,
+                                  coorecorder_image_name = self.CTX.path_image_file.name,
+                                  csv_output_path = self.CTX.path_df_file,
                                   scale=self.CTX.know_distance / self.CTX.pixels_length,
-                                  unit=self.CTX.units_mode)
+                                  unit=self.CTX.units_mode,
+                                  pixel_per_mm = self.CTX.pixel_per_mm)
+        self.CTX.path_label = path.label
+
         return l_intersections
     def path_display_results(self, output_path, points):
         st.divider()
@@ -460,15 +479,15 @@ class UI:
 
         with tab1:
             image_path = self.CTX.output_dir / "debug_path.png"
-            display_image_plotly(image_path, points, df )
+            display_image_plotly(image_path, points, df , save_image=True, output_path = self.CTX.path_image_file)
 
         with tab3:
             x_axis = "year"
-            y_axis = columns[1]
+            y_axis = columns[2]
             x_axis_values = df.label.values[1:]
             y_axis_values = df[y_axis].values[1:]
             self.plot(x_axis, y_axis, x_axis_values, y_axis_values)
-            y_axis = columns[2]
+            y_axis = columns[3]
             y_axis_values = df[y_axis].values[1:]
             self.plot(x_axis, y_axis, x_axis_values, y_axis_values)
 
@@ -502,8 +521,9 @@ class UI:
         with col1:
             button = st.button("Delineate Path")
 
-
-        output_path = self.CTX.output_dir_metrics / "coorecorder.csv"
+        output_path_metrics = self.CTX.output_dir_metrics / "path"
+        output_path_metrics.mkdir(parents=True, exist_ok=True)
+        output_path = output_path_metrics / self.CTX.code
 
         if button:
             if self.check_if_exist_ew_file():
@@ -515,8 +535,8 @@ class UI:
             if len(res)==0 :
                 return
 
-            st.write(f"Results are saved in {self.CTX.output_dir_metrics}")
-            self.path_display_results(output_path, res)
+            st.write(f"Results are saved in {output_path_metrics}")
+            self.path_display_results(self.CTX.path_df_file, res)
 
 
 
@@ -549,13 +569,13 @@ class PathInterface(UserInterface):
             return None
 
         if shape.shape_type == LabelmeShapeType.line:
-            return LineString(shape.points)
+            return LineStringLabel(shape.points, label=shape.label)
 
         if shape.shape_type == LabelmeShapeType.linestrip:
             l_lines = [ LineString(np.concatenate((shape.points[idx].reshape((1,2)), shape.points[idx+1].reshape((1,2)))))
                        for idx in range(shape.points.shape[0]-1)]
 
-            return MultiLineString(l_lines)
+            return MultiLineStringLabel(l_lines, label=shape.label)
 
         return None
 
@@ -611,19 +631,19 @@ class PathInterface(UserInterface):
 
         return l_intersection
 
-
-    def compute_metrics(self, l_intersection: List, output_path: Path, unit: str, scale: float = 1.0)\
+    def compute_metrics(self, l_intersection: List, coorecorder_output_path: Path, unit: str, scale: float = 1.0,
+                        csv_output_path = None, coorecorder_image_name = None, pixel_per_mm = 1)\
             -> pd.DataFrame:
         from lib.metrics import PathMetrics
 
         path = PathMetrics(l_intersection, scale, self.read_file_path.name, unit)
 
-        output_path_pos = str(output_path).replace(".csv", ".pos")
-        
-        path.export_coorecorder_format( output_path = output_path_pos)
 
-        df = path.compute(output_path)
+        path.export_coorecorder_format( output_path = coorecorder_output_path, scale=scale,
+                                        image_name= coorecorder_image_name , pixel_per_mm = pixel_per_mm)
 
+        df = path.compute()
+        df.to_csv(csv_output_path)
         return df
 
 

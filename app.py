@@ -10,7 +10,7 @@ from ui.automatic import main as automatic_ring_delineation
 from ui.home import main as home
 from ui.manual import main as manual
 from ui.metrics import main as metrics
-from ui.save import main as save
+from ui.report import main as export
 from ui.update import pull_last_changes_from_remote_repo
 
 
@@ -25,7 +25,7 @@ class Menu:
     automatic_ring_delineation = "Ring Detection"
     manual_ring_delineation = "Ring Editing"
     metrics = "Metrics"
-    save = "Save"
+    export = "Export"
 
 
 def initialization():
@@ -81,7 +81,7 @@ def main():
     # 1. as sidebar menu
     with st.sidebar:
         selected = option_menu("", [Menu.home, Menu.image, Menu.automatic_ring_delineation,
-                                    Menu.manual_ring_delineation, Menu.metrics, Menu.save], menu_icon="cast",
+                                    Menu.manual_ring_delineation, Menu.metrics, Menu.export], menu_icon="cast",
                                default_index=0)
 
     if selected == Menu.home:
@@ -99,8 +99,8 @@ def main():
     elif selected == Menu.metrics:
         metrics(RUNTIME_CONFIG_PATH)
 
-    elif selected == Menu.save:
-        save(RUNTIME_CONFIG_PATH)
+    elif selected == Menu.export:
+        export(RUNTIME_CONFIG_PATH)
 
     with st.sidebar:
 

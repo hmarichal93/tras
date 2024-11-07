@@ -34,6 +34,7 @@ class ViewContext(Context):
         config = self.config["image"]
         self.autocomplete_ring_date = config["metadata"]["autocomplete_ring_date"]
         self.harvest_date = int(config["metadata"]["harvest_date"]["year"])
+        self.code = config["metadata"]["code"]
         self.image_path = self.output_dir / config["image_path"]
         self.image_no_background_path = self.output_dir / config["background"]["image_path"]
         if Path(self.image_no_background_path).exists():
@@ -137,7 +138,7 @@ class UI:
 
     def main_shape(self):
         shapes_list = [Shapes.latewood, Shapes.earlywood, Shapes.other]
-        selected = st.radio("Select shape to annotate or edit", shapes_list ,
+        selected = st.radio(f"Select shape to annotate or edit. Image Code: *{self.CTX.code}* ", shapes_list ,
                             horizontal=True, index= shapes_list.index(self.CTX.main_shape))
         self.CTX.main_shape = selected
         return selected
@@ -328,6 +329,10 @@ class UI:
 
             gif_runner.empty()
             st.write("Annotations saved in", output_path)
+            st.warning("Remember, if you want to edit the annotations again, you'll need to upload the new annotations "
+                       "file. The path to the new annotations file is displayed above. Otherwise, any edits to "
+                       "previous annotations will be lost")
+
 
 
     def draw_shapes_over_image(self, image_path, drawable_shapes, output_image_name="images_with_shapes.png"):

@@ -21,6 +21,9 @@ def pull_last_changes_from_remote_repo(REPO_DIR):
 
             # Pull updates to the local repository
             origin.pull('main')
+            #delete old config
+            os.system("rm -rf ./config/runtime.json")
+
             st.success("Repository updated successfully.")
 
             # Reload the app to apply the changes

@@ -430,7 +430,7 @@ def main(runtime_config_path):
         ui.shape_earlywood()
 
     st.divider()
-    #save status
+    #export status
     ui.CTX.save_config()
 
     return

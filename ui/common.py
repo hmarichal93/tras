@@ -8,7 +8,7 @@ import altair as alt
 import cv2
 
 from lib.io import load_json, write_json, read_file_as_binary, bytesio_to_dict
-from lib.image import  load_image, resize_image_using_pil_lib
+from lib.image import  load_image, resize_image_using_pil_lib, Drawing, write_image
 from backend.labelme_layer import ring_relabelling
 
 
@@ -89,6 +89,7 @@ def save_annotation_file_locally(filename, file_uploader_instance):
 def file_uploader(label, output_file, extension, CTX = None):
     uploaded_cw_annotation_file = st.file_uploader(label, type=[extension])
     if uploaded_cw_annotation_file:
+        print(f"Estoy aca: {output_file}")
         save_annotation_file_locally(output_file, uploaded_cw_annotation_file)
         if CTX is not None:
             # relabel rings
@@ -174,19 +175,19 @@ def preprocess_image(image_path, points, min_size_th=1500):
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     return img, points
 
-def display_image_plotly(image_path, points = [] , df_points_info = None):
+def display_image_plotly(image_path, points = [] , df_points_info = None, save_image = False, output_path = None):
     import plotly.graph_objects as go
     import plotly.express as px
     import pandas as pd
 
-    # Create figure
-    img, points = preprocess_image(image_path, points)
+    # preprocess image to display in streamlit
+    img, points_pre = preprocess_image(image_path, points)
     fig = px.imshow(img)
-    if len(points)>0:
+    if len(points_pre)>0:
         columns = df_points_info.columns
-        df = pd.DataFrame(dict(x=[p.y for p in points],
-                               y=[p.x for p in points],
-                               label=[p.label for p in points],
+        df = pd.DataFrame(dict(x=[p.y for p in points_pre],
+                               y=[p.x for p in points_pre],
+                               label=[p.label for p in points_pre],
                                width = df_points_info[columns[-2]].values.tolist(),
                                cumulative_width = df_points_info[columns[-1]].values.tolist()
                                )
@@ -211,6 +212,18 @@ def display_image_plotly(image_path, points = [] , df_points_info = None):
     )
 
     st.plotly_chart(fig)
+    if save_image:
+        #image with no preprocess
+        image = load_image(image_path)
+        height, width = image.shape[:2]
+        for p in points:
+            x, y = p.x, p.y
+            image = Drawing.circle( image= image,  center_coordinates = (int(y), int(x)), radius= height // 1000)
+        #image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        write_image(output_path, image)
+
+
+
 
 def display_data_editor(data):
 
