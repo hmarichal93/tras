@@ -125,7 +125,7 @@ class UI:
             files_to_export += [file]
 
         if self.CTX.path_images:
-            files = Path(self.CTX.output_dir / "metrics/path").glob("*.jpeg")
+            files = Path(self.CTX.output_dir / "metrics/path").glob("*.jpg")
             files_to_export += [f for f in files ]
 
         if self.CTX.ann_lw:
@@ -145,7 +145,7 @@ class UI:
             files_to_export += [file ]
 
         if self.CTX.area_csv:
-            file = Path(self.CTX.output_dir) / "metrics/measurements.csv"
+            file = Path(self.CTX.output_dir) / f"metrics/{self.CTX.code}_measurements.csv"
             files_to_export += [file]
 
         if self.CTX.ann_other:

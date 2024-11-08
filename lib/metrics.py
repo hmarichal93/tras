@@ -190,7 +190,7 @@ def debug_images(annual_rings_list, df, image_path, output_dir):
 
 def export_results(labelme_latewood_path: str = None, labelme_earlywood_path: str = None, image_path: str = None,
                    metadata: dict = None,
-                   output_dir="output", draw=False):
+                   output_dir="output", draw=False, code=None):
     #metadata
     year = metadata["year"]
     year = datetime.datetime(year, 1, 1)
@@ -213,7 +213,7 @@ def export_results(labelme_latewood_path: str = None, labelme_earlywood_path: st
         eccentricity_module_list, eccentricity_phase_list, ring_perimeter_list, pixels_millimeter_relation, unit
     )
 
-    df.to_csv(f"{output_dir}/measurements.csv", index=False)
+    df.to_csv(f"{output_dir}/{code}_measurements.csv", index=False)
     if draw:
         debug_images(annual_rings_list, df, image_path, output_dir)
 
@@ -338,7 +338,7 @@ class PathMetrics:
 
         self.Columns = Columns
 
-    def export_coorecorder_format(self, dpi: int = 2400, scale : float = 1, output_path: Path = None,
+    def export_coorecorder_format(self, dpi: int = 2400, output_path: Path = None,
                                   image_name: str = None, pixel_per_mm : float = 1) -> None:
 
         exporter = CooRecorderExporter()
@@ -384,45 +384,34 @@ class CooRecorderExporter:
         pass
 
     def write(self, output_file : str = None, image_name : str = None,
-              measure_points: List[Point] = None, pixel_per_mm : float = 1) -> None:
+              measure_points: List[Point] = None, pixel_per_mm : float = 1, coordinates_in_pixels = True) -> None:
         now = datetime.datetime.now()
         dt_string = now.strftime("%Y-%m-%d %H:%M:%S")
         # Prepare unit conversion
-        dpi = int(25.4 * pixel_per_mm)
+        dpi = float(25.4 * pixel_per_mm) if not coordinates_in_pixels else 25.4
         # Create paths for output files
 
-        str_measure_points = self.convert_measure_points_to_str(measure_points, pixel_per_mm)
+        str_measure_points = self.convert_measure_points_to_str(measure_points, pixel_per_mm, coordinates_in_pixels)
 
         # Write to file
+        coordinates_str = "All coordinates in pixels" if coordinates_in_pixels else "All coordinates in millimeters (mm)"
         with open(output_file, 'w') as file:
             file.write(f"#DENDRO (Cybis Dendro program compatible format) Coordinate file written as\n"
-                       f"#Imagefile {image_name}\n#DPI {dpi}\n#All coordinates in millimeters (mm)\n"
+                       f"#Imagefile {image_name}\n#DPI {dpi}\n#{coordinates_str}\n"
                        f"SCALE 1\n#C DATED\n#C Written={dt_string};\n#C CooRecorder=;\n#C licensedTo=;\n")
             for point in str_measure_points:
                 file.write(f"{point}\n")
 
 
 
-    def convert_measure_points_to_str(self, measure_points: List[Point], pixel_per_mm: float) \
+    def convert_measure_points_to_str(self, measure_points: List[Point], pixel_per_mm: float, coordinates_in_pixels = True) \
             -> List[str]:
-        number_to_string = lambda x: str(round( x / pixel_per_mm, 3))
-        # Prepare points
-        point = measure_points[0]
-        str_measure_points = [ f"{number_to_string(point.x)}, {number_to_string(point.y)}"]
+        number_to_string = lambda x: str(round( x / pixel_per_mm, 5))
+        if coordinates_in_pixels:
+            return [f"{int(point.y)},{int(point.x)}" for point in measure_points]
+        else:
+            return [f"{number_to_string(int(point.y))},{number_to_string(int(point.x))}" for point in measure_points]
 
-        for idx, point in enumerate(measure_points[:-1]):
-            current_x, current_y = point.x, point.y
-            next_x, next_y = measure_points[idx + 1].x, measure_points[idx + 1].y
-            str_point = (f"{number_to_string(current_x)}, {number_to_string(current_y)}  "
-                         f"{number_to_string(next_x)}, {number_to_string(next_y)}")
-            str_measure_points.append(str_point)
-
-        # print('should be last measure point', len(measure_points))
-        last_x, last_y = measure_points[- 1].x, measure_points[- 1].y
-        last_point = f"{number_to_string(last_x)}, {number_to_string(last_y)}"
-        str_measure_points.append(last_point)
-
-        return str_measure_points
 
 def main():
     folder_name = "C14"

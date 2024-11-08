@@ -262,7 +262,7 @@ class UI:
                        image_path=self.CTX.image_path,
                        metadata=metadata,
                        draw=True,
-                       output_dir=self.CTX.output_dir_metrics)
+                       output_dir=self.CTX.output_dir_metrics, code=self.CTX.code)
 
         return
 
@@ -340,7 +340,7 @@ class UI:
             self.area_computations()
             gif_running.empty()
 
-            self.dataframe_file = self.CTX.output_dir_metrics / "measurements.csv"
+            self.dataframe_file = self.CTX.output_dir_metrics / f"{self.CTX.code}_measurements.csv"
             if not Path(self.dataframe_file).exists():
                 return None
 
@@ -454,11 +454,10 @@ class UI:
 
         self.CTX.path_df_file = Path(f"{output_path}_{path.label}.csv")
         self.CTX.path_coorecorder_file = Path(f"{output_path}_{path.label}.pos")
-        self.CTX.path_image_file = Path(f"{output_path}_{path.label}.jpeg")
+        self.CTX.path_image_file = Path(f"{output_path}_{path.label}.jpg")
         interface.compute_metrics(l_intersections, coorecorder_output_path = self.CTX.path_coorecorder_file,
                                   coorecorder_image_name = self.CTX.path_image_file.name,
                                   csv_output_path = self.CTX.path_df_file,
-                                  scale=self.CTX.know_distance / self.CTX.pixels_length,
                                   unit=self.CTX.units_mode,
                                   pixel_per_mm = self.CTX.pixel_per_mm)
         self.CTX.path_label = path.label
@@ -631,15 +630,15 @@ class PathInterface(UserInterface):
 
         return l_intersection
 
-    def compute_metrics(self, l_intersection: List, coorecorder_output_path: Path, unit: str, scale: float = 1.0,
+    def compute_metrics(self, l_intersection: List, coorecorder_output_path: Path, unit: str,
                         csv_output_path = None, coorecorder_image_name = None, pixel_per_mm = 1)\
             -> pd.DataFrame:
         from lib.metrics import PathMetrics
 
-        path = PathMetrics(l_intersection, scale, self.read_file_path.name, unit)
+        path = PathMetrics(l_intersection, scale=1 / pixel_per_mm, image_name=self.read_file_path.name, unit=unit)
 
 
-        path.export_coorecorder_format( output_path = coorecorder_output_path, scale=scale,
+        path.export_coorecorder_format( output_path = coorecorder_output_path,
                                         image_name= coorecorder_image_name , pixel_per_mm = pixel_per_mm)
 
         df = path.compute()
