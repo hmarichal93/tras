@@ -77,7 +77,7 @@ def pearson_coorelation(x,y):
     return r, p_value, n
 
 def main():
-    data_path = Path("./experiments/data_2")
+    data_path = Path("./experiments/coorecorder/data_2")
     coorecorder_measurements, tras_measurements = load_measurements(data_path)
     import matplotlib.pyplot as plt
     coorecorder_measurements = np.array(coorecorder_measurements)
@@ -99,11 +99,12 @@ def main():
     plt.ylabel("TRAS (mm)")
     plt.title("Ring Width Measurements")
     #add to figure text "strline\nR={r:.2f}, p={p_value:.2f}, n={n}"
-    plt.text(0.7, 0.3, f"{strline}\nr={r:.4f}, p={p_value:.4f}\nn={n}\nRMSE={rmse:.4f}",
-             horizontalalignment='center',
+    plt.text(0.65, 0.2, f"n={n}\n{strline}\nr={r:.4f}\nRMSE={rmse:.4f}",
+             horizontalalignment='left',
              verticalalignment='center', transform=plt.gca().transAxes)
-    plt.grid()
+    #plt.grid()
     plt.legend()
+    plt.savefig("coorecorder_tras_comparison.png")
     plt.show()
 
     print(f"Fit: {fit}")
