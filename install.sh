@@ -36,6 +36,11 @@ else
     exit 1
 fi
 
+cd "./automatic_methods/tree_ring_delineation/mlbrief_inbd/uruDendro"
+git checkout pip_package
+
+pip install .
+
 # Install CS-TRD project dependencies
 echo "Installing CS-TRD dependencies..."
 cd "../cstrd_ipol" || { echo "Directory not found: ../cstrd_ipol"; exit 1; }

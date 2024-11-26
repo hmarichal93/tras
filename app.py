@@ -14,7 +14,7 @@ from ui.report import main as export
 from ui.update import pull_last_changes_from_remote_repo
 
 
-APP_NAME = "TRAS: An Interactive Sofware for tracing Tree Ring Cross Sections"
+APP_NAME = "TRAS: An Interactive Software for tracing Tree Ring Cross Sections"
 DEFAULT_CONFIG_PATH = "./config/default.json"
 RUNTIME_CONFIG_PATH = "./config/runtime.json"
 

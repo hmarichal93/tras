@@ -1,0 +1,35 @@
+#DENDRO (Cybis Dendro program compatible format) Coordinate file written as \\VBOXSVR\tras\annotations\tras\C17C_north.pos 2024-11-08 13:44:58
+#Imagefile C17C_north.jpg
+#DPI 155.0
+#All coordinates in millimeters (mm)
+SCALE 1
+#C DATED
+#C Written=2024-11-08 13:44:58; DistanceToPith=202.2; 
+#C PithCoordinates=244.495,243.185; YearsToPith=7; Radius=0.328; 
+#C CalcRadius=Yes; 
+#C CooRecorder=9.8.1 March 23 2022; 
+#C licensedTo=WorkShopTrial-2018-Wilson-Kaczka; 
+244.823,243.185 
+244.004,243.512 
+243.840,230.239 
+243.348,202.872 
+243.185,187.796 
+242.857,174.523 
+242.693,164.035 
+242.529,154.366 
+242.365,140.765 
+242.201,132.244 
+242.037,123.723 
+241.710,111.268 
+241.710,105.041 
+241.546,96.520 
+241.382,87.835 
+241.218,75.708 
+241.054,64.729 
+240.890,58.010 
+240.726,52.766 
+240.726,49.325 
+240.726,47.195 
+240.726,45.392 
+240.563,43.098 
+240.563,41.132 
