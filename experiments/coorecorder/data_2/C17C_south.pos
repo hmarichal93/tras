@@ -1,0 +1,33 @@
+#DENDRO (Cybis Dendro program compatible format) Coordinate file written as \\VBOXSVR\tras\annotations\tras\C17C_south.pos 2024-11-11 12:23:03
+#Imagefile C17C_south.jpg
+#DPI 170.0
+#All coordinates in millimeters (mm)
+SCALE 1
+#C DATED
+#C Written=2024-11-11 12:23:03; 
+#C CooRecorder=9.8.1 March 23 2022; 
+#C licensedTo=WorkShopTrial-2018-Wilson-Kaczka; 
+223.221,221.727 
+222.624,222.026 
+222.922,235.921 
+223.221,261.321 
+223.520,280.894 
+223.669,294.939 
+223.819,309.133 
+223.968,320.040 
+224.267,333.188 
+224.267,341.555 
+224.416,349.175 
+224.566,360.979 
+224.715,367.852 
+224.865,377.265 
+225.014,389.218 
+225.164,402.814 
+225.313,413.721 
+225.462,419.249 
+225.462,423.433 
+225.462,429.111 
+225.612,432.995 
+225.612,435.236 
+225.612,440.167 
+225.761,444.649 
