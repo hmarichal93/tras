@@ -7,9 +7,8 @@ from typing import List
 from pathlib import Path
 from abc import abstractmethod
 
-#from automatic_methods.tree_ring_delineation.mlbrief_inbd.uruDendro.metric_influence_area import build_rays, \
-#    InfluenceArea
-from urudendro.metric_influence_area import build_rays, InfluenceArea
+from automatic_methods.tree_ring_delineation.mlbrief_inbd.uruDendro.metric_influence_area import build_rays, \
+   InfluenceArea
 from backend.labelme_layer import (LabelmeInterface, LabelmeShapeType, AL_LateWood_EarlyWood, LabelmeShape,
                                    resize_annotations)
 from lib.image import resize_image_using_pil_lib, load_image, write_image
