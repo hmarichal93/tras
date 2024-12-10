@@ -8,7 +8,7 @@ if [ $# -ne 1 ]; then
 fi
 PORT=8501
 source $1/etc/profile.d/conda.sh
-conda activate dendrotool
+conda activate tras
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd $SCRIPT_DIR
