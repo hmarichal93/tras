@@ -85,7 +85,7 @@ cd "$ROOT_DIRECTORY" || { echo "Directory not found: $ROOT_DIRECTORY"; exit 1; }
 EXEC_COMMAND="$ROOT_DIRECTORY/run.sh $1"
 echo $EXEC_COMMAND
 # Path to the .desktop file (create on Desktop for testing)
-DESKTOP_FILE_PATH="$HOME/Desktop/dendrotool.desktop"
+DESKTOP_FILE_PATH="$HOME/Desktop/tras.desktop"
 
 # Define the icon path
 ICON_PATH="$ROOT_DIRECTORY/assets/wood_main.png"
@@ -95,8 +95,8 @@ ICON_PATH="$ROOT_DIRECTORY/assets/wood_main.png"
 # Content of the .desktop file
 echo "[Desktop Entry]
 Version=1.0
-Name=Dendrotool
-Comment=Launch the Dendrotool Streamlit App
+Name=tras
+Comment=Launch the Tras Streamlit App
 Exec=gnome-terminal -- bash -c '$EXEC_COMMAND; exec bash'
 Icon=$ICON_PATH
 Terminal=true
