@@ -18,7 +18,7 @@ Features
 Follow the instructions below to set up the environment ([anaconda](https://anaconda.com))and install the necessary dependencies:
 ```bash 
 conda env create -f environment.yml
-conda activate dendrotool
+conda activate tras
 ./install.sh $CONDA_PREFIX_1
 ```
 Replace `$CONDA_PREFIX_1` with the path to the conda environment where
