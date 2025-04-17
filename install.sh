@@ -16,6 +16,7 @@ pip install -r requirements.txt
 git submodule set-url automatic_methods/tree_ring_delineation/cstrd_ipol https://github.com/hmarichal93/cstrd_ipol.git
 git submodule set-url automatic_methods/tree_ring_delineation/mlbrief_inbd https://github.com/hmarichal93/mlbrief_inbd.git
 git submodule set-url automatic_methods/pith_detection/apd https://github.com/hmarichal93/apd.git
+git submodule set-url automatic_methods/pith_detection/deepcstrd https://github.com/hmarichal93/deepcstrd.git
 
 # Install repository dependencies
 echo "Installing repository dependencies..."
