@@ -7,3 +7,6 @@
 [submodule "automatic_methods/pith_detection/apd"]
 	path = automatic_methods/pith_detection/apd
 	url = https://github.com/hmarichal93/apd.git
+[submodule "automatic_methods/tree_ring_delineation/deepcstrd"]
+	path = automatic_methods/tree_ring_delineation/deepcstrd
+	url = https://github.com/hmarichal93/deepcstrd.git

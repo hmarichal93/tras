@@ -10,6 +10,7 @@ from lib.image import  Drawing, Color, load_image, write_image
 from lib.io import load_json, write_binary_file
 from lib.inbd import INBD
 from lib.cstrd import CSTRD
+from lib.deepcstrd import DEEPCSTRD, get_model_path, DeepCSTRD_MODELS
 from lib.apd import APD
 
 from backend.labelme_layer import (LabelmeShapeType, LabelmeObject, AL_LateWood_EarlyWood,
@@ -19,6 +20,7 @@ from ui.common import Context, download_button, RunningWidget, Pith, display_ima
 class LatewoodMethods:
     cstrd = "CS-TRD"
     inbd = "INBD"
+    deep_cstrd = "Deep CS-TRD"
 
 class Shapes:
     pith = "Pith"
@@ -144,6 +146,8 @@ class ViewContext(Context):
         self.apd_params = self.config["automatic"]["apd_params"]
         self.code = self.config["image"]["metadata"]["code"]
 
+        self.deep_cstrd = self.config["automatic"]["deep_cstrd"]
+
         return
 
     def update_config(self):
@@ -159,6 +163,7 @@ class ViewContext(Context):
         self.config["automatic"]["th_hight"] = self.th_hight
         self.config["automatic"]["apd_params"] = self.apd_params
         self.config["automatic"]["pith_method"] = self.pith_method
+        self.config["automatic"]["deep_cstrd"] = self.deep_cstrd
 
 
         return
@@ -175,7 +180,7 @@ class UI:
         st.header("Ring Detection")
         st.markdown(
             """
-            Two methods are available for the automatic detection of rings: CS-TRD and INBD. Pith annotations is required.
+            Three methods are available for the automatic detection of rings: CS-TRD, DeepCS-TRD and INBD. Pith annotations is required.
             """
         )
         st.divider()
@@ -278,6 +283,58 @@ class UI:
                 self.CTX.th_hight = high
 
 
+    def deep_cstrd_parameters(self):
+        config = self.CTX.deep_cstrd
+        models_list = [DeepCSTRD_MODELS.pinus_v1, DeepCSTRD_MODELS.pinus_v2, DeepCSTRD_MODELS.gleditsia,
+                       DeepCSTRD_MODELS.salix, DeepCSTRD_MODELS.all]
+        model = st.radio("Model", models_list, horizontal=True,
+                         index=config.get("model_id"))
+        if model != config.get("model_id"):
+            self.CTX.deep_cstrd["model_id"] = models_list.index(model)
+            self.deep_cstrd_model = model
+
+        advanced = st.checkbox("Advanced parameters")
+        if advanced:
+            alpha = st.slider("Angle α (degrees)", 0, 89, config.get("alpha"), 5)
+            tile_size = st.selectbox("Tile Size", [0, 64, 128, 256, 512], index=0)
+            prediction_map_threshold = st.slider("Prediction Map Threshold", 0.0, 1.0, config.get("prediction_map_th"), 0.1)
+            total_rotations = st.slider("Total Rotations", 0, 8, config.get("total_rotations"), 1)
+
+            if alpha != config.get("alpha"):
+                self.CTX.deep_cstrd["alpha"] = alpha
+            if tile_size != config.get("tile_size"):
+                self.CTX.deep_cstrd["tile_size"] = tile_size
+            if prediction_map_threshold != config.get("prediction_map_th"):
+                self.CTX.deep_cstrd["prediction_map_th"] = prediction_map_threshold
+            if total_rotations != config.get("total_rotations"):
+                self.CTX.deep_cstrd["total_rotations"] = total_rotations
+
+
+
+
+    def deep_cstrd_run(self):
+        self.output_dir_deepcstrd = self.CTX.output_dir / "deepcstrd"
+        os.system(f"rm -rf {self.output_dir_deepcstrd}")
+        self.output_dir_deepcstrd.mkdir(exist_ok=True, parents=True)
+
+        gif_runner = RunningWidget()
+        self.CTX.deepcstrd_model_path = get_model_path(self.deep_cstrd_model, self.CTX.deep_cstrd["tile_size"])
+
+        method = DEEPCSTRD(self.CTX.image_no_background_path, self.CTX.pith_mask_path,
+                       Path(self.CTX.deepcstrd_model_path),
+                       self.output_dir_deepcstrd,
+                       Nr=self.CTX.number_of_rays, resize_factor=self.CTX.inbd_resize_factor,
+                       background_path=self.CTX.json_background_path,
+                       sigma=self.CTX.sigma,
+                        alpha=self.CTX.deep_cstrd["alpha"],
+                           weights_path=self.CTX.deepcstrd_model_path,
+                           tile_size=self.CTX.deep_cstrd["tile_size"],
+                           prediction_map_threshold=self.CTX.deep_cstrd["prediction_map_th"],
+                           total_rotations=self.CTX.deep_cstrd["total_rotations"])
+
+        results_path = method.run()
+        gif_runner.empty()
+        return results_path
     def cstrd_run(self, lw_annotations=None):
         self.output_dir_cstrd = self.CTX.output_dir / "cstrd"
         os.system(f"rm -rf {self.output_dir_cstrd}")
@@ -326,8 +383,13 @@ class UI:
     def parameters_latewood(self, method_latewood):
         if method_latewood == LatewoodMethods.inbd:
             self.inbd_parameters()
-        else:
+        elif method_latewood == LatewoodMethods.cstrd:
             self.cstrd_parameters()
+        elif method_latewood == LatewoodMethods.deep_cstrd:
+            self.deep_cstrd_parameters()
+        else:
+            st.error("Method not implemented")
+            return
         # add input number option
         nr = st.number_input("Number of rays", 1, 1000, self.CTX.number_of_rays)
         if nr != self.CTX.number_of_rays:
@@ -387,7 +449,8 @@ class UI:
         return
 
     def shape_latewood(self):
-        method_latewood = st.radio("Method", [LatewoodMethods.cstrd, LatewoodMethods.inbd], horizontal=True)
+        method_latewood = st.radio("Method", [LatewoodMethods.cstrd, LatewoodMethods.deep_cstrd, LatewoodMethods.inbd],
+                                   horizontal=True)
         self.parameters_latewood(method_latewood)
         st.divider()
 
@@ -395,8 +458,15 @@ class UI:
                 if method_latewood == LatewoodMethods.inbd else False )
 
         if run_button:
-            results_path = self.inbd_run() if method_latewood == LatewoodMethods.inbd else\
-                self.cstrd_run()
+            if method_latewood == LatewoodMethods.inbd:
+                results_path = self.inbd_run()
+            elif method_latewood == LatewoodMethods.cstrd:
+                results_path = self.cstrd_run()
+            elif method_latewood == LatewoodMethods.deep_cstrd:
+                results_path = self.deep_cstrd_run()
+            else:
+                st.error("Method not implemented")
+                return
             #relabel rings
             if self.CTX.autocomplete_ring_date:
                 ring_relabelling(self.CTX.image_path, results_path, self.CTX.harvest_date)

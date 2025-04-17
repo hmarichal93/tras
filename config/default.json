@@ -27,7 +27,23 @@
     "inbd_models":{"Pinus Taeda":"automatic_methods/tree_ring_delineation/mlbrief_inbd/models/model.update.pt.zip", "INBD-EH":"automatic_methods/tree_ring_delineation/mlbrief_inbd/models/model_eh.update.pt.zip"},
     "upload_model": false,
     "pith_model": "Boundary",
-    "pith_mode": "Automatic"
+    "pith_mode": "Automatic",
+    "deep_cstrd": {
+      "alpha": 45,
+      "tile_size": 0,
+      "prediction_map_th":0.5,
+      "total_rotations":5,
+      "model_id": 0
+    },
+    "pith_model_path": "automatic_methods/tree_ring_delineation/mlbrief_inbd/models/model.update.pt.zip",
+    "pith_model_name": "INBD-EH",
+    "pith_model_type": "INBD-EH",
+    "pith_model_type_2": "Boundary",
+    "pith_model_path_2": "automatic_methods/tree_ring_delineation/mlbrief_inbd/models/model.update.pt.zip",
+    "pith_model_name_2": "INBD-EH",
+    "pith_model_type_3": "Boundary",
+    "pith_model_path_3": "automatic_methods/tree_ring_delineation/mlbrief_inbd/models/model.update.pt.zip",
+    "pith_model_name_3": "INBD-EH"
   }
   ,
   "manual": {
