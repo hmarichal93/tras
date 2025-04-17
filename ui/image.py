@@ -10,12 +10,12 @@ Image.MAX_IMAGE_PIXELS = None
 from streamlit_option_menu import option_menu
 from pathlib import Path
 
-from lib.image import  write_image, remove_salient_object, resize_image
+from lib.image import  write_image, resize_image
 from ui.common import Context, RunningWidget, Pith, display_image, check_image, resize_slider
 from backend.labelme_layer import (LabelmeShapeType,
                                    LabelmeObject, LabelmeInterface as UserInterface, resize_annotations,
                                    AL_LateWood_EarlyWood)
-
+from urudendro.remove_salient_object import remove_salient_object
 
 pixels_length = 1
 know_distance = 2
@@ -419,7 +419,7 @@ class BackgroundInterface(UserInterface):
         pass
 
     def automatic(self):
-        disk_mask = remove_salient_object(self.read_file_path, self.output_image_path)
+        disk_mask = remove_salient_object(self.read_file_path, str(self.output_image_path))
         # Ensure the mask is binary (values 0 and 255 only)
         _, binary_mask = cv2.threshold(disk_mask, 127, 255, cv2.THRESH_BINARY)
 

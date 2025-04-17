@@ -15,6 +15,7 @@ pip install -r requirements.txt
 
 git submodule set-url automatic_methods/tree_ring_delineation/cstrd_ipol https://github.com/hmarichal93/cstrd_ipol.git
 git submodule set-url automatic_methods/tree_ring_delineation/mlbrief_inbd https://github.com/hmarichal93/mlbrief_inbd.git
+git submodule set-url automatic_methods/tree_ring_delineation/deepcstrd https://github.com/hmarichal93/deepcstrd.git
 git submodule set-url automatic_methods/pith_detection/apd https://github.com/hmarichal93/apd.git
 
 # Install repository dependencies
@@ -60,7 +61,7 @@ fi
 echo "Installing DeepCSTRD dependencies..."
 DEEPCSTRD_DIR="$ROOT_DIRECTORY/automatic_methods/tree_ring_delineation/deepcstrd"
 cd $DEEPCSTRD_DIR || { echo "Directory not found: $DEEPCSTRD_DIR"; exit 1; }
-if git submodule update --init && git lfs install && git lfs pull && python setup.py install && pip install -r requirements.txt; then
+if git submodule update --init && git lfs pull && python setup.py install && pip install -r requirements.txt; then
     git clone git@github.com:hmarichal93/cstrd.git && cd cstrd && python setup.py install
     cd ../
     git clone https://github.com/hmarichal93/uruDendro.git && cd uruDendro && python setup.py install
