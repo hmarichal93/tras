@@ -39,9 +39,9 @@ sudo apt install git -y
 ## Usage
 Run the application using the following command:
 ```bash
-./run.sh $CONDA_PREFIX_1
+streamlit run app.py
 ```
-Replace `$CONDA_PREFIX_1` with the path to the conda environment where the application is installed. Additionally you can run the application using the icon created on the desktop.
+Additionally you can run the application using the icon created on the desktop.
 
 
 
