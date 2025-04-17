@@ -16,7 +16,8 @@ Features
 ## Installation
 ### On Linux
 Follow the instructions below to set up the environment ([anaconda](https://anaconda.com))and install the necessary dependencies:
-```bash 
+```bash
+git clone https://github.com/hmarichal93/tras.git && cd tras
 conda env create -f environment.yml
 conda activate tras
 ./install.sh $CONDA_PREFIX_1
