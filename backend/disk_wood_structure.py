@@ -63,6 +63,29 @@ class AnnualRing(DiskWoodStructure):
 
 
 
+    def compute_non_intersecting_area(self, other_shapes):
+        """
+        Compute the area of the disk wood structure that does not intersect with other shapes
+        :param other_shapes: list of other shapes to compute the area
+        :return: area of the disk wood structure that does not intersect with other shapes
+        """
+        if len(other_shapes) == 0:
+            return self.area
+        else:
+            #compute the intersection area
+            intersection_area = 0
+            #sort the shapes by area
+            other_shapes = sorted(other_shapes, key=lambda x: x.area, reverse=True)
+            #remove the shapes that intersect each other
+            for i in range(len(other_shapes)):
+                for j in range(i+1, len(other_shapes)):
+                    if other_shapes[i].intersects(other_shapes[j]):
+                        other_shapes[i] = other_shapes[i].difference(other_shapes[j])
+
+            #compute the intersection area
+            for shape in other_shapes:
+                intersection_area += self.intersection(shape).area
+            return self.area - intersection_area
 
 
     def get_centroid(self):

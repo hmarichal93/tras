@@ -12,7 +12,7 @@ from shapely.geometry import LineString, MultiLineString, Polygon, Point, MultiP
 from lib.image import  Color as ColorCV2, Drawing, load_image, write_image, resize_image_using_pil_lib
 from ui.common import (Context, RunningWidget,  plot_chart, display_image_with_zoom, display_data_editor, check_image,
                        Shapes, display_image_plotly)
-from lib.metrics import  export_results, Table
+from lib.metrics import  compute_area_based_properties, Table
 from backend.labelme_layer import (LabelmeShapeType,
                                    LabelmeObject, LabelmeInterface as UserInterface, add_prefix_to_labels,
                                    AL_LateWood_EarlyWood, load_ring_shapes, write_ring_shapes, PointLabelme)
@@ -48,7 +48,8 @@ class ViewContext(Context):
         self.ew_annotation_file = None if len(self.ew_annotation_file) == 0 else self.ew_annotation_file
         self.lw_annotation_file = config_manual["annotations_files"]["late_wood"]
         self.lw_annotation_file = None if len(self.lw_annotation_file) == 0 else self.lw_annotation_file
-
+        self.other_annotation_file = config_manual["annotations_files"]["other"]
+        self.other_annotation_file = None if len(self.other_annotation_file) == 0 else self.other_annotation_file
 
         self.output_dir_metrics = self.output_dir  / "metrics"
         self.output_dir_metrics.mkdir(parents=True, exist_ok=True)
@@ -79,6 +80,7 @@ class ViewContext(Context):
 
         self.ring_path = config_metric["ring_path"]
         self.display_area_settings = config_metric["display_area_settings"]
+        self.exclusion_area = config_metric["exclusion_area"]
 
 
 
@@ -107,6 +109,7 @@ class ViewContext(Context):
         config_metric["ew_measurements"] = self.ew_measurements
         config_metric["two_dim_annotations"] = self.two_dim_annotations
         config_metric["display_area_settings"] = self.display_area_settings
+        config_metric["exclusion_area"] = self.exclusion_area
 
 
 
@@ -226,6 +229,13 @@ class UI:
             self.CTX.cumulative_ew_radius = True if cumulative_ew_radius else False
             lw_ratio = st.checkbox(table.lw_ratio, self.CTX.lw_ratio)
             self.CTX.lw_ratio = True if lw_ratio else False
+            lw_ratio = st.checkbox(table.exclusion_area, self.CTX.exclusion_area,
+                    disabled=self.CTX.other_annotation_file is None, help="Exclusion area. If you have other annotations,"
+                                                                          "the computed area will be the area of the ring"
+                                                                          " minus the area of the other annotations")
+            self.CTX.exclusion_area = True if lw_ratio else False
+
+
 
         with col4:
             annual_ring_width = st.checkbox(table.annual_ring_width, self.CTX.annual_ring_width)
@@ -257,12 +267,14 @@ class UI:
             ew_file_path = self.CTX.output_dir_metrics / "earlywood.json"
         else:
             ew_file_path = None
-        export_results(labelme_latewood_path= lw_file_path,
-                       labelme_earlywood_path= ew_file_path,
-                       image_path=self.CTX.image_path,
-                       metadata=metadata,
-                       draw=True,
-                       output_dir=self.CTX.output_dir_metrics, code=self.CTX.code)
+        compute_area_based_properties(labelme_latewood_path= lw_file_path,
+                                      labelme_earlywood_path= ew_file_path,
+                                      image_path=self.CTX.image_path,
+                                      metadata=metadata,
+                                      draw=True,
+                                      output_dir=self.CTX.output_dir_metrics, code=self.CTX.code,
+                                      exclusion_shape_path=self.CTX.other_annotation_file if self.CTX.exclusion_area
+                                      else None)
 
         return
 

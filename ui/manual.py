@@ -389,6 +389,7 @@ class ShapeInterface(UserInterface):
         except FileNotFoundError:
             st.write("No json file found")
             data = {}
+            data['version'] = "4.5.6"
         data["imagePath"] = str(self.read_file_path.name)
         write_json(data, self.write_file_path)
         return data
