@@ -82,7 +82,8 @@
     "ring_path":"",
     "ew_measurements": true,
     "two_dim_annotations": true,
-    "display_area_settings": true
+    "display_area_settings": true,
+    "exclusion_area": false
   },
 
    "export": {

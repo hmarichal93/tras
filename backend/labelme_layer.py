@@ -106,18 +106,18 @@ class LabelmeObject:
             imageWidth = self.imageWidth
         )
     def parser(self, labelme_json):
-        self.version = labelme_json["version"]
-        self.flags = labelme_json["flags"]
-        self.shapes = [LabelmeShape(shape) for shape in  labelme_json["shapes"]]
+        self.version = labelme_json.get("version", None)
+        self.flags = labelme_json.get("flags", None)
+        self.shapes = [LabelmeShape(shape) for shape in  labelme_json["shapes"]] if labelme_json.get("shapes", None) else []
         if len(self.shapes)> 0:
             check_if_all_shapes_are_polygon = (len([s for s in self.shapes if s.shape_type == LabelmeShapeType.polygon])
                                                ==len(self.shapes))
             if check_if_all_shapes_are_polygon:
                 self.shapes.sort(key=lambda x: x.area)
-        self.imagePath = labelme_json["imagePath"]
-        self.imageData = labelme_json["imageData"]
-        self.imageHeight = labelme_json["imageHeight"]
-        self.imageWidth = labelme_json["imageWidth"]
+        self.imagePath = labelme_json.get("imagePath", None)
+        self.imageData = labelme_json.get("imageData", None)
+        self.imageHeight = labelme_json.get("imageHeight", None)
+        self.imageWidth = labelme_json.get("imageWidth", None)
 
 
 

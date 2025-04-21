@@ -2,6 +2,7 @@ import streamlit as st
 import numpy as np
 import cv2
 import os
+import torch
 
 from shapely.geometry import Polygon, Point
 from pathlib import Path
@@ -318,21 +319,27 @@ class UI:
         self.output_dir_deepcstrd.mkdir(exist_ok=True, parents=True)
 
         gif_runner = RunningWidget()
-        self.CTX.deepcstrd_model_path = get_model_path(self.deep_cstrd_model, self.CTX.deep_cstrd["tile_size"])
+        try:
+            self.CTX.deepcstrd_model_path = get_model_path(self.deep_cstrd_model, self.CTX.deep_cstrd["tile_size"])
 
-        method = DEEPCSTRD(self.CTX.image_no_background_path, self.CTX.pith_mask_path,
-                       Path(self.CTX.deepcstrd_model_path),
-                       self.output_dir_deepcstrd,
-                       Nr=self.CTX.number_of_rays, resize_factor=self.CTX.inbd_resize_factor,
-                       background_path=self.CTX.json_background_path,
-                       sigma=self.CTX.sigma,
-                        alpha=self.CTX.deep_cstrd["alpha"],
-                           weights_path=self.CTX.deepcstrd_model_path,
-                           tile_size=self.CTX.deep_cstrd["tile_size"],
-                           prediction_map_threshold=self.CTX.deep_cstrd["prediction_map_th"],
-                           total_rotations=self.CTX.deep_cstrd["total_rotations"])
+            method = DEEPCSTRD(self.CTX.image_no_background_path, self.CTX.pith_mask_path,
+                           Path(self.CTX.deepcstrd_model_path),
+                           self.output_dir_deepcstrd,
+                           Nr=self.CTX.number_of_rays, resize_factor=self.CTX.inbd_resize_factor,
+                           background_path=self.CTX.json_background_path,
+                           sigma=self.CTX.sigma,
+                            alpha=self.CTX.deep_cstrd["alpha"],
+                               weights_path=self.CTX.deepcstrd_model_path,
+                               tile_size=self.CTX.deep_cstrd["tile_size"],
+                               prediction_map_threshold=self.CTX.deep_cstrd["prediction_map_th"],
+                               total_rotations=self.CTX.deep_cstrd["total_rotations"])
 
-        results_path = method.run()
+            results_path = method.run()
+        except torch.OutOfMemoryError:
+            st.error("Out of memory. Issue may happen because there is not enough GPU memory. "
+                     "Try to increase the resize factor")
+            results_path = None
+
         gif_runner.empty()
         return results_path
     def cstrd_run(self, lw_annotations=None):
@@ -467,6 +474,10 @@ class UI:
             else:
                 st.error("Method not implemented")
                 return
+
+            if results_path is None:
+                return
+
             #relabel rings
             if self.CTX.autocomplete_ring_date:
                 ring_relabelling(self.CTX.image_path, results_path, self.CTX.harvest_date)
