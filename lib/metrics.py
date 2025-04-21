@@ -168,12 +168,18 @@ def extract_ring_properties(annual_rings_list, year, plantation_date=False, excl
     return annual_ring_label_list, year_list, ew_lw_label_list, ring_area_list, ew_area_list, eccentricity_module_list, eccentricity_phase_list, ring_perimeter_list
 
 
-def debug_images(annual_rings_list, df, image_path, output_dir):
+def debug_images(annual_rings_list, df, image_path, output_dir, exclusion_shapes: List = None):
     if Path(output_dir).exists():
         import os
         os.system(f"rm -rf {output_dir}/*ring_properties_label*")
 
     image = load_image(image_path)
+    if exclusion_shapes is not None:
+        for idx, shape in enumerate(exclusion_shapes):
+            image = Drawing.fill(shape.exterior.coords, image, Color.red, opacity=0.3)
+            for interior in shape.interiors:
+                image = Drawing.fill(interior.coords, image, Color.red, opacity=0.3)
+
     image_full = image.copy()
     for idx, ring in enumerate(annual_rings_list):
         #eccentricity
@@ -193,6 +199,8 @@ def debug_images(annual_rings_list, df, image_path, output_dir):
         output_name = f"{output_dir}/{idx}_ring_properties_label_{ring.main_label}.png"
         image_debug = resize_image_using_pil_lib(image_debug, 640, 640)
         write_image(output_name, image_debug)
+
+
 
     #image_full = resize_image_using_pil_lib(image_full, 640, 640)
     write_image(f"{output_dir}/rings.png", image_full)
@@ -241,7 +249,7 @@ def compute_area_based_properties(labelme_latewood_path: str = None, labelme_ear
 
     df.to_csv(f"{output_dir}/{code}_measurements.csv", index=False)
     if draw:
-        debug_images(annual_rings_list, df, image_path, output_dir)
+        debug_images(annual_rings_list, df, image_path, output_dir, exclusion_shapes = exclusion_shapes)
 
     generate_plots(table, df, output_dir)
     generate_pdf(df, output_dir)
