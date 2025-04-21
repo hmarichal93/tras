@@ -11,7 +11,7 @@ from typing import List
 import datetime
 
 from lib.image import Color, Drawing, resize_image_using_pil_lib, load_image, write_image
-from backend.labelme_layer import AL_AnnualRings
+from backend.labelme_layer import AL_AnnualRings, AL_LateWood_EarlyWood
 
 
 class Table:
@@ -40,6 +40,8 @@ class Table:
         self.eccentricity_phase = f"Eccentricity Phase [°]"
         self.perimeter = f"Perimeter [{unit}]"
         self.ring_similarity_factor = f"Ring Similarity Factor [0-1]"
+
+        self.exclusion_area = "Exclusion Area"
 
 
 def fill_df(annual_ring_label_list, year_list, ew_lw_label_list, ring_area_list, ew_area_list, eccentricity_module_list,
@@ -98,9 +100,9 @@ def compute_angle(vector):
     return angle_360
 
 
-def extract_ring_properties(annual_rings_list, year, plantation_date=False):
+def extract_ring_properties(annual_rings_list, year, plantation_date=False, exclusion_shapes: List = None):
     pith = Point(0, 0)
-    #image_full = image.copy()
+
     ring_area_list = []
     ew_area_list = []
     lw_area_list = []
@@ -113,11 +115,21 @@ def extract_ring_properties(annual_rings_list, year, plantation_date=False):
     year = year - (len(annual_rings_list) -1)* datetime.timedelta(days=365)
     for idx, ring in enumerate(annual_rings_list):
         #area
-        ring_area_list.append(ring.area)
-        latewood_area = ring.late_wood.area if ring.late_wood is not None else 0
-        earlywood_area = ring.early_wood.area if ring.early_wood is not None else 0
-        ew_area_list.append(earlywood_area)
+        if exclusion_shapes is None:
+            ring_area = ring.area
+            latewood_area = ring.late_wood.area if ring.late_wood is not None else 0
+            earlywood_area = ring.early_wood.area if ring.early_wood is not None else 0
+
+        else:
+            ring_area = ring.compute_non_intersecting_area(exclusion_shapes)
+            latewood_area = ring.late_wood.compute_non_intersecting_area(exclusion_shapes) \
+                if ring.late_wood is not None else 0
+            earlywood_area = ring.early_wood.compute_non_intersecting_area(exclusion_shapes) \
+                if ring.early_wood is not None else 0
+
+        ring_area_list.append(ring_area)
         lw_area_list.append(latewood_area)
+        ew_area_list.append(earlywood_area)
 
         #eccentricity
         if idx == 0:
@@ -188,9 +200,20 @@ def debug_images(annual_rings_list, df, image_path, output_dir):
     return
 
 
-def export_results(labelme_latewood_path: str = None, labelme_earlywood_path: str = None, image_path: str = None,
-                   metadata: dict = None,
-                   output_dir="output", draw=False, code=None):
+def load_exclusion_shapes(exclusion_shape_path: str = None):
+    if exclusion_shape_path is None:
+        return None
+
+    al_exclusion = AL_LateWood_EarlyWood(exclusion_shape_path, None)
+    exclusion_shapes = al_exclusion.read()
+    exclusion_shapes = [Polygon(shape.points) for shape in exclusion_shapes]
+    return exclusion_shapes
+
+def compute_area_based_properties(labelme_latewood_path: str = None, labelme_earlywood_path: str = None,
+                                  image_path: str = None,
+                                  metadata: dict = None,
+                                  output_dir="output", draw=False, code=None,
+                                  exclusion_shape_path: str = None):
     #metadata
     year = metadata["year"]
     year = datetime.datetime(year, 1, 1)
@@ -201,12 +224,15 @@ def export_results(labelme_latewood_path: str = None, labelme_earlywood_path: st
 
     unit = metadata.get("unit", "mm")
 
+    exclusion_shapes = load_exclusion_shapes(exclusion_shape_path)
+
     al_annual_rings = AL_AnnualRings(late_wood_path=Path(labelme_latewood_path),
                                      early_wood_path=Path(labelme_earlywood_path) if labelme_earlywood_path else None)
     annual_rings_list = al_annual_rings.read()
 
     (annual_ring_label_list, year_list, ew_lw_label_list, ring_area_list, ew_area_list, eccentricity_module_list,
-     eccentricity_phase_list, ring_perimeter_list) = extract_ring_properties(annual_rings_list, year)
+     eccentricity_phase_list, ring_perimeter_list) = extract_ring_properties(annual_rings_list, year,
+                                                                             exclusion_shapes=exclusion_shapes)
 
     df, table = fill_df(
         annual_ring_label_list, year_list, ew_lw_label_list, ring_area_list, ew_area_list,
@@ -430,8 +456,8 @@ def main():
     }
     output_dir = f"./output/{folder_name}"
     Path(output_dir).mkdir(parents=True, exist_ok=True)
-    export_results(labelme_latewood_path, labelme_earlywood_path, image_path, metadata, draw=True,
-                   output_dir=output_dir)
+    compute_area_based_properties(labelme_latewood_path, labelme_earlywood_path, image_path, metadata, draw=True,
+                                  output_dir=output_dir)
     #export_results(labelme_latewood_path = labelme_latewood_path, image_path= image_path, metadata=metadata, draw=True, output_dir=output_dir)
 
 
