@@ -179,6 +179,11 @@ class UI:
                                                            Image.Resampling.LANCZOS)
             #st.image(bg_image_pil_display)
             display_image(bg_image_pil_display)
+
+        if not (self.CTX.output_dir / "background.json").exists() and Path(self.CTX.image_path).exists():
+            self.CTX.bg_image_pil_no_background = self.CTX.bg_image_pil
+            self.CTX.bg_image_pil_no_background.save(self.CTX.image_no_background_path)
+
         gif_runner.empty()
 
     def remove_background(self, radio):

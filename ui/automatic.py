@@ -285,14 +285,24 @@ class UI:
 
 
     def deep_cstrd_parameters(self):
+        self.output_dir_deepcstrd = self.CTX.output_dir / "deepcstrd"
+        self.output_dir_deepcstrd.mkdir(exist_ok=True, parents=True)
+        output_model_path = f"{self.output_dir_deepcstrd}/model.pth"
+
+        st.subheader("Parameters")
         config = self.CTX.deep_cstrd
+        config['upload_model'] = st.checkbox("Upload your own model", value=config['upload_model'])
         models_list = [DeepCSTRD_MODELS.pinus_v1, DeepCSTRD_MODELS.pinus_v2, DeepCSTRD_MODELS.gleditsia,
                        DeepCSTRD_MODELS.salix, DeepCSTRD_MODELS.all]
         model = st.radio("Model", models_list, horizontal=True,
                          index=config.get("model_id"))
-        if model != config.get("model_id"):
-            self.CTX.deep_cstrd["model_id"] = models_list.index(model)
-            self.deep_cstrd_model = model
+        if config['upload_model']:
+            output_model_path = file_model_uploader("Choose a file", output_model_path, ".pth")
+            st.warning("Remember that if you do not upload a model, a model uploaded in the pass will be used")
+        else:
+            if model != config.get("model_id"):
+                self.CTX.deep_cstrd["model_id"] = models_list.index(model)
+                self.deep_cstrd_model = model
 
         advanced = st.checkbox("Advanced parameters")
         if advanced:
@@ -315,12 +325,11 @@ class UI:
 
     def deep_cstrd_run(self):
         self.output_dir_deepcstrd = self.CTX.output_dir / "deepcstrd"
-        os.system(f"rm -rf {self.output_dir_deepcstrd}")
-        self.output_dir_deepcstrd.mkdir(exist_ok=True, parents=True)
-
         gif_runner = RunningWidget()
         try:
-            self.CTX.deepcstrd_model_path = get_model_path(self.deep_cstrd_model, self.CTX.deep_cstrd["tile_size"])
+            self.CTX.deepcstrd_model_path = f"{self.output_dir_inbd}/model.pth" \
+                    if self.CTX.deep_cstrd['upload_model'] else (
+                    get_model_path(self.deep_cstrd_model, self.CTX.deep_cstrd["tile_size"]))
 
             method = DEEPCSTRD(self.CTX.image_no_background_path, self.CTX.pith_mask_path,
                            Path(self.CTX.deepcstrd_model_path),
@@ -398,7 +407,8 @@ class UI:
             st.error("Method not implemented")
             return
         # add input number option
-        nr = st.number_input("Number of rays", 1, 1000, self.CTX.number_of_rays)
+        nr = st.number_input("Number of boundary points", 1, 1000, self.CTX.number_of_rays,
+                             help="Number of points in each output boundary ring")
         if nr != self.CTX.number_of_rays:
             self.CTX.number_of_rays = nr
 
@@ -412,6 +422,10 @@ class UI:
         return
 
     def shape_earlywood(self):
+        if not (self.CTX.output_dir / "pith.json").exists():
+            st.error("Pith annotation is required. Go to pith detection menu")
+            return
+
         method_latewood = st.radio("Method", [LatewoodMethods.cstrd], horizontal=True)
         self.parameters_latewood(method_latewood)
         st.divider()
@@ -456,6 +470,10 @@ class UI:
         return
 
     def shape_latewood(self):
+        if not (self.CTX.output_dir / "pith.json").exists():
+            st.error("Pith annotation is required. Go to pith detection menu")
+            return
+
         method_latewood = st.radio("Method", [LatewoodMethods.cstrd, LatewoodMethods.deep_cstrd, LatewoodMethods.inbd],
                                    horizontal=True)
         self.parameters_latewood(method_latewood)
