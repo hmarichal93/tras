@@ -307,7 +307,8 @@ class UI:
         advanced = st.checkbox("Advanced parameters")
         if advanced:
             alpha = st.slider("Angle α (degrees)", 0, 89, config.get("alpha"), 5)
-            tile_size = st.selectbox("Tile Size", [0, 64, 128, 256, 512], index=0)
+            tile_sizes = [0, 64, 128, 256, 512]
+            tile_size = st.selectbox("Tile Size", tile_sizes, index=tile_sizes.index(config.get("tile_size")))
             prediction_map_threshold = st.slider("Prediction Map Threshold", 0.0, 1.0, config.get("prediction_map_th"), 0.1)
             total_rotations = st.slider("Total Rotations", 0, 8, config.get("total_rotations"), 1)
 
@@ -327,7 +328,7 @@ class UI:
         self.output_dir_deepcstrd = self.CTX.output_dir / "deepcstrd"
         gif_runner = RunningWidget()
         try:
-            self.CTX.deepcstrd_model_path = f"{self.output_dir_inbd}/model.pth" \
+            self.CTX.deepcstrd_model_path = f"{self.output_dir_deepcstrd }/model.pth" \
                     if self.CTX.deep_cstrd['upload_model'] else (
                     get_model_path(self.deep_cstrd_model, self.CTX.deep_cstrd["tile_size"]))
 
@@ -348,6 +349,11 @@ class UI:
             st.error("Out of memory. Issue may happen because there is not enough GPU memory. "
                      "Try to increase the resize factor")
             results_path = None
+
+        except AttributeError:
+            st.error("Please remove background from image in the Image menu")
+            results_path = None
+
 
         gif_runner.empty()
         return results_path
@@ -492,6 +498,7 @@ class UI:
             else:
                 st.error("Method not implemented")
                 return
+
 
             if results_path is None:
                 return

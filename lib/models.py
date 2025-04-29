@@ -108,8 +108,11 @@ class Model:
         if not self.background_path.exists():
             return l_poly
         background = AL_LateWood_EarlyWood(self.background_path, None).read()
-
-        background_poly = Polygon(background[0].points)
+        points = background[0].points
+        background_poly = Polygon(points)
+        convex_hull_points = np.array(background_poly.convex_hull.exterior.coords)
+        background_poly = Polygon(convex_hull_points)
+        #background_poly = Polygon(background[0].points)
         l_poly_processed = []
         for poly in l_poly:
             try:
