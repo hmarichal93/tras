@@ -179,6 +179,11 @@ class UI:
                                                            Image.Resampling.LANCZOS)
             #st.image(bg_image_pil_display)
             display_image(bg_image_pil_display)
+
+        if not (self.CTX.output_dir / "background.json").exists() and Path(self.CTX.image_path).exists():
+            self.CTX.bg_image_pil_no_background = self.CTX.bg_image_pil
+            self.CTX.bg_image_pil_no_background.save(self.CTX.image_no_background_path)
+
         gif_runner.empty()
 
     def remove_background(self, radio):
@@ -459,10 +464,16 @@ class ScaleInterface(UserInterface):
         super().__init__(read_file_path = image_path, write_file_path=output_file)
 
     def parse_output(self):
-        object = LabelmeObject(self.write_file_path)
+        try:
+            object = LabelmeObject(self.write_file_path)
+
+        except FileNotFoundError:
+            st.error("Scale not set. Please mark a line in the image")
+            return 1
+
         if len(object.shapes) > 1:
             st.error("More than one shape found. Add only one shape")
-            return None
+            return 1
         shape = object.shapes[0]
         if not(shape.shape_type == LabelmeShapeType.line):
             st.error("Shape is not a line. Remember that you are marking the scale")

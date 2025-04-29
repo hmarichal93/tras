@@ -29,6 +29,7 @@
     "pith_model": "Boundary",
     "pith_mode": "Automatic",
     "deep_cstrd": {
+      "upload_model": false,
       "alpha": 45,
       "tile_size": 0,
       "prediction_map_th":0.5,

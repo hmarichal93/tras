@@ -67,6 +67,8 @@ class UI:
             delete_cache_folder(str(inbd_dir))
             inbd_dir = Path(self.CTX.output_dir) / "cstrd"
             os.system(f"rm -rf {inbd_dir}")
+            deep_dir = Path(self.CTX.output_dir) / "deepcstrd"
+            os.system(f"rm -rf {deep_dir}")
             delete_cache_folder(str(inbd_dir))
             pith_dir = Path(self.CTX.output_dir) / "pith_mask"
             delete_cache_folder(str(pith_dir))
