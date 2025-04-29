@@ -188,7 +188,12 @@ class UI:
             interface.interface()
         else:
             interface.automatic()
-        res = interface.parse_output()
+        try:
+            res = interface.parse_output()
+        except FileNotFoundError:
+            st.error("Background not set. Please mark a polygon in the image")
+            return None
+
         if res is not None:
             self.CTX.bg_image_pil_no_background = interface.remove_background()
             self.CTX.bg_image_pil_no_background = self.CTX.bg_image_pil_no_background.resize(
