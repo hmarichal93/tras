@@ -216,6 +216,17 @@ class UI:
         if check_image(self.CTX):
             return None
 
+        st.write(" ")
+        st.write("Crop the image to remove the background. Draw a rectangle around the disk.")
+
+        if st.button("Crop", help="Crop the image to remove the background. Draw a rectangle around the disk."):
+            gif_runner = RunningWidget()
+            crop_image(self.CTX)
+            gif_runner.empty()
+
+        #space
+        st.write(" ")
+        st.write(" ")
         radio = st.radio("Remove Background", (Pith.manual, Pith.automatic), index=0, horizontal=True)
 
         if st.button("Remove Background"):
@@ -468,3 +479,46 @@ def set_scale(CTX):
     CTX.pixels_length = scale.parse_output()
 
     return CTX.pixels_length
+
+
+def crop_image(CTX):
+    #crop image
+    crop = CropInterface(CTX.image_path, str(CTX.output_dir / "crop.json"))
+    crop.interface()
+    points = crop.parse_output()
+    if points is not None:
+        #crop image
+        from urudendro.image import load_image, write_image
+        ymin,xmin = points[0]
+        ymax,xmax = points[1]
+        image = load_image(CTX.image_path)
+        write_image(CTX.image_path, image[ymin:ymax, xmin:xmax])
+        bg_image_pil = Image.open(CTX.image_path)
+        CTX.bg_image_pil_no_background = bg_image_pil.resize((CTX.display_image_size, CTX.display_image_size),
+                                                             Image.Resampling.LANCZOS)
+        display_image(CTX.bg_image_pil_no_background)
+
+        st.write(f"Image cropped. New dimensions are: (H,W) = ({ymax-ymin}, {xmax-xmin})")
+
+class CropInterface(UserInterface):
+
+    def __init__(self, image_path, output_file):
+        super().__init__(read_file_path = image_path, write_file_path=output_file)
+
+    def parse_output(self):
+        object = LabelmeObject(self.write_file_path)
+        if len(object.shapes) > 1:
+            st.error("More than one shape found. Add only one shape")
+            return None
+        shape = object.shapes[0]
+        if not(shape.shape_type == LabelmeShapeType.rectangle):
+            st.error("Shape is not a rectangle. Remember that you are cropping the image")
+            return None
+
+        return np.array(shape.points).astype(int)
+
+    def from_structure_to_labelme_shape(self, structure_list):
+        pass
+
+    def from_labelme_shape_to_structure(self, shapes):
+        pass

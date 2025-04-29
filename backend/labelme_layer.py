@@ -28,6 +28,7 @@ class LabelmeShapeType:
     point = "point"
     linestrip = "linestrip"
     line = "line"
+    rectangle = "rectangle"
 
 
 
