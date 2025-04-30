@@ -156,6 +156,7 @@ class UI:
                 self.CTX.code = image_name.replace(".png", "")
             elif image_name.endswith(".jpg"):
                 self.CTX.code = image_name.replace(".jpg", "")
+            self.CTX.image_path = self.CTX.output_dir / f"{self.CTX.code}.png"
             os.system(f"rm -rf {self.CTX.output_dir}/*.png")
             os.system(f"rm -rf {self.CTX.output_dir}/*.json")
             os.system(f"rm -rf {self.CTX.output_dir}/metrics")
