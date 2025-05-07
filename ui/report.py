@@ -121,7 +121,7 @@ class UI:
             files_to_export += [file]
 
         if self.CTX.image:
-            file = Path(self.CTX.output_dir) / "image.png"
+            file =  self.CTX.image_path
             files_to_export += [file]
 
         if self.CTX.path_images:
