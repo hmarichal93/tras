@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>TRAS: An Interactive Software for Tracing Tree Ring Cross Sections</title>
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="icon" href="images/icons/favicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Display:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+  <main>
+    <h1>TRAS: An Interactive Software for Tracing Tree Ring Cross Sections</h1>
+    <p class="centered">
+      <sup>1</sup><a href="https://hmarichal93.github.io/">Henry Marichal</a><sup>*</sup>,
+      <sup>2</sup><a href="https://www.linkedin.com/in/diego-passarella-54a23741/">Diego Passarella</a>,
+      <sup>1</sup><a href="https://iie.fing.edu.uy/personal/randall/">Gregory Randall</a>,
+    </p>
+    <p class="centered">
+      <sup>1</sup>Facultad de Ingeniería, Universidad de la República, Uruguay
+      <sup>2</sup>CENUR, Universidad de la República, Uruguay
+    </p>
+    <p class="text-sm centered">
+      <a href="mailto:hmarichal93@gmail.com">hmarichal93@gmail.com</a>
+    </p>
+    <p class="centered">
+      <a class="pill-button" href="" title="Reference to the paper">
+        <img src="images/icons/arxiv.svg" /> Coming Soon
+      </a>
+      <a class="pill-button" href="https://github.com/hmarichal93/tras">
+        <img src="images/icons/github.svg" /> Code
+      </a>
+    </p>
+
+
+    <h2 class="banded">TRAS</h2>
+    <figure>
+      <img srcset="" src="assets/graphical_abstract.jpg" alt="" loading="lazy">
+    </figure>
+    <p>
+   Tras is a Python-based interactive software designed for tracing and analyzing tree ring cross-sections. It provides tools for automatic and manual ring delineation, as well as metrics computation. The application leverages Streamlit for the user interface, making it easy to visualize and interact with the data.
+Features
+      </p>
+
+<ul>
+  <li>Automatic Ring Delineation: Automatically detect and trace tree rings.</li>
+  <li>Manual Ring Delineation: Manually adjust and refine ring boundaries.</li>
+  <li>Metrics Computation: Calculate various metrics based on the traced rings.</li>
+  <li>Interactive Visualization: Use Streamlit to visualize and interact with the data.</li>
+</ul>
+
+
+    <h2 class="banded">Acknowledgements</h2>
+    <p>
+The experiments presented in this paper used ClusterUY  (site: https://cluster.uy). This work was supported by project ANII-FMV-176061.    </p>
+    </p>
+  </main>
+  <script>
+    const details = document.querySelector("details");
+    document.addEventListener("click", function (e) {
+      if (!details.contains(e.target)) {
+        details.removeAttribute("open");
+      }
+    });
+  </script>
+</body>
+
+</html>
