@@ -1,12 +1,12 @@
 [submodule "automatic_methods/tree_ring_delineation/mlbrief_inbd"]
 	path = automatic_methods/tree_ring_delineation/mlbrief_inbd
 	url = https://github.com/hmarichal93/mlbrief_inbd.git
-[submodule "automatic_methods/tree_ring_delineation/cstrd_ipol"]
-	path = automatic_methods/tree_ring_delineation/cstrd_ipol
-	url = https://github.com/hmarichal93/cstrd_ipol.git
 [submodule "automatic_methods/pith_detection/apd"]
 	path = automatic_methods/pith_detection/apd
 	url = https://github.com/hmarichal93/apd.git
 [submodule "automatic_methods/tree_ring_delineation/deepcstrd"]
 	path = automatic_methods/tree_ring_delineation/deepcstrd
 	url = https://github.com/hmarichal93/deepcstrd.git
+[submodule "automatic_methods/tree_ring_delineation/cstrd"]
+	path = automatic_methods/tree_ring_delineation/cstrd
+	url = https://github.com/hmarichal93/cstrd.git
