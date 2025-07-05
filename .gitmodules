@@ -9,4 +9,4 @@
 	url = https://github.com/hmarichal93/deepcstrd.git
 [submodule "automatic_methods/tree_ring_delineation/cstrd"]
 	path = automatic_methods/tree_ring_delineation/cstrd
-	url = https://github.com/hmarichal93/cstrd.git
+	url = https://github.com/hmarichal93/cstrd_ipol.git

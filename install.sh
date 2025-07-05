@@ -13,7 +13,7 @@ ROOT_DIRECTORY=$PWD
 sudo apt install gnome-terminal git-lfs -y
 pip install -r requirements.txt
 
-git submodule set-url automatic_methods/tree_ring_delineation/cstrd_ipol https://github.com/hmarichal93/cstrd_ipol.git
+git submodule set-url automatic_methods/tree_ring_delineation/cstrd https://github.com/hmarichal93/cstrd_ipol.git
 git submodule set-url automatic_methods/tree_ring_delineation/mlbrief_inbd https://github.com/hmarichal93/mlbrief_inbd.git
 git submodule set-url automatic_methods/tree_ring_delineation/deepcstrd https://github.com/hmarichal93/deepcstrd.git
 git submodule set-url automatic_methods/pith_detection/apd https://github.com/hmarichal93/apd.git
@@ -39,7 +39,7 @@ fi
 
 # Install CS-TRD project dependencies
 echo "Installing CS-TRD dependencies..."
-cd "../cstrd_ipol" || { echo "Directory not found: ../cstrd_ipol"; exit 1; }
+cd "../cstrd" || { echo "Directory not found: ../cstrd"; exit 1; }
 if git submodule update --init && git checkout early_late_wood; then
     echo "CS-TRD dependencies installed successfully."
 else
