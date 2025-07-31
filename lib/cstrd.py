@@ -30,10 +30,10 @@ class CSTRD(Model):
         y,x = np.where(pith_mask>0)
         cy = int(np.mean(y))
         cx = int(np.mean(x))
-        command = (f"PYTHONPATH=\"./automatic_methods/tree_ring_delineation/cstrd_ipol\" && "
-                   f"{self.python_path} ./automatic_methods/tree_ring_delineation/cstrd_ipol/main.py "
+        command = (f"PYTHONPATH=\"./automatic_methods/tree_ring_delineation/cstrd\" && "
+                   f"{self.python_path} ./automatic_methods/tree_ring_delineation/cstrd/main.py "
                    f"--input {image_path} --cy {cy} --cx {cx} "
-                   f"--output_dir {self.output_dir} --root ./automatic_methods/tree_ring_delineation/cstrd_ipol/ "
+                   f"--output_dir {self.output_dir} --root ./automatic_methods/tree_ring_delineation/cstrd/ "
                    f"--sigma {self.sigma} --th_low {self.th_low} --th_high {self.th_hight} --save_imgs 1 ")
 
         if self.gt_ring_json is not None:
