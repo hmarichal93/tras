@@ -1,5 +1,7 @@
 ![Preview Image](assets/Slide4.jpg)
+
 # Tras: An Interactive Software for tracing Tree Ring Cross-Sections.
+<img alt="Download Badge" src="https://img.shields.io/github/downloads/hmarichal93/tras/latest/total?color=amber&label=downloads" />
 
 Tras is a Python-based interactive software designed for tracing and analyzing tree ring cross-sections. It provides tools for automatic and manual ring delineation, as well as metrics computation. The application leverages Streamlit for the user interface, making it easy to visualize and interact with the data.
 Features
