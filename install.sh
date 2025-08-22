@@ -3,12 +3,13 @@
 # Ensure the script stops if any command fails
 set -e
 
-if [ $# -ne 1 ]; then
-  echo "Usage: $0 $CONDA_PREFIX_1 , where $CONDA_PREFIX_1 is the path to the conda installation directory"
+if [ $# -lt 1 ] || [ $# -gt 2 ]; then
+  echo "Usage: $0 <CONDA_PREFIX> [CREATE_DESKTOP_SHORTCUT]"
   exit 1
 fi
 
 ROOT_DIRECTORY=$PWD
+CREATE_DESKTOP_SHORTCUT=${2:-true}
 
 sudo apt install gnome-terminal git-lfs -y
 pip install -r requirements.txt
@@ -92,6 +93,11 @@ git lfs pull
 echo "Installation complete and environment ready."
 ########################################################################################################################
 #Create desktop Icon
+
+if [ "$CREATE_DESKTOP_SHORTCUT" != "true" ]; then
+    echo "Skipping desktop shortcut creation as requested."
+    exit 0
+fi
 
 # Navigate to the root directory
 cd "$ROOT_DIRECTORY" || { echo "Directory not found: $ROOT_DIRECTORY"; exit 1; }
