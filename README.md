@@ -46,5 +46,10 @@ streamlit run app.py
 ```
 Additionally you can run the application using the icon created on the desktop.
 
+## Docker
 
+The application can be run using Docker on windows and Linux.
 
+1. Run `docker build -t tras-app .`
+2. Run `docker run -p 8501:8501 tras-app`
+3. Access the application at `http://localhost:8501`
