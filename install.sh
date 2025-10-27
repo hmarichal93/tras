@@ -12,7 +12,7 @@ ROOT_DIRECTORY=$PWD
 CREATE_DESKTOP_SHORTCUT=${2:-true}
 
 sudo apt install gnome-terminal git-lfs -y
-pip install -r requirements.txt
+pip install --no-cache-dir -r requirements.txt
 
 git submodule set-url automatic_methods/tree_ring_delineation/cstrd https://github.com/hmarichal93/cstrd_ipol.git
 git submodule set-url automatic_methods/tree_ring_delineation/mlbrief_inbd https://github.com/hmarichal93/mlbrief_inbd.git
@@ -62,7 +62,7 @@ fi
 echo "Installing DeepCSTRD dependencies..."
 DEEPCSTRD_DIR="$ROOT_DIRECTORY/automatic_methods/tree_ring_delineation/deepcstrd"
 cd $DEEPCSTRD_DIR || { echo "Directory not found: $DEEPCSTRD_DIR"; exit 1; }
-if git submodule update --init && git lfs pull && python setup.py install && pip install -r requirements.txt; then
+if git submodule update --init && git lfs pull && python setup.py install && pip install --no-cache-dir -r requirements.txt; then
     git clone https://github.com/hmarichal93/cstrd.git && cd cstrd && python setup.py install
     cd ../
     git clone https://github.com/hmarichal93/uruDendro.git && cd uruDendro && python setup.py install
