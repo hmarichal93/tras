@@ -65,7 +65,35 @@ cd $DEEPCSTRD_DIR || { echo "Directory not found: $DEEPCSTRD_DIR"; exit 1; }
 if git submodule update --init && git lfs pull && python setup.py install && pip install --no-cache-dir -r requirements.txt; then
     git clone https://github.com/hmarichal93/cstrd.git && cd cstrd && python setup.py install
     cd ../
-    git clone https://github.com/hmarichal93/uruDendro.git && cd uruDendro && python setup.py install
+    # Install uruDendro robustly: clone to a temp dir, pull LFS objects if present, then install via pip
+    TMP_URUDENDRO_DIR="/tmp/uruDendro_src"
+    rm -rf "$TMP_URUDENDRO_DIR"
+    git clone https://github.com/hmarichal93/uruDendro.git "$TMP_URUDENDRO_DIR"
+    if [ -d "$TMP_URUDENDRO_DIR" ]; then
+        (cd "$TMP_URUDENDRO_DIR" && git lfs pull) || true
+        # Ensure the u2net pretrained weights are present (download raw from GitHub if needed)
+        WEIGHT_URL="https://raw.githubusercontent.com/hmarichal93/uruDendro/main/urudendro/u2net.pth"
+        TARGET_WEIGHT_PATH="$TMP_URUDENDRO_DIR/urudendro/u2net.pth"
+        mkdir -p "$(dirname "$TARGET_WEIGHT_PATH")"
+        echo "Fetching u2net weights to $TARGET_WEIGHT_PATH"
+        if command -v curl >/dev/null 2>&1; then
+            curl -fL "$WEIGHT_URL" -o "$TARGET_WEIGHT_PATH" || echo "Warning: failed to download u2net weights (curl)"
+        elif command -v wget >/dev/null 2>&1; then
+            wget -qO "$TARGET_WEIGHT_PATH" "$WEIGHT_URL" || echo "Warning: failed to download u2net weights (wget)"
+        else
+            echo "Warning: neither curl nor wget available; skipping u2net weight download"
+        fi
+        # prefer python from CONDA prefix (first script arg) if provided
+        if [ -n "$1" ] && [ -x "$1/bin/python" ]; then
+            PYTHON_CMD="$1/bin/python"
+        else
+            PYTHON_CMD=python
+        fi
+        "$PYTHON_CMD" -m pip install --no-cache-dir "$TMP_URUDENDRO_DIR"
+    else
+        echo "Failed to clone uruDendro into $TMP_URUDENDRO_DIR"
+        exit 1
+    fi
     echo "DeepCSTRD dependencies installed successfully."
 else
     echo "Error installing DeepCSTRD dependencies."
