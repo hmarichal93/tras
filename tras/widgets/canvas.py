@@ -15,7 +15,7 @@ from PyQt5.QtCore import QPointF
 from PyQt5.QtCore import Qt
 
 import tras.utils
-from tras._automation import polygon_from_mask
+# Removed: from tras._automation import polygon_from_mask (legacy AI features removed)
 from tras.shape import Shape
 
 from .download import download_ai_model
