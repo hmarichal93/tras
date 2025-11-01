@@ -760,6 +760,7 @@ class MainWindow(QtWidgets.QMainWindow):
             createLineStripMode,
             editMode,
             brightnessContrast,
+            detectTreeRings,  # Keep enabled but not in toolbar
             preprocessImage,
             clearAllRings,
             ringProperties,
