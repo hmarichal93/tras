@@ -1,4 +1,4 @@
-# LabelMe - Tree Ring Detection
+lala# LabelMe - Tree Ring Detection
 
 Specialized annotation tool for tree ring detection in wood cross-section images. This branch integrates three automatic detection methods from the [TRAS repository](https://github.com/hmarichal93/tras).
 
@@ -32,8 +32,9 @@ Specialized annotation tool for tree ring detection in wood cross-section images
 - **Salix Glauca** - Optimized for Salix species
 
 ### Image Preprocessing
+- **Manual Crop** - Select rectangular region to focus on wood cross-section
 - **Resize** - Scale images (10%-100%) for faster processing
-- **Background Removal** - Remove white backgrounds using thresholding
+- **Background Removal** - Remove backgrounds using U2Net model (same as TRAS)
 - **Metadata Storage** - Preprocessing info saved in JSON for traceability
 - **Preview** - See changes before applying
 
@@ -95,13 +96,30 @@ labelme
 ```
 
 #### Preprocessing Workflow (Optional but Recommended)
+
+**Step 1: Crop (Optional)**
 1. **Load Image:** Open a wood cross-section image
-2. **Preprocess Image:** Go to `Tools > Preprocess Image`
+2. **Start Crop Mode:** Go to `Tools > Crop Image`
+3. **Draw Rectangle:** Click and drag to select the region you want to keep (focus on the wood disk)
+4. **Continue to preprocessing** (the rectangle will be used automatically)
+
+**Step 2: Preprocess**
+1. **Open Preprocessing:** Go to `Tools > Preprocess Image`
+   - If you drew a crop rectangle, it will be detected automatically
+2. **Configure Options:**
+   - **Crop:** Shows status of crop region (applied first if present)
    - **Resize:** Adjust scale slider (10% - 100%) to reduce image size if needed
-   - **Remove Background:** Enable background removal and adjust threshold (for white backgrounds)
-   - **Preview:** Click "Preview Changes" to see the result
-   - **Apply:** Click "Apply" to replace the current image
-3. **Note:** Preprocessing clears existing annotations (you'll be asked to confirm)
+   - **Background Removal:** Enable U2Net-based background removal (same as TRAS)
+     - ⚠️ Takes 10-30 seconds depending on image size and GPU
+     - Uses deep learning model for accurate background removal
+3. **Preview:** Click "Preview Changes" to see the result
+4. **Apply:** Click "Apply" to replace the current image
+
+**Important Notes:**
+- Preprocessing **clears all existing annotations** (you'll be asked to confirm)
+- Always preprocess **before** tree ring detection
+- U2Net requires GPU for optimal performance
+- Crop region is taken from the **last rectangle** you drew on the canvas
 
 #### Detection Workflow
 1. **Load Image:** Open a wood cross-section image (or preprocessed image)

@@ -8,6 +8,8 @@ import os.path as osp
 import re
 import types
 import webbrowser
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
 
 import imgviz
 import natsort
@@ -41,6 +43,8 @@ from labelme.widgets import ZoomWidget
 from labelme.widgets import download_ai_model
 from labelme.widgets import TreeRingDialog
 from labelme.widgets import PreprocessDialog
+from labelme.widgets import RingPropertiesDialog
+from labelme.widgets import MetadataDialog
 
 from . import utils
 
@@ -136,7 +140,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.labelList.itemDoubleClicked.connect(self._edit_label)
         self.labelList.itemChanged.connect(self.labelItemChanged)
         self.labelList.itemDropped.connect(self.labelOrderChanged)
-        self.shape_dock = QtWidgets.QDockWidget(self.tr("Polygon Labels"), self)
+        self.shape_dock = QtWidgets.QDockWidget(self.tr("Ring Labels"), self)
         self.shape_dock.setObjectName("Labels")
         self.shape_dock.setWidget(self.labelList)
 
@@ -327,11 +331,11 @@ class MainWindow(QtWidgets.QMainWindow):
         toggle_keep_prev_mode.setChecked(self._config["keep_prev"])
 
         createMode = action(
-            self.tr("Create Polygons"),
+            self.tr("Draw Ring Manually"),
             lambda: self.toggleDrawMode(False, createMode="polygon"),
             shortcuts["create_polygon"],
             "objects",
-            self.tr("Start drawing polygons"),
+            self.tr("Manually draw a tree ring by clicking points"),
             enabled=False,
         )
         createRectangleMode = action(
@@ -375,44 +379,44 @@ class MainWindow(QtWidgets.QMainWindow):
             enabled=False,
         )
         editMode = action(
-            self.tr("Edit Polygons"),
+            self.tr("Edit Rings"),
             self.setEditMode,
             shortcuts["edit_polygon"],
             "edit",
-            self.tr("Move and edit the selected polygons"),
+            self.tr("Move and edit the selected rings"),
             enabled=False,
         )
 
         delete = action(
-            self.tr("Delete Polygons"),
+            self.tr("Delete Rings"),
             self.deleteSelectedShape,
             shortcuts["delete_polygon"],
             "cancel",
-            self.tr("Delete the selected polygons"),
+            self.tr("Delete the selected rings"),
             enabled=False,
         )
         duplicate = action(
-            self.tr("Duplicate Polygons"),
+            self.tr("Duplicate Rings"),
             self.duplicateSelectedShape,
             shortcuts["duplicate_polygon"],
             "copy",
-            self.tr("Create a duplicate of the selected polygons"),
+            self.tr("Create a duplicate of the selected rings"),
             enabled=False,
         )
         copy = action(
-            self.tr("Copy Polygons"),
+            self.tr("Copy Rings"),
             self.copySelectedShape,
             shortcuts["copy_polygon"],
             "copy_clipboard",
-            self.tr("Copy selected polygons to clipboard"),
+            self.tr("Copy selected rings to clipboard"),
             enabled=False,
         )
         paste = action(
-            self.tr("Paste Polygons"),
+            self.tr("Paste Rings"),
             self.pasteSelectedShape,
             shortcuts["paste_polygon"],
             "paste",
-            self.tr("Paste copied polygons"),
+            self.tr("Paste copied rings"),
             enabled=False,
         )
         undoLastPoint = action(
@@ -428,7 +432,7 @@ class MainWindow(QtWidgets.QMainWindow):
             slot=self.removeSelectedPoint,
             shortcut=shortcuts["remove_selected_point"],
             icon="edit",
-            tip=self.tr("Remove selected point from polygon"),
+            tip=self.tr("Remove selected point from ring"),
             enabled=False,
         )
 
@@ -442,27 +446,27 @@ class MainWindow(QtWidgets.QMainWindow):
         )
 
         hideAll = action(
-            self.tr("&Hide\nPolygons"),
+            self.tr("&Hide\nRings"),
             functools.partial(self.togglePolygons, False),
             shortcuts["hide_all_polygons"],
             icon="eye",
-            tip=self.tr("Hide all polygons"),
+            tip=self.tr("Hide all rings"),
             enabled=False,
         )
         showAll = action(
-            self.tr("&Show\nPolygons"),
+            self.tr("&Show\nRings"),
             functools.partial(self.togglePolygons, True),
             shortcuts["show_all_polygons"],
             icon="eye",
-            tip=self.tr("Show all polygons"),
+            tip=self.tr("Show all rings"),
             enabled=False,
         )
         toggleAll = action(
-            self.tr("&Toggle\nPolygons"),
+            self.tr("&Toggle\nRings"),
             functools.partial(self.togglePolygons, None),
             shortcuts["toggle_all_polygons"],
             icon="eye",
-            tip=self.tr("Toggle all polygons"),
+            tip=self.tr("Toggle all rings"),
             enabled=False,
         )
 
@@ -566,16 +570,16 @@ class MainWindow(QtWidgets.QMainWindow):
             self._edit_label,
             shortcuts["edit_label"],
             "edit",
-            self.tr("Modify the label of the selected polygon"),
+            self.tr("Modify the label of the selected ring"),
             enabled=False,
         )
 
         fill_drawing = action(
-            self.tr("Fill Drawing Polygon"),
+            self.tr("Fill Drawing Ring"),
             self.canvas.setFillDrawing,
             None,
             "color",
-            self.tr("Fill polygon while drawing"),
+            self.tr("Fill ring while drawing"),
             checkable=True,
             enabled=True,
         )
@@ -687,6 +691,36 @@ class MainWindow(QtWidgets.QMainWindow):
             self.tr("Resize, crop, and remove background from image"),
             enabled=False,
         )
+        
+        # Clear All Rings action
+        clearAllRings = action(
+            self.tr("Clear All Rings"),
+            self._action_clear_all_rings,
+            None,
+            "cancel",
+            self.tr("Remove all detected tree ring polygons"),
+            enabled=False,
+        )
+        
+        # Ring Properties action
+        ringProperties = action(
+            self.tr("Ring Properties"),
+            self._action_ring_properties,
+            None,
+            "objects",
+            self.tr("Compute area, perimeter, and other ring properties"),
+            enabled=False,
+        )
+        
+        # Metadata action
+        metadata = action(
+            self.tr("Sample Metadata"),
+            self._action_metadata,
+            None,
+            "edit",
+            self.tr("Input harvested year, sample code, and observations"),
+            enabled=False,
+        )
 
         # Group zoom controls into a list for easier toggling.
         self.zoom_actions = (
@@ -709,6 +743,9 @@ class MainWindow(QtWidgets.QMainWindow):
             brightnessContrast,
             detectTreeRings,
             preprocessImage,
+            clearAllRings,
+            ringProperties,
+            metadata,
         )
         # menu shown at right click
         self.context_menu_actions = (
@@ -776,7 +813,7 @@ class MainWindow(QtWidgets.QMainWindow):
             ),
         )
         utils.addActions(self.menus.help, (help, self.actions.about))
-        utils.addActions(self.menus.tools, (preprocessImage, None, detectTreeRings))
+        utils.addActions(self.menus.tools, (metadata, None, preprocessImage, None, detectTreeRings, ringProperties))
         utils.addActions(
             self.menus.view,
             (
@@ -828,6 +865,7 @@ class MainWindow(QtWidgets.QMainWindow):
             None,
             createMode,
             editMode,
+            clearAllRings,
             duplicate,
             delete,
             undo,
@@ -861,6 +899,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.recentFiles: list[str] = []
         self.maxRecent = 7
         self.otherData = None
+        self.sample_metadata = None  # Store harvested year, sample code, observation
         self.zoom_level = 100
         self.fit_window = False
         self.zoom_values = {}  # key=filename, value=(zoom_mode, zoom_value)
@@ -1009,11 +1048,58 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             qimage_rgb = self.image
         
-        # Show detection dialog
+        # Extract the currently displayed image as numpy array
+        # This is the preprocessed image if preprocessing was applied
         image_np = utils.img_qt_to_arr(qimage_rgb)[:, :, :3]
-        dlg = TreeRingDialog(image_width=self.image.width(), image_height=self.image.height(), parent=self, image_np=image_np)
-        if dlg.exec_() != QtWidgets.QDialog.Accepted:
-            return
+        
+        # Log image info to confirm we're using the displayed image
+        logger.info(f"Tree ring detection using displayed image: {image_np.shape} ({image_np.dtype})")
+        if self.otherData and "preprocessing" in self.otherData:
+            preprocessing_info = self.otherData["preprocessing"]
+            logger.info(f"Image was preprocessed: scale={preprocessing_info.get('scale_factor', 1.0)}, "
+                       f"crop={preprocessing_info.get('crop_rect') is not None}, "
+                       f"bg_removed={preprocessing_info.get('background_removed', False)}")
+        else:
+            logger.info("Image is original (no preprocessing applied)")
+        
+        # Show detection dialog (loop to handle click pith mode)
+        clicked_cx, clicked_cy = None, None
+        while True:
+            dlg = TreeRingDialog(
+                image_width=self.image.width(), 
+                image_height=self.image.height(), 
+                parent=self, 
+                image_np=image_np,
+                initial_cx=clicked_cx,
+                initial_cy=clicked_cy
+            )
+            result = dlg.exec_()
+            
+            if result == QtWidgets.QDialog.Accepted:
+                # User clicked detection button - proceed
+                break
+            elif result == 2:  # Click pith mode requested
+                # Set up single-click handler to get pith coordinates
+                logger.info("Entering click-to-set-pith mode")
+                QtWidgets.QMessageBox.information(
+                    self,
+                    self.tr("Click to Set Pith"),
+                    self.tr("Click on the image where the pith (center) is located.\n\n"
+                           "The dialog will reappear with the coordinates.")
+                )
+                
+                # Set up one-time click handler
+                clicked_coords = self._wait_for_pith_click()
+                if clicked_coords:
+                    clicked_cx, clicked_cy = clicked_coords
+                    logger.info(f"Pith clicked at ({clicked_cx:.1f}, {clicked_cy:.1f})")
+                    # Loop will reopen dialog with these coordinates
+                else:
+                    # User cancelled click
+                    return
+            else:
+                # User cancelled
+                return
         
         # Get rings from CS-TRD or DeepCS-TRD
         cstrd_rings = dlg.get_cstrd_rings()
@@ -1034,16 +1120,352 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # Convert to shapes
         shapes: list[Shape] = []
-        for i, ring in enumerate(rings, start=1):
-            shape = Shape(label=f"ring_{i}", shape_type="polygon")
-            for x, y in ring:
-                shape.addPoint(QtCore.QPointF(float(x), float(y)))
-            shape.close()
-            shapes.append(shape)
+        
+        # Use year labels if metadata exists, otherwise use numeric labels
+        if self.sample_metadata and 'harvested_year' in self.sample_metadata:
+            harvested_year = self.sample_metadata['harvested_year']
+            n_rings = len(rings)
+            
+            # Calculate innermost year using datetime
+            harvested_date = datetime(harvested_year, 1, 1)
+            innermost_date = harvested_date - relativedelta(years=n_rings - 1)
+            innermost_year = innermost_date.year
+            
+            logger.info(f"Labeling {n_rings} rings with years: outermost={harvested_year}, innermost={innermost_year}")
+            
+            # Detection returns rings from innermost (pith) to outermost (bark)
+            # So rings[0] = innermost (oldest), rings[-1] = outermost (newest)
+            # Outermost ring (last in list) gets harvested_year
+            for i, ring in enumerate(rings, start=0):
+                # Calculate year using datetime: innermost gets oldest year, outermost gets harvested year
+                ring_date = harvested_date - relativedelta(years=(n_rings - 1 - i))
+                year = ring_date.year
+                shape = Shape(label=f"ring_{year}", shape_type="polygon")
+                for x, y in ring:
+                    shape.addPoint(QtCore.QPointF(float(x), float(y)))
+                shape.close()
+                shapes.append(shape)
+        else:
+            logger.info(f"Labeling rings with numeric labels (no metadata set)")
+            for i, ring in enumerate(rings, start=1):
+                shape = Shape(label=f"ring_{i}", shape_type="polygon")
+                for x, y in ring:
+                    shape.addPoint(QtCore.QPointF(float(x), float(y)))
+                shape.close()
+                shapes.append(shape)
+        
         self.canvas.storeShapes()
         self.loadShapes(shapes, replace=False)
         self.setDirty()
 
+    def _wait_for_pith_click(self):
+        """Wait for user to click on canvas to select pith coordinates"""
+        clicked_coords = [None]  # Use list to allow modification in nested function
+        
+        def single_click_handler(event):
+            """Handle single click to capture pith coordinates"""
+            try:
+                # Get click position in image coordinates
+                pos = self.canvas.transformPos(event.pos())
+                x, y = pos.x(), pos.y()
+                
+                # Store coordinates
+                clicked_coords[0] = (x, y)
+                logger.info(f"Pith clicked at ({x:.1f}, {y:.1f})")
+                
+                # Restore original handler
+                self.canvas.mousePressEvent = original_handler
+            except Exception as e:
+                logger.error(f"Error capturing pith click: {e}")
+                # Restore original handler
+                self.canvas.mousePressEvent = original_handler
+        
+        # Store original handler
+        original_handler = self.canvas.mousePressEvent
+        
+        # Set up one-time click handler
+        self.canvas.mousePressEvent = single_click_handler
+        
+        # Wait for click by entering nested event loop
+        loop = QtCore.QEventLoop()
+        
+        # Set up timer to check if click was captured
+        def check_click():
+            if clicked_coords[0] is not None:
+                loop.quit()
+        
+        timer = QtCore.QTimer()
+        timer.timeout.connect(check_click)
+        timer.start(100)  # Check every 100ms
+        
+        # Also allow ESC key to cancel
+        original_key_handler = self.canvas.keyPressEvent
+        def cancel_on_esc(event):
+            if event.key() == QtCore.Qt.Key_Escape:
+                logger.info("Pith click cancelled by user")
+                self.canvas.mousePressEvent = original_handler
+                self.canvas.keyPressEvent = original_key_handler
+                loop.quit()
+            else:
+                original_key_handler(event)
+        self.canvas.keyPressEvent = cancel_on_esc
+        
+        # Wait for click or cancel (with 30 second timeout)
+        QtCore.QTimer.singleShot(30000, loop.quit)
+        loop.exec_()
+        
+        timer.stop()
+        
+        # Restore handlers
+        self.canvas.mousePressEvent = original_handler
+        self.canvas.keyPressEvent = original_key_handler
+        
+        return clicked_coords[0]
+    
+    def _action_clear_all_rings(self) -> None:
+        """Remove all ring polygons from the canvas"""
+        if not self.canvas.shapes:
+            QtWidgets.QMessageBox.information(
+                self,
+                self.tr("No Shapes"),
+                self.tr("There are no shapes to clear.")
+            )
+            return
+        
+        # Count ring polygons
+        ring_shapes = [s for s in self.canvas.shapes if s.label and s.label.startswith("ring_")]
+        
+        if not ring_shapes:
+            QtWidgets.QMessageBox.information(
+                self,
+                self.tr("No Rings"),
+                self.tr("There are no ring polygons to clear.")
+            )
+            return
+        
+        # Confirm deletion
+        reply = QtWidgets.QMessageBox.question(
+            self,
+            self.tr("Clear All Rings"),
+            self.tr(f"Remove all {len(ring_shapes)} ring polygons?\n\nThis action cannot be undone."),
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+            QtWidgets.QMessageBox.No
+        )
+        
+        if reply == QtWidgets.QMessageBox.Yes:
+            # Remove all ring shapes
+            self.canvas.storeShapes()  # Save to undo stack
+            remaining_shapes = [s for s in self.canvas.shapes if not (s.label and s.label.startswith("ring_"))]
+            self.loadShapes(remaining_shapes, replace=True)
+            self.setDirty()
+            logger.info(f"Cleared {len(ring_shapes)} ring polygons")
+            self.show_status_message(self.tr(f"Cleared {len(ring_shapes)} ring polygons"))
+    
+    def _action_metadata(self) -> None:
+        """Input and store sample metadata (harvested year, sample code, observations)"""
+        if self.image.isNull():
+            QtWidgets.QMessageBox.information(
+                self,
+                self.tr("No Image"),
+                self.tr("Please open an image first.")
+            )
+            return
+        
+        # Show metadata dialog
+        dlg = MetadataDialog(existing_metadata=self.sample_metadata, parent=self)
+        if dlg.exec_() != QtWidgets.QDialog.Accepted:
+            return
+        
+        # Store metadata
+        self.sample_metadata = dlg.get_metadata()
+        
+        logger.info(f"Sample metadata updated:")
+        logger.info(f"  - Harvested Year: {self.sample_metadata['harvested_year']}")
+        logger.info(f"  - Sample Code: {self.sample_metadata['sample_code']}")
+        logger.info(f"  - Observation: {self.sample_metadata['observation'][:50]}..." if len(self.sample_metadata['observation']) > 50 else f"  - Observation: {self.sample_metadata['observation']}")
+        
+        # Store in otherData for saving to JSON
+        if self.otherData is None:
+            self.otherData = {}
+        self.otherData["sample_metadata"] = self.sample_metadata
+        
+        # Mark as dirty to prompt save
+        self.setDirty()
+        
+        self.show_status_message(
+            self.tr(f"Metadata saved: {self.sample_metadata['sample_code']} ({self.sample_metadata['harvested_year']})")
+        )
+        
+        # If there are existing rings, ask if user wants to relabel them with years
+        ring_shapes = [s for s in self.canvas.shapes if s.label and s.label.startswith("ring_")]
+        if ring_shapes:
+            reply = QtWidgets.QMessageBox.question(
+                self,
+                self.tr("Relabel Existing Rings?"),
+                self.tr(f"You have {len(ring_shapes)} existing rings.\n\n"
+                       f"Do you want to relabel them with years based on harvested year {self.sample_metadata['harvested_year']}?\n\n"
+                       f"The outermost ring (which circumscribes all others) will be labeled {self.sample_metadata['harvested_year']}, "
+                       f"and inner rings will have decreasing years toward the pith."),
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                QtWidgets.QMessageBox.Yes
+            )
+            
+            if reply == QtWidgets.QMessageBox.Yes:
+                self._relabel_rings_with_years()
+    
+    def _relabel_rings_with_years(self):
+        """Relabel existing rings with years based on harvested year"""
+        if not self.sample_metadata or 'harvested_year' not in self.sample_metadata:
+            return
+        
+        # Get all ring shapes and sort by label (ring_1, ring_2, ...)
+        ring_shapes = [s for s in self.canvas.shapes if s.label and s.label.startswith("ring_")]
+        
+        def extract_ring_number(shape):
+            try:
+                # Handle both "ring_123" and "ring_2020" formats
+                parts = shape.label.split('_')
+                if len(parts) >= 2:
+                    return int(parts[1])
+                return 0
+            except (IndexError, ValueError):
+                return 0
+        
+        ring_shapes.sort(key=extract_ring_number)
+        
+        # Relabel: Sorted rings go from innermost to outermost (ring_1 to ring_N)
+        # Innermost (ring_1) gets oldest year, outermost (ring_N) gets harvested_year
+        harvested_year = self.sample_metadata['harvested_year']
+        n_rings = len(ring_shapes)
+        
+        # Calculate innermost year using datetime
+        harvested_date = datetime(harvested_year, 1, 1)
+        innermost_date = harvested_date - relativedelta(years=n_rings - 1)
+        innermost_year = innermost_date.year
+        
+        logger.info(f"Relabeling {n_rings} rings: innermost={innermost_year}, outermost={harvested_year}")
+        
+        for i, shape in enumerate(ring_shapes):
+            # innermost (i=0) gets oldest year, outermost (i=n-1) gets harvested year
+            ring_date = harvested_date - relativedelta(years=(n_rings - 1 - i))
+            new_year = ring_date.year
+            new_label = f"ring_{new_year}"
+            logger.info(f"Relabeling {shape.label} → {new_label}")
+            shape.label = new_label
+        
+        # Update label list
+        self.loadShapes(self.canvas.shapes, replace=True)
+        self.setDirty()
+        
+        logger.info(f"✓ Relabeled {len(ring_shapes)} rings with years")
+        self.show_status_message(self.tr(f"Relabeled {len(ring_shapes)} rings with years"))
+    
+    def _action_ring_properties(self) -> None:
+        """Compute and display ring properties (area, perimeter, etc.)"""
+        if not self.canvas.shapes:
+            QtWidgets.QMessageBox.information(
+                self,
+                self.tr("No Shapes"),
+                self.tr("There are no shapes to analyze.")
+            )
+            return
+        
+        # Filter ring shapes and sort by label (ring_1, ring_2, ...)
+        ring_shapes = [s for s in self.canvas.shapes if s.label and s.label.startswith("ring_")]
+        
+        if not ring_shapes:
+            QtWidgets.QMessageBox.information(
+                self,
+                self.tr("No Rings"),
+                self.tr("There are no ring polygons to analyze.\n\n"
+                       "Please detect rings first using Tools > Tree Ring Detection.")
+            )
+            return
+        
+        # Sort rings by label number
+        # If using years: sort descending (2020, 2019, 2018... = outermost to innermost)
+        # If using numbers: sort ascending (ring_1, ring_2, ring_3... = outermost to innermost)
+        def extract_ring_number(shape):
+            try:
+                return int(shape.label.split('_')[1])
+            except (IndexError, ValueError):
+                return 0
+        
+        # Determine if we're using year labels (numbers > 1000) or sequential labels
+        first_num = extract_ring_number(ring_shapes[0]) if ring_shapes else 0
+        using_years = first_num > 1000
+        
+        # Sort appropriately
+        ring_shapes.sort(key=extract_ring_number, reverse=using_years)
+        
+        logger.info(f"Computing properties for {len(ring_shapes)} rings...")
+        
+        # Compute properties for each ring
+        ring_properties = []
+        cumulative_area = 0.0
+        
+        for i, shape in enumerate(ring_shapes):
+            # Get polygon points
+            points = [(p.x(), p.y()) for p in shape.points]
+            
+            if len(points) < 3:
+                logger.warning(f"Skipping {shape.label}: too few points ({len(points)})")
+                continue
+            
+            # Compute area using Shoelace formula
+            area = 0.0
+            n = len(points)
+            for j in range(n):
+                x1, y1 = points[j]
+                x2, y2 = points[(j + 1) % n]
+                area += x1 * y2 - x2 * y1
+            area = abs(area) / 2.0
+            
+            # Compute perimeter
+            perimeter = 0.0
+            for j in range(n):
+                x1, y1 = points[j]
+                x2, y2 = points[(j + 1) % n]
+                perimeter += ((x2 - x1)**2 + (y2 - y1)**2)**0.5
+            
+            # Compute ring width (distance to previous ring)
+            ring_width = None
+            if i > 0:
+                # Use centroid distance as approximation
+                prev_points = [(p.x(), p.y()) for p in ring_shapes[i-1].points]
+                
+                # Compute centroids
+                curr_cx = sum(p[0] for p in points) / len(points)
+                curr_cy = sum(p[1] for p in points) / len(points)
+                prev_cx = sum(p[0] for p in prev_points) / len(prev_points)
+                prev_cy = sum(p[1] for p in prev_points) / len(prev_points)
+                
+                ring_width = ((curr_cx - prev_cx)**2 + (curr_cy - prev_cy)**2)**0.5
+            
+            cumulative_area += area
+            
+            ring_properties.append({
+                'label': shape.label,
+                'area': area,
+                'cumulative_area': cumulative_area,
+                'perimeter': perimeter,
+                'ring_width': ring_width
+            })
+        
+        if not ring_properties:
+            QtWidgets.QMessageBox.warning(
+                self,
+                self.tr("No Valid Rings"),
+                self.tr("No rings have enough points for analysis.")
+            )
+            return
+        
+        logger.info(f"✓ Computed properties for {len(ring_properties)} rings")
+        
+        # Show dialog with results (include metadata if available)
+        dlg = RingPropertiesDialog(ring_properties, parent=self, metadata=self.sample_metadata)
+        dlg.exec_()
+    
     def _action_preprocess_image(self) -> None:
         """Preprocess the current image (resize, crop, remove background)"""
         if self.image.isNull():
@@ -1063,10 +1485,39 @@ class MainWindow(QtWidgets.QMainWindow):
         image_np = utils.img_qt_to_arr(qimage_rgb)[:, :, :3]
         logger.info(f"Image array shape: {image_np.shape}, dtype: {image_np.dtype}")
         
-        # Show preprocessing dialog
-        dlg = PreprocessDialog(image=image_np, parent=self)
-        if dlg.exec_() != QtWidgets.QDialog.Accepted:
-            return
+        # Check for crop region (last rectangle drawn)
+        crop_rect = None
+        if self.canvas.shapes:
+            # Find the last rectangle shape
+            for shape in reversed(self.canvas.shapes):
+                if shape.shape_type == "rectangle" and len(shape.points) >= 2:
+                    # Get bounding box
+                    pts = np.array([[p.x(), p.y()] for p in shape.points])
+                    x_min, y_min = np.min(pts, axis=0).astype(int)
+                    x_max, y_max = np.max(pts, axis=0).astype(int)
+                    w, h = x_max - x_min, y_max - y_min
+                    crop_rect = (x_min, y_min, w, h)
+                    logger.info(f"Found crop rectangle: {crop_rect}")
+                    break
+        
+        # Show preprocessing dialog (with potential loop for crop drawing)
+        while True:
+            dlg = PreprocessDialog(image=image_np, crop_rect=crop_rect, parent=self)
+            result = dlg.exec_()
+            
+            if result == 2:  # User clicked "Draw Crop Rectangle"
+                # Set canvas to rectangle mode
+                self._skip_next_label = True
+                self._waiting_for_crop_rect = True  # Flag to auto-reopen dialog after drawing
+                self.toggleDrawMode(False, createMode="rectangle")
+                
+                # Instruct user
+                self.show_status_message(self.tr("Draw a rectangle to define the crop region..."))
+                return
+            elif result != QtWidgets.QDialog.Accepted:
+                return
+            else:
+                break  # User accepted
         
         # Get processed image
         processed_img = dlg.get_processed_image()
@@ -1113,7 +1564,36 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # Make a deep copy to ensure image data persists
         self.image = qt_img.copy()
+        
+        # CRITICAL: Also update imageData to match the preprocessed image
+        # This ensures that everything (canvas, detection, save) uses the preprocessed version
+        import io
+        from PIL import Image
+        buffer = io.BytesIO()
+        Image.fromarray(processed_img).save(buffer, format='PNG')
+        self.imageData = buffer.getvalue()
+        logger.info(f"Updated self.imageData with preprocessed image ({len(self.imageData)} bytes)")
+        
         self.canvas.loadPixmap(QtGui.QPixmap.fromImage(self.image))
+        
+        # IMPORTANT: Adjust scale/zoom for the new image size and enable canvas
+        self.canvas.setEnabled(True)
+        self.toggleActions(True)  # Enable actions like detection, etc.
+        self.adjustScale(initial=True)
+        self.paintCanvas()
+        self.canvas.setFocus()  # Give focus to canvas for mouse/keyboard events
+        
+        # Log preprocessing applied
+        logger.info(f"✓ Image replaced with preprocessed version:")
+        logger.info(f"  - Original size: {preprocessing_info['original_size'][0]}x{preprocessing_info['original_size'][1]}")
+        logger.info(f"  - New size: {preprocessing_info['processed_size'][0]}x{preprocessing_info['processed_size'][1]}")
+        if preprocessing_info.get('crop_rect'):
+            logger.info(f"  - Crop: {preprocessing_info['crop_rect']}")
+        if preprocessing_info.get('scale_factor', 1.0) != 1.0:
+            logger.info(f"  - Scale: {preprocessing_info['scale_factor']:.2f}")
+        if preprocessing_info.get('background_removed'):
+            logger.info(f"  - Background removed: {preprocessing_info.get('background_method', 'yes')}")
+        logger.info(f"  → Detection methods will now use this preprocessed image")
         
         # Store preprocessing info in otherData
         if self.otherData is None:
@@ -1555,18 +2035,27 @@ class MainWindow(QtWidgets.QMainWindow):
 
         position MUST be in global coordinates.
         """
-        items = self.uniqLabelList.selectedItems()
-        text = None
-        if items:
-            text = items[0].data(Qt.UserRole)
-        flags = {}
-        group_id = None
-        description = ""
-        if self._config["display_label_popup"] or not text:
-            previous_text = self.labelDialog.edit.text()
-            text, flags, group_id, description = self.labelDialog.popUp(text)
-            if not text:
-                self.labelDialog.edit.setText(previous_text)
+        # Check if we should skip label prompt (for crop rectangles)
+        skip_label = getattr(self, '_skip_next_label', False)
+        if skip_label:
+            self._skip_next_label = False  # Reset flag
+            text = "crop_region"
+            flags = {}
+            group_id = None
+            description = ""
+        else:
+            items = self.uniqLabelList.selectedItems()
+            text = None
+            if items:
+                text = items[0].data(Qt.UserRole)
+            flags = {}
+            group_id = None
+            description = ""
+            if self._config["display_label_popup"] or not text:
+                previous_text = self.labelDialog.edit.text()
+                text, flags, group_id, description = self.labelDialog.popUp(text)
+                if not text:
+                    self.labelDialog.edit.setText(previous_text)
 
         if text and not self.validateLabel(text):
             self.errorMessage(
@@ -1586,9 +2075,19 @@ class MainWindow(QtWidgets.QMainWindow):
             self.actions.undoLastPoint.setEnabled(False)
             self.actions.undo.setEnabled(True)
             self.setDirty()
+            
+            # Check if we just drew a crop rectangle - auto-reopen preprocess dialog
+            if getattr(self, '_waiting_for_crop_rect', False) and text == "crop_region":
+                self._waiting_for_crop_rect = False
+                # Use QTimer to reopen dialog after current event loop completes
+                QtCore.QTimer.singleShot(100, self._action_preprocess_image)
         else:
             self.canvas.undoLastLine()
             self.canvas.shapesBackups.pop()
+            # Reset crop flag if drawing was cancelled
+            if getattr(self, '_waiting_for_crop_rect', False):
+                self._waiting_for_crop_rect = False
+                self.show_status_message(self.tr("Crop cancelled"))
 
     def scrollRequest(self, delta, orientation):
         units = -delta * 0.1  # natural scroll

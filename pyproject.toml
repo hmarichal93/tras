@@ -48,6 +48,7 @@ dependencies = [
   "torchinfo>=1.7.0",
   "scikit-learn>=1.0.0",
   "opencv-contrib-python-headless>=4.5.0",
+  "python-dateutil>=2.8.0",
   "urudendro @ git+https://github.com/hmarichal93/uruDendro.git@main",
 ]
 

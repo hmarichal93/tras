@@ -39,6 +39,6 @@ def detect_pith_apd(image: np.ndarray, method: str = "apd") -> Tuple[float, floa
     peak = apd(image, st_sigma, st_window, lo_w, percent_lo, max_iter, rf, epsilon, 
                pclines=(method == "apd_pcl"), debug=False, output_dir=None)
     
-    # peak is (y, x) in APD
-    y, x = peak
+    # peak is (x, y) where x is horizontal (column) and y is vertical (row)
+    x, y = peak
     return float(x), float(y)
