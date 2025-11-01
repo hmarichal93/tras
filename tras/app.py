@@ -760,7 +760,6 @@ class MainWindow(QtWidgets.QMainWindow):
             createLineStripMode,
             editMode,
             brightnessContrast,
-            detectTreeRings,
             preprocessImage,
             clearAllRings,
             ringProperties,
@@ -894,8 +893,6 @@ class MainWindow(QtWidgets.QMainWindow):
             None,
             fitWindow,
             zoom,
-            None,
-            detectTreeRings,
         )
 
         self.status_left = QtWidgets.QLabel(self.tr("%s started.") % __appname__)
