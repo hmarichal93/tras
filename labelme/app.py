@@ -847,7 +847,7 @@ class MainWindow(QtWidgets.QMainWindow):
             ),
         )
         utils.addActions(self.menus.help, (help, self.actions.about))
-        utils.addActions(self.menus.tools, (metadata, setScale, None, preprocessImage, None, detectTreeRings, measureRadialWidth, ringProperties))
+        utils.addActions(self.menus.tools, (metadata, setScale, None, preprocessImage, None, detectTreeRings, measureRadialWidth, clearRadialLine, None, ringProperties))
         utils.addActions(
             self.menus.view,
             (
