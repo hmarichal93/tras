@@ -16,7 +16,7 @@ from .qt import labelValidator
 from .qt import newAction
 from .qt import newButton
 from .qt import newIcon
-from .shape import tras_shapes_to_label
+from .shape import labelme_shapes_to_label
 from .shape import masks_to_bboxes
 from .shape import polygons_to_mask
 from .shape import shape_to_mask
