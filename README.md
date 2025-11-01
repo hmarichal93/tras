@@ -1,6 +1,29 @@
-# TRAS - Tree Ring Analyzer Suite
+<div align="center">
 
-Professional tool for automatic tree ring detection and measurement in wood cross-section images. Integrates state-of-the-art methods for dendrochronology research.
+# 🌲 TRAS - Tree Ring Analyzer Suite
+
+<p align="center">
+  <img src="assets/tras-logo.png" alt="TRAS Logo" width="200"/>
+</p>
+
+**Professional dendrochronology software for automatic tree ring detection and measurement**
+
+[![License](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Python](https://img.shields.io/badge/Python-3.9%2B-blue)](https://www.python.org)
+[![Version](https://img.shields.io/badge/Version-1.0.0-green)](https://github.com/hmarichal93/tras)
+[![arXiv](https://img.shields.io/badge/arXiv-2305.10809-b31b1b.svg)](https://arxiv.org/abs/2305.10809)
+
+</div>
+
+---
+
+## 🎯 Overview
+
+TRAS integrates **state-of-the-art computer vision** and **deep learning methods** for dendrochronology research. Automatically detect tree rings, measure ring widths, and export data in standard formats—all through an intuitive graphical interface.
+
+<p align="center">
+  <img src="assets/screenshot-main.png" alt="TRAS Main Interface" width="800"/>
+</p>
 
 ## Installation
 
@@ -29,61 +52,108 @@ cd tras/tree_ring_methods/deepcstrd
 ./download_models.sh
 ```
 
-## Features
+## ✨ Key Features
 
-### 🔬 Automatic Detection Methods
-- **APD (Automatic Pith Detection)**: Finds tree center using structural tensor analysis (~1 second, CPU)
-- **CS-TRD (Classical Tree Ring Detection)**: Edge-based method using Canny detection (~73s on 2400×2400px, CPU)
-- **DeepCS-TRD**: Deep learning U-Net architecture with pre-trained models (~101s on 2400×2400px, GPU)
+<table>
+<tr>
+<td width="50%">
 
-### 🖼️ Image Preprocessing
-- Manual crop with margin warnings for edge detection
+### 🔬 **Automatic Detection**
+- **APD**: Automatic Pith Detection (~1s, CPU)
+- **CS-TRD**: Classical edge detection (~73s, CPU)
+- **DeepCS-TRD**: Deep learning U-Net (~101s, GPU)
+
+<img src="assets/detection-methods.png" alt="Detection Methods" width="100%"/>
+
+</td>
+<td width="50%">
+
+### 🖼️ **Preprocessing**
+- Smart crop with edge warnings
 - Resize (10-100% scaling)
-- Background removal using U2Net model
-- All preprocessing parameters stored for traceability
+- U2Net background removal
+- Full parameter tracking
 
-### 📏 Scale Calibration
-- Draw line segment of known length OR direct input
-- Units: mm, cm, μm per pixel
-- Auto-adjusts when resizing images
-- Physical measurements in all exports
+<img src="assets/preprocessing.png" alt="Preprocessing" width="100%"/>
 
-### 📊 Ring Analysis
-- Area, perimeter, cumulative area
-- Radial width measurement along user-defined transect
-- Year-based ring labeling (outermost = harvested year)
-- Sample metadata (code, harvested year, observations)
+</td>
+</tr>
+<tr>
+<td width="50%">
 
-### 💾 Export Options
-- **CSV**: Ring properties with metadata (area, perimeter, widths)
-- **.POS**: CooRecorder-compatible format for radial measurements
-- Physical units automatically converted from pixel measurements
+### 📏 **Scale Calibration**
+- Draw known-length segment
+- Direct μm/cm/mm input
+- Auto-adjust on resize
+- Physical unit exports
+
+<img src="assets/scale-calibration.png" alt="Scale Calibration" width="100%"/>
+
+</td>
+<td width="50%">
+
+### 📊 **Analysis & Export**
+- Ring properties (area, perimeter)
+- Radial width measurements
+- Year-based labeling
+- CSV & .POS formats
+
+<img src="assets/analysis-export.png" alt="Analysis" width="100%"/>
+
+</td>
+</tr>
+</table>
 
 
-## Usage
+## 🚀 Quick Start
 
-### Quick Start
 ```bash
 tras                              # Launch GUI
 tras /path/to/image.jpg          # Open with image
 tras --version                    # Check version
 ```
 
-### Workflow
+## 📖 Workflow
 
-1. **Load Image**: `File > Open` or drag-and-drop
-2. **Set Scale** (optional): `Tools > Set Image Scale`
-3. **Preprocess** (optional): `Tools > Preprocess Image`
-   - Crop to focus on cross-section
-   - Resize for faster processing
-   - Remove background
-4. **Detect Rings**: `Tools > Tree Ring Detection`
-   - Choose pith method (APD or manual click)
-   - Select detection method (CS-TRD or DeepCS-TRD)
-5. **Add Metadata**: `Tools > Sample Metadata`
-6. **Measure Radial Width** (optional): `Tools > Measure Ring Width`
-7. **View Properties**: `Tools > Ring Properties`
-8. **Export**: CSV or .POS format
+<p align="center">
+  <img src="assets/workflow-diagram.png" alt="TRAS Workflow" width="700"/>
+</p>
+
+<details>
+<summary><b>📋 Step-by-step guide</b></summary>
+
+1. **📁 Load Image**
+   - `File > Open` or drag-and-drop wood cross-section image
+
+2. **📏 Set Scale** *(optional)*
+   - `Tools > Set Image Scale`
+   - Draw known-length line or enter directly
+
+3. **🖼️ Preprocess** *(optional)*
+   - `Tools > Preprocess Image`
+   - Crop, resize, or remove background
+
+4. **🎯 Detect Rings**
+   - `Tools > Tree Ring Detection`
+   - Choose pith: APD (auto) or manual click
+   - Select method: CS-TRD or DeepCS-TRD
+
+5. **📝 Add Metadata**
+   - `Tools > Sample Metadata`
+   - Harvested year, sample code, notes
+
+6. **📐 Measure Width** *(optional)*
+   - `Tools > Measure Ring Width`
+   - Define radial transect
+
+7. **📊 View Properties**
+   - `Tools > Ring Properties`
+   - Review measurements
+
+8. **💾 Export**
+   - CSV (all data) or .POS (CooRecorder format)
+
+</details>
 
 ## Citations
 
@@ -141,13 +211,32 @@ TRAS stores its configuration in `~/.trasrc`. You can customize:
 
 GPL-3.0-only
 
-## Acknowledgments
+## 🤝 Contributing
 
-Based on the original [LabelMe](https://github.com/wkentaro/labelme) project by Kentaro Wada.
+Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
 
-Specialized for dendrochronology research by integrating methods from the [TRAS repository](https://github.com/hmarichal93/tras).
+## 📧 Contact
+
+- **Author**: Henry Marichal ([@hmarichal93](https://github.com/hmarichal93))
+- **Email**: hmarichal93@gmail.com
+- **Website**: [https://hmarichal93.github.io/tras/](https://hmarichal93.github.io/tras/)
+
+## 🙏 Acknowledgments
+
+- Based on the original [LabelMe](https://github.com/wkentaro/labelme) annotation tool by Kentaro Wada
+- Integrates methods from the [TRAS research repository](https://github.com/hmarichal93/tras)
+- U2Net model for background removal from [xuebinqin/U-2-Net](https://github.com/xuebinqin/U-2-Net)
 
 ---
 
-**TRAS v1.0.0** - Tree Ring Analyzer Suite  
-Professional dendrochronology tool
+<div align="center">
+
+**TRAS v1.0.0** - Tree Ring Analyzer Suite
+
+*Advancing dendrochronology research through intelligent automation*
+
+[📖 Documentation](https://hmarichal93.github.io/tras/) • [🐛 Report Bug](https://github.com/hmarichal93/tras/issues) • [💡 Request Feature](https://github.com/hmarichal93/tras/issues)
+
+Made with 🌲 for the dendrochronology community
+
+</div>
