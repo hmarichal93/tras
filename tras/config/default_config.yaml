@@ -1,0 +1,79 @@
+# TRAS (Tree Ring Analysis System) - Default Configuration
+
+# Display labels on top of canvas
+display_label_popup: true
+
+# Display instructions in canvas
+display_label_popup_tips: true
+
+# Show cross hair shadow
+show_cross_hair_shadow: true
+
+# Auto save annotations
+auto_save: false
+
+# Sort labels alphabetically
+sort_labels: true
+
+# Validate label before saving
+validate_label: null
+
+# Tree-ring themed shape colors (wood/bark tones)
+shape:
+  # Ring outline color (bark brown)
+  line_color: [139, 90, 43, 180]  # Saddle brown
+  # Ring fill color (light wood)
+  fill_color: [222, 184, 135, 80]  # Burlywood with transparency
+  # Selected ring outline (amber/golden)
+  select_line_color: [218, 165, 32, 255]  # Goldenrod
+  # Selected ring fill (light amber)
+  select_fill_color: [255, 215, 0, 100]  # Gold with transparency
+  # Vertex fill color (darker brown)
+  vertex_fill_color: [101, 67, 33, 255]  # Dark brown
+  # Highlighted vertex (bright amber)
+  hvertex_fill_color: [255, 191, 0, 255]  # Amber
+  # Point size for vertices
+  point_size: 8
+
+# Enable label text field
+show_label_text_field: true
+
+# Label dialog text
+label_dialog_text: "Enter ring label:"
+
+# Label completion (auto-complete)
+label_completion: "startswith"
+
+# Initial labels (tree ring labels)
+labels: ["ring"]
+
+# Store image data in JSON
+store_data: true
+
+# Keep previous annotation
+keep_prev: false
+
+# Fit window to content
+fit_to_content:
+  column: true
+  row: false
+
+# Canvas epsilon (point selection sensitivity)
+epsilon: 10.0
+
+# Flags (empty for tree ring detection)
+flags: []
+
+# Label-specific flags (empty)
+label_flags: {}
+
+# Tree Ring Detection settings
+tree_ring_detection:
+  # Default method
+  default_method: "DeepCS-TRD"
+  # Default species model
+  default_species: "pinus_v2"
+  # Preprocessing defaults
+  preprocessing:
+    default_scale: 700
+    auto_remove_background: false

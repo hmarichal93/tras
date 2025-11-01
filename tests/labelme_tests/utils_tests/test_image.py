@@ -3,7 +3,7 @@ import os.path as osp
 import numpy as np
 import PIL.Image
 
-from labelme.utils import image as image_module
+from tras.utils import image as image_module
 
 from .util import data_dir
 from .util import get_img_and_data

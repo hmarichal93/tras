@@ -9,9 +9,9 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtCore import QTimer
 from pytestqt.qtbot import QtBot
 
-import labelme.app
-import labelme.config
-import labelme.testing
+import tras.app
+import tras.config
+import tras.testing
 
 here = osp.dirname(osp.abspath(__file__))
 data_dir = osp.join(here, "data")

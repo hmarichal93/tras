@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="64" height="64" version="1.1" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <g transform="translate(0 -233.07)">
+    <!-- Wood section with rings -->
+    <ellipse cx="32" cy="265.07" rx="28" ry="24" fill="#deb887" stroke="#8b5a2b" stroke-width="2"/>
+    <!-- Growth rings -->
+    <ellipse cx="32" cy="265.07" rx="22" ry="19" fill="none" stroke="#a0826d" stroke-width="1.2"/>
+    <ellipse cx="32" cy="265.07" rx="16" ry="14" fill="none" stroke="#b8956f" stroke-width="1.2"/>
+    <ellipse cx="32" cy="265.07" rx="10" ry="9" fill="none" stroke="#d4a574" stroke-width="1.2"/>
+    <!-- Pith -->
+    <ellipse cx="32" cy="265.07" rx="3" ry="2.5" fill="#8b4513"/>
+  </g>
+</svg>
+

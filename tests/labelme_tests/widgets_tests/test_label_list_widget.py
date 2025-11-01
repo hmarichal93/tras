@@ -1,7 +1,7 @@
 import pytest
 
-from labelme.widgets import LabelListWidget
-from labelme.widgets import LabelListWidgetItem
+from tras.widgets import LabelListWidget
+from tras.widgets import LabelListWidgetItem
 
 
 @pytest.mark.gui

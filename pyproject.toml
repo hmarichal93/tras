@@ -3,16 +3,19 @@ requires = ["hatchling>=1.20.0", "hatch-vcs", "hatch-fancy-pypi-readme"]
 build-backend = "hatchling.build"
 
 [project]
-name = "labelme"
-description = "Image Polygonal Annotation with Python"
+name = "tras"
+description = "Tree Ring Analysis System - Specialized tool for dendrochronology"
 license = { text = "GPL-3.0-only" }
 requires-python = ">=3.9"
-version = "5.9.1"
-authors = [{ name = "Kentaro Wada", email = "www.kentaro.wada@gmail.com" }]
+version = "1.0.0"
+authors = [
+  { name = "Henry Marichal", email = "hmarichal93@gmail.com" },
+  { name = "Original LabelMe", email = "www.kentaro.wada@gmail.com" }
+]
 classifiers = [
-  "Development Status :: 5 - Production/Stable",
-  "Intended Audience :: Developers",
+  "Development Status :: 4 - Beta",
   "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Image Recognition",
   "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
   "Operating System :: OS Independent",
   "Programming Language :: Python",
@@ -29,7 +32,6 @@ dependencies = [
   "matplotlib",
   "natsort>=7.1.0",
   "numpy",
-  "osam>=0.2.5",
   "pillow>=2.8",
   "pyqt5>=5.14.0",
   "pyqt5-qt5!=5.15.13 ; sys_platform == 'linux'",
@@ -49,7 +51,8 @@ dependencies = [
   "scikit-learn>=1.0.0",
   "opencv-contrib-python-headless>=4.5.0",
   "python-dateutil>=2.8.0",
-  "urudendro @ git+https://github.com/hmarichal93/uruDendro.git@main",
+  # Note: urudendro requires git-lfs to be installed first
+  # Install manually: pip install "urudendro @ git+https://github.com/hmarichal93/uruDendro.git@main"
 ]
 
 [tool.hatch.metadata.hooks.fancy-pypi-readme]
@@ -69,12 +72,10 @@ dev = [
 ]
 
 [project.scripts]
-labelme = "labelme.__main__:main"
-labelme_draw_json = "labelme.cli.draw_json:main"
-labelme_draw_label_png = "labelme.cli.draw_label_png:main"
-labelme_export_json = "labelme.cli.export_json:main"
-labelme_on_docker = "labelme.cli.on_docker:main"
-labelme_ring_detect = "labelme.cli.ring_detect:main"
+tras = "tras.__main__:main"
+tras_draw_json = "tras.cli.draw_json:main"
+tras_draw_label_png = "tras.cli.draw_label_png:main"
+tras_export_json = "tras.cli.export_json:main"
 
 [tool.pytest.ini_options]
 qt_api = "pyqt5"

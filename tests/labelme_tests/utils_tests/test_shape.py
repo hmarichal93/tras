@@ -1,4 +1,4 @@
-from labelme.utils import shape as shape_module
+from tras.utils import shape as shape_module
 
 from .util import get_img_and_data
 

@@ -1,6 +1,6 @@
 import numpy as np
 
-from labelme._automation.tree_rings import RingDetectParams, detect_tree_rings
+from tras._automation.tree_rings import RingDetectParams, detect_tree_rings
 
 
 def _synthetic_ring_image(h: int = 400, w: int = 400, cx: float = 200.0, cy: float = 200.0) -> np.ndarray:
