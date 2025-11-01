@@ -15,7 +15,6 @@ from dateutil.relativedelta import relativedelta
 import imgviz
 import natsort
 import numpy as np
-import osam
 from loguru import logger
 from numpy.typing import NDArray
 from PyQt5 import QtCore
@@ -26,7 +25,6 @@ from PyQt5.QtWidgets import QMessageBox
 
 from labelme import __appname__
 from labelme import __version__
-from labelme._automation import bbox_from_text
 from labelme._label_file import LabelFile
 from labelme._label_file import LabelFileError
 from labelme._label_file import ShapeDict
@@ -41,7 +39,6 @@ from labelme.widgets import LabelListWidgetItem
 from labelme.widgets import ToolBar
 from labelme.widgets import UniqueLabelQListWidget
 from labelme.widgets import ZoomWidget
-from labelme.widgets import download_ai_model
 from labelme.widgets import TreeRingDialog
 from labelme.widgets import PreprocessDialog
 from labelme.widgets import RingPropertiesDialog
