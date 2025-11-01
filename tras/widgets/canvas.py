@@ -877,7 +877,7 @@ class Canvas(QtWidgets.QWidget):
         # m = (p1-p2).manhattanLength()
         # print "d %.2f, m %d, %.2f" % (d, m, d - m)
         # divide by scale to allow more precision when zoomed in
-        return labelme.utils.distance(p1 - p2) < (self.epsilon / self.scale)
+        return tras.utils.distance(p1 - p2) < (self.epsilon / self.scale)
 
     def intersectionPoint(self, p1: QPointF, p2: QPointF) -> QPointF:
         # Cycle through each image edge in clockwise fashion,
@@ -931,7 +931,7 @@ class Canvas(QtWidgets.QWidget):
                 x = x1 + ua * (x2 - x1)
                 y = y1 + ua * (y2 - y1)
                 m = QPointF((x3 + x4) / 2, (y3 + y4) / 2)
-                d = labelme.utils.distance(m - QPointF(x2, y2))
+                d = tras.utils.distance(m - QPointF(x2, y2))
                 yield d, i, (x, y)
 
     # These two, along with a call to adjustSize are required for the
@@ -1162,5 +1162,5 @@ def __compute_image_embedding(
     sam: osam.types.Model, pixmap: _QPixmapForLruCache
 ) -> osam.types.ImageEmbedding:
     logger.debug("Computing image embeddings for model {!r}", sam.name)
-    image: np.ndarray = labelme.utils.img_qt_to_arr(pixmap.toImage())
+    image: np.ndarray = tras.utils.img_qt_to_arr(pixmap.toImage())
     return sam.encode_image(image=imgviz.asrgb(image))
