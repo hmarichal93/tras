@@ -249,9 +249,14 @@ class PreprocessDialog(QtWidgets.QDialog):
             h, w = img.shape[:2]
             new_w = int(w * self.scale_factor)
             new_h = int(h * self.scale_factor)
-            # cv2.resize preserves channel order (doesn't convert RGB to BGR)
-            img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
-            # Ensure output is contiguous and maintains RGB
+            
+            # Use PIL for resize to avoid orientation issues
+            from PIL import Image as PILImage
+            pil_img = PILImage.fromarray(img, mode='RGB')
+            pil_img = pil_img.resize((new_w, new_h), PILImage.Resampling.BILINEAR)
+            img = np.array(pil_img, dtype=np.uint8)
+            
+            # Ensure output is contiguous
             img = np.ascontiguousarray(img, dtype=np.uint8)
         
         # 3. Remove background using U2Net if enabled
