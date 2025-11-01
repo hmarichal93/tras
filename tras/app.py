@@ -377,11 +377,11 @@ class MainWindow(QtWidgets.QMainWindow):
             enabled=False,
         )
         editMode = action(
-            self.tr("Edit Rings"),
+            self.tr("✏️ Edit Rings"),
             self.setEditMode,
             shortcuts["edit_polygon"],
             "edit",
-            self.tr("Move and edit the selected rings"),
+            self.tr("Edit ring polygons: Move vertices, add points (right-click on edge), remove points (select + Del)"),
             enabled=False,
         )
 
@@ -426,11 +426,11 @@ class MainWindow(QtWidgets.QMainWindow):
             enabled=False,
         )
         removePoint = action(
-            text=self.tr("Remove Selected Point"),
+            text=self.tr("Remove Point"),
             slot=self.removeSelectedPoint,
             shortcut=shortcuts["remove_selected_point"],
             icon="edit",
-            tip=self.tr("Remove selected point from ring"),
+            tip=self.tr("Remove selected vertex from ring polygon (or press Del)"),
             enabled=False,
         )
 
