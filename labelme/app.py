@@ -1980,19 +1980,6 @@ class MainWindow(QtWidgets.QMainWindow):
             else:
                 props['radial_width_px'] = None
             
-            # Convert to physical units if scale is available
-            if self.image_scale:
-                scale = self.image_scale['value']  # e.g., 0.02 mm/pixel
-                unit = self.image_scale['unit']     # e.g., 'mm'
-                
-                props['area_physical'] = area * (scale ** 2)  # pixels² * (mm/pixel)² = mm²
-                props['cumulative_area_physical'] = cumulative_area * (scale ** 2)
-                props['perimeter_physical'] = perimeter * scale  # pixels * mm/pixel = mm
-                props['ring_width_physical'] = ring_width * scale if ring_width else None
-                props['radial_width_physical'] = props['radial_width_px'] * scale if props['radial_width_px'] is not None else None
-                props['scale'] = scale
-                props['unit'] = unit
-            
             ring_properties.append(props)
         
         if not ring_properties:
