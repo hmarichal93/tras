@@ -76,8 +76,9 @@ Deep learning-based method using U-Net architecture for automatic tree ring deli
 2. **Automatic Detection:**
    - Go to menu: `Tools > Tree Ring Detection` or use shortcut
    - Click "Auto-detect pith" to find the center
-   - Click "Detect with DeepCS-TRD (AI)" for automatic ring detection
-   - Or adjust parameters and click "OK" for classical polar-based detection
+   - **Recommended:** Click "Detect with CS-TRD" for edge-based detection (CPU, ~73 sec)
+   - **Recommended:** Click "Detect with DeepCS-TRD (AI)" for AI detection (GPU, ~101 sec)
+   - **Alternative:** Adjust parameters and click "OK" for legacy polar-based detection
 
 3. **Manual Refinement:**
    - Edit detected rings by selecting and dragging points

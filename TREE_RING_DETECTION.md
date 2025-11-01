@@ -72,8 +72,9 @@ cd labelme/tree_ring_methods/cstrd
    - The center coordinates will be automatically set
 
 5. **Choose detection method:**
-   - **Option A:** Click "Detect with DeepCS-TRD (AI)" for automatic AI-based detection
-   - **Option B:** Adjust parameters and click "OK" for classical polar-based detection
+   - **Recommended:** Click "Detect with CS-TRD" for edge-based detection (CPU, 73 sec)
+   - **Recommended:** Click "Detect with DeepCS-TRD (AI)" for AI-based detection (GPU, 101 sec)
+   - **Alternative:** Adjust parameters and click "OK" for legacy polar-based detection
 
 6. **Refine results:**
    - Manually edit detected rings
@@ -82,7 +83,21 @@ cd labelme/tree_ring_methods/cstrd
 
 ### Using the CLI
 
-**Classical polar-based detection:**
+**CS-TRD detection (Recommended for CPU):**
+```bash
+# Run CS-TRD via Python API
+python -c "
+from labelme.utils.cstrd_helper import detect_rings_cstrd
+from PIL import Image
+import numpy as np
+
+img = np.array(Image.open('path/to/image.jpg'))
+rings = detect_rings_cstrd(img, center_xy=(600, 600))
+print(f'Detected {len(rings)} rings')
+"
+```
+
+**Legacy polar-based detection:**
 ```bash
 labelme_ring_detect path/to/image.jpg \
   --out output_dir \
