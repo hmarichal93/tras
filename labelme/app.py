@@ -1590,6 +1590,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.otherData = {}
             self.otherData["radial_line_measurements"] = self.radial_line_measurements
             
+            # Draw the radial line on the canvas for visual feedback
+            self._draw_radial_measurement_line(pith_xy, direction_xy)
+            
             self.setDirty()
             
             logger.info(f"✓ Measured {len(measurements)} rings along radial line")
@@ -1675,6 +1678,50 @@ class MainWindow(QtWidgets.QMainWindow):
         timer.stop()
         
         return clicked_point[0]
+    
+    def _draw_radial_measurement_line(self, pith_xy, direction_xy):
+        """Draw a visual line showing the radial measurement transect"""
+        from labelme.shape import Shape
+        import math
+        
+        # Extend the line to the edge of the image
+        # Calculate direction vector
+        dx = direction_xy[0] - pith_xy[0]
+        dy = direction_xy[1] - pith_xy[1]
+        
+        # Normalize and extend to a very long distance
+        length = math.sqrt(dx*dx + dy*dy)
+        if length < 1:
+            return
+        
+        dx /= length
+        dy /= length
+        
+        # Extend to 10x image diagonal (ensures it reaches edge)
+        max_dim = max(self.image.width(), self.image.height())
+        extension = max_dim * math.sqrt(2) * 10
+        
+        end_x = pith_xy[0] + dx * extension
+        end_y = pith_xy[1] + dy * extension
+        
+        # Create a line shape
+        line_shape = Shape(label="radial_measurement_line", shape_type="line")
+        line_shape.points = [
+            QtCore.QPointF(pith_xy[0], pith_xy[1]),
+            QtCore.QPointF(end_x, end_y)
+        ]
+        line_shape.close()
+        
+        # Set distinctive color (cyan/bright blue)
+        line_shape.line_color = QtGui.QColor(0, 255, 255)  # Cyan
+        line_shape.fill_color = QtGui.QColor(0, 255, 255, 0)  # Transparent fill
+        
+        # Add to canvas
+        self.canvas.shapes.append(line_shape)
+        self.addLabel(line_shape)
+        self.canvas.update()
+        
+        logger.info(f"Drew radial measurement line from ({pith_xy[0]:.1f}, {pith_xy[1]:.1f}) to ({end_x:.1f}, {end_y:.1f})")
     
     def _action_ring_properties(self) -> None:
         """Compute and display ring properties (area, perimeter, etc.)"""
