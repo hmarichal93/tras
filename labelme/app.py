@@ -1003,8 +1003,14 @@ class MainWindow(QtWidgets.QMainWindow):
             self.errorMessage(self.tr("No image"), self.tr("Please open an image first."))
             return
         
+        # Convert image to RGB888 format first
+        if self.image.format() != QtGui.QImage.Format_RGB888:
+            qimage_rgb = self.image.convertToFormat(QtGui.QImage.Format_RGB888)
+        else:
+            qimage_rgb = self.image
+        
         # Show detection dialog
-        image_np = utils.img_qt_to_arr(self.image)[:, :, :3]
+        image_np = utils.img_qt_to_arr(qimage_rgb)[:, :, :3]
         dlg = TreeRingDialog(image_width=self.image.width(), image_height=self.image.height(), parent=self, image_np=image_np)
         if dlg.exec_() != QtWidgets.QDialog.Accepted:
             return
@@ -1045,7 +1051,17 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         
         # Convert current image to numpy array
-        image_np = utils.img_qt_to_arr(self.image)[:, :, :3]
+        # First ensure QImage is in RGB888 format (Qt may load as RGB32, ARGB32, etc.)
+        logger.info(f"Original QImage format: {self.image.format()} (RGB888={QtGui.QImage.Format_RGB888})")
+        if self.image.format() != QtGui.QImage.Format_RGB888:
+            qimage_rgb = self.image.convertToFormat(QtGui.QImage.Format_RGB888)
+            logger.info(f"Converted to RGB888 format")
+        else:
+            qimage_rgb = self.image
+            logger.info(f"Already in RGB888 format")
+        
+        image_np = utils.img_qt_to_arr(qimage_rgb)[:, :, :3]
+        logger.info(f"Image array shape: {image_np.shape}, dtype: {image_np.dtype}")
         
         # Show preprocessing dialog
         dlg = PreprocessDialog(image=image_np, parent=self)
