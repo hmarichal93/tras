@@ -667,6 +667,16 @@ class MainWindow(QtWidgets.QMainWindow):
             ("linestrip", createLineStripMode),
         ]
 
+        # Tree Ring Detection action
+        detectTreeRings = action(
+            self.tr("Tree Ring Detection"),
+            self._action_detect_rings,
+            None,
+            "objects",
+            self.tr("Detect tree rings using TRAS methods (APD, CS-TRD, DeepCS-TRD)"),
+            enabled=False,
+        )
+
         # Group zoom controls into a list for easier toggling.
         self.zoom_actions = (
             self.zoomWidget,
@@ -724,16 +734,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.canvas.vertexSelected.connect(self.actions.removePoint.setEnabled)
 
-        # Tree Ring Detection action
-        detectTreeRings = action(
-            self.tr("Tree Ring Detection"),
-            self._action_detect_rings,
-            None,
-            "objects",
-            self.tr("Detect tree rings using TRAS methods (APD, CS-TRD, DeepCS-TRD)"),
-            enabled=False,
-        )
-        
         self.menus = types.SimpleNamespace(
             file=self.menu(self.tr("&File")),
             edit=self.menu(self.tr("&Edit")),
