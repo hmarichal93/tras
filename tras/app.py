@@ -1999,17 +1999,31 @@ class MainWindow(QtWidgets.QMainWindow):
             self.errorMessage(self.tr("No image"), self.tr("Please open an image first."))
             return
         
-        # Convert current image to numpy array
-        # First ensure QImage is in RGB888 format (Qt may load as RGB32, ARGB32, etc.)
-        logger.info(f"Original QImage format: {self.image.format()} (RGB888={QtGui.QImage.Format_RGB888})")
-        if self.image.format() != QtGui.QImage.Format_RGB888:
-            qimage_rgb = self.image.convertToFormat(QtGui.QImage.Format_RGB888)
-            logger.info(f"Converted to RGB888 format")
-        else:
-            qimage_rgb = self.image
-            logger.info(f"Already in RGB888 format")
+        # Convert current image to numpy array using PIL for robustness
+        from PIL import Image as PILImage
+        import tempfile
+        import os
         
-        image_np = utils.img_qt_to_arr(qimage_rgb)[:, :, :3]
+        logger.info(f"Original QImage format: {self.image.format()} (RGB888={QtGui.QImage.Format_RGB888})")
+        
+        # Save QImage to temp file and reload with PIL (most robust method)
+        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+            tmp_path = tmp.name
+        
+        self.image.save(tmp_path, 'PNG')
+        pil_img = PILImage.open(tmp_path)
+        image_np = np.array(pil_img, dtype=np.uint8)
+        
+        # Ensure RGB (not RGBA)
+        if image_np.ndim == 3 and image_np.shape[2] == 4:
+            image_np = image_np[:, :, :3]
+        
+        # Clean up
+        try:
+            os.unlink(tmp_path)
+        except:
+            pass
+        
         logger.info(f"Image array shape: {image_np.shape}, dtype: {image_np.dtype}")
         
         # Check for crop region (last rectangle drawn)
