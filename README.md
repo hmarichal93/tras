@@ -124,6 +124,21 @@ labelme data_annotated/ --labels labels.txt  # specify label list with a file
 * [Semantic Segmentation](examples/semantic_segmentation)
 * [Instance Segmentation](examples/instance_segmentation)
 * [Video Annotation](examples/video_annotation)
+* Tree Ring Detection (experimental): see examples/tree_rings
+
+### Tree Ring Detection (experimental)
+
+Labelme includes a helper to auto-initialize annual ring polylines from wood cross-section images.
+
+- GUI: Open an image, then in the Tools toolbar click "Detect Rings". Provide the pith center (X,Y) and optional parameters; detected rings will be added as polygon shapes you can edit.
+- CLI: Generate JSONs for one or more images:
+
+  labelme_ring_detect path/to/*.jpg --out out_dir --center-x 600 --center-y 600 --angular-steps 720 --min-radius 10 --relative-threshold 0.35 --min-peak-distance 4 --min-coverage 0.6
+
+Tips:
+
+- Tune relative-threshold and min-peak-distance per image quality/species.
+- Use the GUI status bar to read approximate center coordinates.
 
 
 ## How to build standalone executable

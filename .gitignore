@@ -9,3 +9,8 @@
 
 .DS_Store
 .idea/
+
+# Tree ring detection model files (large files, download separately)
+/labelme/tree_ring_methods/deepcstrd/models/deep_cstrd/*.pth
+/labelme/tree_ring_methods/cstrd/devernay/devernay_cmd
+/labelme/tree_ring_methods/cstrd/devernay/*.o

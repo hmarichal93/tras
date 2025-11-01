@@ -40,6 +40,8 @@ from labelme.widgets import ToolBar
 from labelme.widgets import UniqueLabelQListWidget
 from labelme.widgets import ZoomWidget
 from labelme.widgets import download_ai_model
+from labelme.widgets import TreeRingDialog
+from labelme._automation.tree_rings import RingDetectParams, detect_tree_rings
 
 from . import utils
 
@@ -881,6 +883,14 @@ class MainWindow(QtWidgets.QMainWindow):
             selectAiModel,
             None,
             ai_prompt_action,
+            None,
+            action(
+                self.tr("Detect Rings"),
+                self._action_detect_rings,
+                None,
+                "objects",
+                self.tr("Detect tree rings from center using polar transform"),
+            ),
         )
 
         self.status_left = QtWidgets.QLabel(self.tr("%s started.") % __appname__)
@@ -1108,6 +1118,45 @@ class MainWindow(QtWidgets.QMainWindow):
         self.labelFile = None
         self.otherData = None
         self.canvas.resetState()
+
+    def _action_detect_rings(self) -> None:
+        if self.image.isNull():
+            self.errorMessage(self.tr("No image"), self.tr("Please open an image first."))
+            return
+        # Ask parameters
+        image_np = utils.img_qt_to_arr(self.image)[:, :, :3]
+        dlg = TreeRingDialog(image_width=self.image.width(), image_height=self.image.height(), parent=self, image_np=image_np)
+        if dlg.exec_() != QtWidgets.QDialog.Accepted:
+            return
+        p = dlg.get_params()
+        params = RingDetectParams(
+            angular_steps=p["angular_steps"],
+            min_radius=p["min_radius"],
+            relative_threshold=p["relative_threshold"],
+            min_peak_distance=p["min_peak_distance"],
+            min_coverage=p["min_coverage"],
+            max_rings=p["max_rings"],
+        )
+        image_np = utils.img_qt_to_arr(self.image)[:, :, :3]
+        rings = detect_tree_rings(
+            image=image_np,
+            center_xy=(p["center_x"], p["center_y"]),
+            params=params,
+        )
+        if not rings:
+            self.show_status_message(self.tr("No rings detected."))
+            return
+        # Convert to shapes
+        shapes: list[Shape] = []
+        for i, ring in enumerate(rings, start=1):
+            shape = Shape(label=f"ring_{i}", shape_type="polygon")
+            for x, y in ring:
+                shape.addPoint(QtCore.QPointF(float(x), float(y)))
+            shape.close()
+            shapes.append(shape)
+        self.canvas.storeShapes()
+        self.loadShapes(shapes, replace=False)
+        self.setDirty()
 
     def currentItem(self):
         items = self.labelList.selectedItems()
@@ -2203,49 +2252,3 @@ class MainWindow(QtWidgets.QMainWindow):
             self.actions.openPrevImg.setEnabled(True)
 
         self.openNextImg()
-
-    def importDirImages(self, dirpath, pattern=None, load=True):
-        self.actions.openNextImg.setEnabled(True)
-        self.actions.openPrevImg.setEnabled(True)
-
-        if not self.mayContinue() or not dirpath:
-            return
-
-        self.lastOpenDir = dirpath
-        self.filename = None
-        self.fileListWidget.clear()
-
-        filenames = self.scanAllImages(dirpath)
-        if pattern:
-            try:
-                filenames = [f for f in filenames if re.search(pattern, f)]
-            except re.error:
-                pass
-        for filename in filenames:
-            label_file = f"{osp.splitext(filename)[0]}.json"
-            if self.output_dir:
-                label_file_without_path = osp.basename(label_file)
-                label_file = osp.join(self.output_dir, label_file_without_path)
-            item = QtWidgets.QListWidgetItem(filename)
-            item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-            if QtCore.QFile.exists(label_file) and LabelFile.is_label_file(label_file):
-                item.setCheckState(Qt.Checked)
-            else:
-                item.setCheckState(Qt.Unchecked)
-            self.fileListWidget.addItem(item)
-        self.openNextImg(load=load)
-
-    def scanAllImages(self, folderPath):
-        extensions = [
-            f".{fmt.data().decode().lower()}"
-            for fmt in QtGui.QImageReader.supportedImageFormats()
-        ]
-
-        images = []
-        for root, dirs, files in os.walk(folderPath):
-            for file in files:
-                if file.lower().endswith(tuple(extensions)):
-                    relativePath = os.path.normpath(osp.join(root, file))
-                    images.append(relativePath)
-        images = natsort.os_sorted(images)
-        return images
