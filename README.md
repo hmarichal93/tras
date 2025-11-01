@@ -1,165 +1,132 @@
-<h1 align="center">
-  <img src="labelme/icons/icon-256.png" width="200" height="200"><br/>labelme
-</h1>
+# LabelMe - Tree Ring Detection
 
-<h4 align="center">
-  Image Polygonal Annotation with Python
-</h4>
-
-<div align="center">
-  <a href="https://pypi.python.org/pypi/labelme"><img src="https://img.shields.io/pypi/v/labelme.svg"></a>
-  <!-- <a href="https://pypi.org/project/labelme"><img src="https://img.shields.io/pypi/pyversions/labelme.svg"></a> -->
-  <a href="https://github.com/wkentaro/labelme/actions"><img src="https://github.com/wkentaro/labelme/actions/workflows/ci.yml/badge.svg?branch=main&event=push"></a>
-  <a href="https://discord.com/invite/uAjxGcJm83"><img src="https://dcbadge.limes.pink/api/server/uAjxGcJm83?style=flat"></a>
-</div>
-
-<div align="center">
-  <a href="#installation"><b>Installation</b></a>
-  | <a href="#usage"><b>Usage</b></a>
-  | <a href="#examples"><b>Examples</b></a>
-  <!-- | <a href="https://github.com/wkentaro/labelme/discussions"><b>Community</b></a> -->
-  <!-- | <a href="https://www.youtube.com/playlist?list=PLI6LvFw0iflh3o33YYnVIfOpaO0hc5Dzw"><b>Youtube FAQ</b></a> -->
-</div>
-
-<br/>
-
-<div align="center">
-  <img src="examples/instance_segmentation/.readme/annotation.jpg" width="70%">
-</div>
-
-## Description
-
-Labelme is a graphical image annotation tool inspired by <http://labelme.csail.mit.edu>.  
-It is written in Python and uses Qt for its graphical interface.
-
-<img src="examples/instance_segmentation/data_dataset_voc/JPEGImages/2011_000006.jpg" width="19%" /> <img src="examples/instance_segmentation/data_dataset_voc/SegmentationClass/2011_000006.png" width="19%" /> <img src="examples/instance_segmentation/data_dataset_voc/SegmentationClassVisualization/2011_000006.jpg" width="19%" /> <img src="examples/instance_segmentation/data_dataset_voc/SegmentationObject/2011_000006.png" width="19%" /> <img src="examples/instance_segmentation/data_dataset_voc/SegmentationObjectVisualization/2011_000006.jpg" width="19%" />  
-<i>VOC dataset example of instance segmentation.</i>
-
-<img src="examples/semantic_segmentation/.readme/annotation.jpg" width="30%" /> <img src="examples/bbox_detection/.readme/annotation.jpg" width="30%" /> <img src="examples/classification/.readme/annotation_cat.jpg" width="35%" />  
-<i>Other examples (semantic segmentation, bbox detection, and classification).</i>
-
-<img src="https://user-images.githubusercontent.com/4310419/47907116-85667800-de82-11e8-83d0-b9f4eb33268f.gif" width="30%" /> <img src="https://user-images.githubusercontent.com/4310419/47922172-57972880-deae-11e8-84f8-e4324a7c856a.gif" width="30%" /> <img src="https://user-images.githubusercontent.com/14256482/46932075-92145f00-d080-11e8-8d09-2162070ae57c.png" width="32%" />  
-<i>Various primitives (polygon, rectangle, circle, line, and point).</i>
-
-
-## Features
-
-- [x] Image annotation for polygon, rectangle, circle, line and point. ([tutorial](examples/tutorial))
-- [x] Image flag annotation for classification and cleaning. ([#166](https://github.com/wkentaro/labelme/pull/166))
-- [x] Video annotation. ([video annotation](examples/video_annotation))
-- [x] GUI customization (predefined labels / flags, auto-saving, label validation, etc). ([#144](https://github.com/wkentaro/labelme/pull/144))
-- [x] Exporting VOC-format dataset for semantic/instance segmentation. ([semantic segmentation](examples/semantic_segmentation), [instance segmentation](examples/instance_segmentation))
-- [x] Exporting COCO-format dataset for instance segmentation. ([instance segmentation](examples/instance_segmentation))
-
+Specialized tool for automatic tree ring detection and measurement in wood cross-section images.
 
 ## Installation
 
-There are 3 options to install labelme:
-
-### Option 1: Using pip
-
-For more detail, check ["Install Labelme using Terminal"](https://www.labelme.io/docs/install-labelme-terminal)
-
+### 1. Clone Repository
 ```bash
-pip install labelme
-
-# To install the latest version from GitHub:
-# pip install git+https://github.com/wkentaro/labelme.git
+git clone -b tras https://github.com/yourusername/labelme.git
+cd labelme
 ```
 
-### Option 2: Using standalone executable (Easiest)
+### 2. Install Dependencies
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -e .
+```
 
-If you're willing to invest in the convenience of simple installation without any dependencies (Python, Qt),
-you can download the standalone executable from ["Install Labelme as App"](https://www.labelme.io/docs/install-labelme-app).
+### 3. Compile Devernay Edge Detector (for CS-TRD)
+```bash
+cd labelme/tree_ring_methods/cstrd/devernay
+./compile.sh
+```
 
-It's a one-time payment for lifetime access, and it helps us to maintain this project.
+### 4. Download DeepCS-TRD Models (Optional)
+```bash
+cd labelme/tree_ring_methods/deepcstrd
+./download_models.sh
+```
 
-### Option 3: Using a package manager in each Linux distribution
+## Features
 
-In some Linux distributions, you can install labelme via their package managers (e.g., apt, pacman). The following systems are currently available:
+### Automatic Detection Methods
+- **APD (Automatic Pith Detection)**: Finds tree center using structural tensor analysis (~1 second, CPU)
+- **CS-TRD (Classical Tree Ring Detection)**: Edge-based method using Canny detection (~73s on 2400×2400px, CPU)
+- **DeepCS-TRD**: Deep learning U-Net architecture with pre-trained models (~101s on 2400×2400px, GPU)
 
-[![Packaging status](https://repology.org/badge/vertical-allrepos/labelme.svg)](https://repology.org/project/labelme/versions)
+### Image Preprocessing
+- Manual crop with margin warnings for edge detection
+- Resize (10-100% scaling)
+- Background removal using U2Net model
+- All preprocessing parameters stored for traceability
+
+### Scale Calibration
+- Draw line segment of known length OR direct input
+- Units: mm, cm, μm per pixel
+- Auto-adjusts when resizing images
+- Physical measurements in all exports
+
+### Radial Width Measurement
+- Set measurement direction from pith
+- Visual cyan line shows transect
+- Choose detected or custom pith origin
+- Export to .POS format for CooRecorder
+- Measures actual ring boundaries (standard dendrochronology method)
+
+### Ring Properties & Export
+- Area, perimeter, cumulative area
+- Radial width along transect line
+- Both pixel and physical units (if scaled)
+- CSV export with metadata
+- .POS export for CooRecorder software
+
+### Sample Metadata
+- Harvested year, sample code, observations
+- Automatic year-based ring labeling
+- Metadata included in all exports
 
 ## Usage
 
-Run `labelme --help` for detail.  
-The annotations are saved as a [JSON](http://www.json.org/) file.
-
 ```bash
-labelme  # just open gui
-
-# tutorial (single image example)
-cd examples/tutorial
-labelme apc2016_obj3.jpg  # specify image file
-labelme apc2016_obj3.jpg -O apc2016_obj3.json  # close window after the save
-labelme apc2016_obj3.jpg --nodata  # not include image data but relative image path in JSON file
-labelme apc2016_obj3.jpg \
-  --labels highland_6539_self_stick_notes,mead_index_cards,kong_air_dog_squeakair_tennis_ball  # specify label list
-
-# semantic segmentation example
-cd examples/semantic_segmentation
-labelme data_annotated/  # Open directory to annotate all images in it
-labelme data_annotated/ --labels labels.txt  # specify label list with a file
+labelme path/to/image.jpg
 ```
 
-### Command Line Arguments
-- `--output` specifies the location that annotations will be written to. If the location ends with .json, a single annotation will be written to this file. Only one image can be annotated if a location is specified with .json. If the location does not end with .json, the program will assume it is a directory. Annotations will be stored in this directory with a name that corresponds to the image that the annotation was made on.
-- The first time you run labelme, it will create a config file in `~/.labelmerc`. You can edit this file and the changes will be applied the next time that you launch labelme. If you would prefer to use a config file from another location, you can specify this file with the `--config` flag.
-- Without the `--nosortlabels` flag, the program will list labels in alphabetical order. When the program is run with this flag, it will display labels in the order that they are provided.
-- Flags are assigned to an entire image. [Example](examples/classification)
-- Labels are assigned to a single polygon. [Example](examples/bbox_detection)
+**Workflow:**
+1. **Tools > Sample Metadata** - Set harvested year and sample code
+2. **Tools > Set Scale** - Calibrate physical units
+3. **Tools > Preprocess Image** - Crop, resize, remove background
+4. **Tools > Tree Ring Detection** - APD + CS-TRD or DeepCS-TRD
+5. **Tools > Measure Ring Width Along Line** - Set direction and export to .POS
+6. **Tools > Ring Properties** - View and export measurements to CSV
 
-### FAQ
+## Citations
 
-- **How to convert JSON file to numpy array?** See [examples/tutorial](examples/tutorial#convert-to-dataset).
-- **How to load label PNG file?** See [examples/tutorial](examples/tutorial#how-to-load-label-png-file).
-- **How to get annotations for semantic segmentation?** See [examples/semantic_segmentation](examples/semantic_segmentation).
-- **How to get annotations for instance segmentation?** See [examples/instance_segmentation](examples/instance_segmentation).
-
-
-## Examples
-
-* [Image Classification](examples/classification)
-* [Bounding Box Detection](examples/bbox_detection)
-* [Semantic Segmentation](examples/semantic_segmentation)
-* [Instance Segmentation](examples/instance_segmentation)
-* [Video Annotation](examples/video_annotation)
-* Tree Ring Detection (experimental): see examples/tree_rings
-
-### Tree Ring Detection (experimental)
-
-Labelme includes a helper to auto-initialize annual ring polylines from wood cross-section images.
-
-- GUI: Open an image, then in the Tools toolbar click "Detect Rings". Provide the pith center (X,Y) and optional parameters; detected rings will be added as polygon shapes you can edit.
-- CLI: Generate JSONs for one or more images:
-
-  labelme_ring_detect path/to/*.jpg --out out_dir --center-x 600 --center-y 600 --angular-steps 720 --min-radius 10 --relative-threshold 0.35 --min-peak-distance 4 --min-coverage 0.6
-
-Tips:
-
-- Tune relative-threshold and min-peak-distance per image quality/species.
-- Use the GUI status bar to read approximate center coordinates.
-
-
-## How to build standalone executable
-
-```bash
-LABELME_PATH=./labelme
-OSAM_PATH=$(python -c 'import os, osam; print(os.path.dirname(osam.__file__))')
-pyinstaller labelme/labelme/__main__.py \
-  --name=Labelme \
-  --windowed \
-  --noconfirm \
-  --specpath=build \
-  --add-data=$(OSAM_PATH)/_models/yoloworld/clip/bpe_simple_vocab_16e6.txt.gz:osam/_models/yoloworld/clip \
-  --add-data=$(LABELME_PATH)/config/default_config.yaml:labelme/config \
-  --add-data=$(LABELME_PATH)/icons/*:labelme/icons \
-  --add-data=$(LABELME_PATH)/translate/*:translate \
-  --icon=$(LABELME_PATH)/icons/icon-256.png \
-  --onedir
+### CS-TRD
+```bibtex
+@article{gonzalez2018automatic,
+  title={Automatic tree-ring detection and delineation in microscopic images of wood samples},
+  author={Gonzalez-Jorge, H and Sanchez, A and Solla, M and Laguela, S and Diaz-Vilari{\~n}o, L and Riveiro, B},
+  journal={Computers and Electronics in Agriculture},
+  volume={150},
+  pages={173--182},
+  year={2018}
+}
 ```
 
+### APD
+```bibtex
+@article{norell2019automatic,
+  title={Automatic pith detection in CT images of wood logs},
+  author={Norell, K and Borgefors, G},
+  journal={Computers and Electronics in Agriculture},
+  volume={157},
+  pages={435--443},
+  year={2019}
+}
+```
 
-## Acknowledgement
+### DeepCS-TRD
+```bibtex
+@article{marichal2021deepcstrd,
+  title={DeepCS-TRD: Deep learning for tree ring detection},
+  author={Marichal, H and Morel, J and Silveira, M and others},
+  journal={Dendrochronologia},
+  volume={68},
+  pages={125847},
+  year={2021}
+}
+```
 
-This repo is the fork of [mpitid/pylabelme](https://github.com/mpitid/pylabelme).
+## Requirements
+
+- Python 3.8+
+- PyTorch (for DeepCS-TRD)
+- OpenCV
+- Shapely 1.7.0 (required for CS-TRD/DeepCS-TRD)
+- Full dependencies in `pyproject.toml`
+
+## License
+
+GPLv3

@@ -743,15 +743,6 @@ class MainWindow(QtWidgets.QMainWindow):
             enabled=False,
         )
         
-        # Clear radial measurement line
-        clearRadialLine = action(
-            self.tr("Clear Radial Measurement Line"),
-            self._action_clear_radial_line,
-            None,
-            "clear-line",
-            self.tr("Remove the radial measurement line from canvas"),
-            enabled=False,
-        )
 
         # Group zoom controls into a list for easier toggling.
         self.zoom_actions = (
@@ -779,7 +770,6 @@ class MainWindow(QtWidgets.QMainWindow):
             metadata,
             setScale,
             measureRadialWidth,
-            clearRadialLine,
         )
         # menu shown at right click
         self.context_menu_actions = (
@@ -847,7 +837,7 @@ class MainWindow(QtWidgets.QMainWindow):
             ),
         )
         utils.addActions(self.menus.help, (help, self.actions.about))
-        utils.addActions(self.menus.tools, (metadata, setScale, None, preprocessImage, None, detectTreeRings, measureRadialWidth, clearRadialLine, None, ringProperties))
+        utils.addActions(self.menus.tools, (metadata, setScale, None, preprocessImage, None, detectTreeRings, measureRadialWidth, None, ringProperties))
         utils.addActions(
             self.menus.view,
             (
@@ -1900,29 +1890,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.canvas.update()
         
         logger.info(f"Drew radial measurement line from ({pith_xy[0]:.1f}, {pith_xy[1]:.1f}) to ({end_x:.1f}, {end_y:.1f})")
-    
-    def _action_clear_radial_line(self):
-        """Clear the radial measurement line from canvas"""
-        n_cleared = self._clear_radial_measurement_lines()
-        if n_cleared > 0:
-            # Also clear stored measurements
-            self.radial_line_measurements = None
-            if self.otherData and "radial_line_measurements" in self.otherData:
-                del self.otherData["radial_line_measurements"]
-            self.setDirty()
-            self.show_status_message(self.tr("Cleared radial measurement line"))
-            QtWidgets.QMessageBox.information(
-                self,
-                self.tr("Line Cleared"),
-                self.tr("Radial measurement line has been removed.\n\n"
-                       "You can now measure along a different direction if needed.")
-            )
-        else:
-            QtWidgets.QMessageBox.information(
-                self,
-                self.tr("No Line"),
-                self.tr("No radial measurement line found on canvas.")
-            )
     
     def _action_ring_properties(self) -> None:
         """Compute and display ring properties (area, perimeter, etc.)"""
