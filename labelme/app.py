@@ -1552,33 +1552,28 @@ class MainWindow(QtWidgets.QMainWindow):
         self.canvas.shapes = []
         self.labelList.clear()
         
-        # Convert processed image to QImage
-        # IMPORTANT: Use QImage constructor that copies data, not just references it
-        # The .data approach can cause corruption due to Python garbage collection
+        # Convert processed image to QImage using PIL as intermediate
+        # This ensures proper data handling without corruption
+        from PIL import Image as PILImage
         
-        # Ensure image is contiguous in memory
+        # Ensure image is uint8 and contiguous
         processed_img = np.ascontiguousarray(processed_img, dtype=np.uint8)
         
+        # Convert numpy → PIL → QImage (most reliable approach)
         if len(processed_img.shape) == 2:
             # Grayscale
-            h, w = processed_img.shape
-            self.image = QtGui.QImage(w, h, QtGui.QImage.Format_Grayscale8)
-            for y in range(h):
-                for x in range(w):
-                    val = int(processed_img[y, x])
-                    self.image.setPixel(x, y, QtGui.qRgb(val, val, val))
+            pil_img = PILImage.fromarray(processed_img, mode='L')
         else:
-            # RGB - Convert to QImage properly using QImage constructor from bytes
-            h, w, ch = processed_img.shape
-            bytes_per_line = ch * w
-            
-            # Create QImage with explicit byte copy to avoid data corruption
-            # Convert numpy array to bytes first
-            img_bytes = processed_img.tobytes()
-            
-            self.image = QtGui.QImage(
-                img_bytes, w, h, bytes_per_line, QtGui.QImage.Format_RGB888
-            ).copy()  # CRITICAL: copy() to ensure data is owned by QImage
+            # RGB
+            pil_img = PILImage.fromarray(processed_img, mode='RGB')
+        
+        # Convert PIL to QImage using QImage.fromData
+        buffer = io.BytesIO()
+        pil_img.save(buffer, format='PNG')
+        buffer.seek(0)
+        
+        self.image = QtGui.QImage()
+        self.image.loadFromData(buffer.read())
         
         # LOG: Verify QImage after copy
         logger.info(f"QImage after copy: format={self.image.format()}, size={self.image.width()}x{self.image.height()}")
