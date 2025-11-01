@@ -40,6 +40,7 @@ from labelme.widgets import UniqueLabelQListWidget
 from labelme.widgets import ZoomWidget
 from labelme.widgets import download_ai_model
 from labelme.widgets import TreeRingDialog
+from labelme.widgets import PreprocessDialog
 
 from . import utils
 
@@ -676,6 +677,16 @@ class MainWindow(QtWidgets.QMainWindow):
             self.tr("Detect tree rings using TRAS methods (APD, CS-TRD, DeepCS-TRD)"),
             enabled=False,
         )
+        
+        # Preprocess Image action
+        preprocessImage = action(
+            self.tr("Preprocess Image"),
+            self._action_preprocess_image,
+            None,
+            "edit",
+            self.tr("Resize, crop, and remove background from image"),
+            enabled=False,
+        )
 
         # Group zoom controls into a list for easier toggling.
         self.zoom_actions = (
@@ -697,6 +708,7 @@ class MainWindow(QtWidgets.QMainWindow):
             editMode,
             brightnessContrast,
             detectTreeRings,
+            preprocessImage,
         )
         # menu shown at right click
         self.context_menu_actions = (
@@ -764,7 +776,7 @@ class MainWindow(QtWidgets.QMainWindow):
             ),
         )
         utils.addActions(self.menus.help, (help, self.actions.about))
-        utils.addActions(self.menus.tools, (detectTreeRings,))
+        utils.addActions(self.menus.tools, (preprocessImage, None, detectTreeRings))
         utils.addActions(
             self.menus.view,
             (
@@ -1025,6 +1037,76 @@ class MainWindow(QtWidgets.QMainWindow):
         self.canvas.storeShapes()
         self.loadShapes(shapes, replace=False)
         self.setDirty()
+
+    def _action_preprocess_image(self) -> None:
+        """Preprocess the current image (resize, crop, remove background)"""
+        if self.image.isNull():
+            self.errorMessage(self.tr("No image"), self.tr("Please open an image first."))
+            return
+        
+        # Convert current image to numpy array
+        image_np = utils.img_qt_to_arr(self.image)[:, :, :3]
+        
+        # Show preprocessing dialog
+        dlg = PreprocessDialog(image=image_np, parent=self)
+        if dlg.exec_() != QtWidgets.QDialog.Accepted:
+            return
+        
+        # Get processed image
+        processed_img = dlg.get_processed_image()
+        preprocessing_info = dlg.get_preprocessing_info()
+        
+        # Confirm replacement
+        reply = QtWidgets.QMessageBox.question(
+            self,
+            self.tr("Replace Image"),
+            self.tr(f"Replace current image with processed version?\n\n"
+                   f"Original: {preprocessing_info['original_size'][0]} x {preprocessing_info['original_size'][1]}\n"
+                   f"Processed: {preprocessing_info['processed_size'][0]} x {preprocessing_info['processed_size'][1]}\n"
+                   f"Scale: {preprocessing_info['scale_factor']:.2f}\n\n"
+                   f"Note: All existing annotations will be cleared."),
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No
+        )
+        
+        if reply != QtWidgets.QMessageBox.Yes:
+            return
+        
+        # Clear existing shapes
+        self.canvas.shapes = []
+        self.labelList.clear()
+        
+        # Convert processed image to QImage
+        if len(processed_img.shape) == 2:
+            # Grayscale
+            h, w = processed_img.shape
+            bytes_per_line = w
+            qt_img = QtGui.QImage(
+                processed_img.data, w, h, bytes_per_line, QtGui.QImage.Format_Grayscale8
+            )
+        else:
+            # RGB
+            h, w, ch = processed_img.shape
+            bytes_per_line = ch * w
+            qt_img = QtGui.QImage(
+                processed_img.data, w, h, bytes_per_line, QtGui.QImage.Format_RGB888
+            )
+        
+        # Replace current image
+        self.image = qt_img.copy()
+        self.canvas.loadPixmap(QtGui.QPixmap.fromImage(self.image))
+        
+        # Store preprocessing info in otherData
+        if self.otherData is None:
+            self.otherData = {}
+        self.otherData["preprocessing"] = preprocessing_info
+        
+        # Mark as modified
+        self.setDirty()
+        self.show_status_message(
+            self.tr(f"Image preprocessed: {preprocessing_info['processed_size'][0]}x{preprocessing_info['processed_size'][1]}")
+        )
+        
+        logger.info(f"Image preprocessed: {preprocessing_info}")
 
     def currentItem(self):
         items = self.labelList.selectedItems()

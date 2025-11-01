@@ -9,5 +9,6 @@ from .label_list_widget import LabelListWidget
 from .label_list_widget import LabelListWidgetItem
 from .tool_bar import ToolBar
 from .tree_ring_dialog import TreeRingDialog
+from .preprocess_dialog import PreprocessDialog
 from .unique_label_qlist_widget import UniqueLabelQListWidget
 from .zoom_widget import ZoomWidget
