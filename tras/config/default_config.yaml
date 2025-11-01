@@ -1,73 +1,145 @@
-# TRAS (Tree Ring Analysis System) - Default Configuration
-
-# Display labels on top of canvas
-display_label_popup: true
-
-# Display instructions in canvas
-display_label_popup_tips: true
-
-# Show cross hair shadow
-show_cross_hair_shadow: true
+# TRAS (Tree Ring Analyzer Suite) - Default Configuration
 
 # Auto save annotations
 auto_save: false
 
-# Sort labels alphabetically
-sort_labels: true
+# Display settings
+display_label_popup: true
+display_label_popup_tips: true
+show_cross_hair_shadow: true
 
-# Validate label before saving
+# Data storage
+store_data: true
+keep_prev: false
+keep_prev_scale: false
+keep_prev_brightness_contrast: false
+
+# Logger level
+logger_level: info
+
+# Flags and labels
+flags: null
+label_flags: null
+labels: null
+file_search: null
+
+# Label sorting and validation
+sort_labels: true
 validate_label: null
 
-# Tree-ring themed shape colors (wood/bark tones)
+# Shape colors - Wood/Tree Ring Theme
+default_shape_color: [139, 90, 43]  # Saddle brown
+shape_color: auto  # null, 'auto', 'manual'
+shift_auto_shape_color: 0
+label_colors: null
+
 shape:
-  # Ring outline color (bark brown)
-  line_color: [139, 90, 43, 180]  # Saddle brown
-  # Ring fill color (light wood)
-  fill_color: [222, 184, 135, 80]  # Burlywood with transparency
-  # Selected ring outline (amber/golden)
-  select_line_color: [218, 165, 32, 255]  # Goldenrod
-  # Selected ring fill (light amber)
-  select_fill_color: [255, 215, 0, 100]  # Gold with transparency
-  # Vertex fill color (darker brown)
-  vertex_fill_color: [101, 67, 33, 255]  # Dark brown
-  # Highlighted vertex (bright amber)
-  hvertex_fill_color: [255, 191, 0, 255]  # Amber
-  # Point size for vertices
+  # Drawing (natural wood tones)
+  line_color: [139, 90, 43, 180]      # Saddle brown outline
+  fill_color: [222, 184, 135, 80]      # Burlywood fill
+  vertex_fill_color: [101, 67, 33, 255] # Dark brown vertex
+  # Selecting / hovering
+  select_line_color: [218, 165, 32, 255]  # Goldenrod selected
+  select_fill_color: [255, 215, 0, 100]    # Gold fill selected
+  hvertex_fill_color: [255, 191, 0, 255]  # Amber highlight
   point_size: 8
 
-# Enable label text field
+# AI settings (kept for compatibility, not used)
+ai:
+  default: 'disabled'
+
+# Dock widgets visibility
+flag_dock:
+  show: true
+  closable: true
+  movable: true
+  floatable: true
+label_dock:
+  show: true
+  closable: true
+  movable: true
+  floatable: true
+shape_dock:
+  show: true
+  closable: true
+  movable: true
+  floatable: true
+file_dock:
+  show: true
+  closable: true
+  movable: true
+  floatable: true
+
+# Label dialog
 show_label_text_field: true
-
-# Label dialog text
-label_dialog_text: "Enter ring label:"
-
-# Label completion (auto-complete)
-label_completion: "startswith"
-
-# Initial labels (tree ring labels)
-labels: ["ring"]
-
-# Store image data in JSON
-store_data: true
-
-# Keep previous annotation
-keep_prev: false
-
-# Fit window to content
+label_completion: startswith
 fit_to_content:
   column: true
   row: false
 
-# Canvas epsilon (point selection sensitivity)
+# Canvas settings
 epsilon: 10.0
+canvas:
+  fill_drawing: true
+  # None: do nothing
+  # close: close polygon
+  double_click: close
+  # The max number of edits we can undo
+  num_backups: 10
+  # show crosshair
+  crosshair:
+    polygon: false
+    rectangle: true
+    circle: false
+    line: false
+    point: false
+    linestrip: false
+    ai_polygon: false
+    ai_mask: false
 
-# Flags (empty for tree ring detection)
-flags: []
+# Keyboard shortcuts
+shortcuts:
+  close: Ctrl+W
+  open: Ctrl+O
+  open_dir: Ctrl+U
+  quit: Ctrl+Q
+  save: Ctrl+S
+  save_as: Ctrl+Shift+S
+  save_to: null
+  delete_file: Ctrl+Delete
 
-# Label-specific flags (empty)
-label_flags: {}
+  open_next: [D, Ctrl+Shift+D]
+  open_prev: [A, Ctrl+Shift+A]
 
-# Tree Ring Detection settings
+  zoom_in: [Ctrl++, Ctrl+=]
+  zoom_out: Ctrl+-
+  zoom_to_original: Ctrl+0
+  fit_window: Ctrl+F
+  fit_width: Ctrl+Shift+F
+
+  create_polygon: Ctrl+N
+  create_rectangle: Ctrl+R
+  create_circle: null
+  create_line: null
+  create_point: null
+  create_linestrip: null
+  edit_polygon: Ctrl+J
+  delete_polygon: Delete
+  duplicate_polygon: Ctrl+D
+  copy_polygon: Ctrl+C
+  paste_polygon: Ctrl+V
+  undo: Ctrl+Z
+  undo_last_point: Ctrl+Z
+  add_point_to_edge: Ctrl+Shift+P
+  edit_label: Ctrl+E
+  toggle_keep_prev_mode: Ctrl+P
+  remove_selected_point: [Meta+H, Backspace]
+
+  show_all_polygons: null
+  hide_all_polygons: null
+  toggle_all_polygons: T
+
+# Tree Ring Detection settings (TRAS specific)
 tree_ring_detection:
   # Default method
   default_method: "DeepCS-TRD"
