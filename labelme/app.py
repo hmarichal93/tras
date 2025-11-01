@@ -1054,6 +1054,10 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # Log image info to confirm we're using the displayed image
         logger.info(f"Tree ring detection using displayed image: {image_np.shape} ({image_np.dtype})")
+        logger.info(f"  Image stats: min={image_np.min()}, max={image_np.max()}, mean={image_np.mean():.2f}")
+        logger.info(f"  First pixel: {image_np[0, 0]}")
+        logger.info(f"  QImage format: {qimage_rgb.format()} (size: {qimage_rgb.width()}x{qimage_rgb.height()})")
+        logger.info(f"  QImage depth: {qimage_rgb.depth()}, byteCount: {qimage_rgb.byteCount()}")
         if self.otherData and "preprocessing" in self.otherData:
             preprocessing_info = self.otherData["preprocessing"]
             logger.info(f"Image was preprocessed: scale={preprocessing_info.get('scale_factor', 1.0)}, "
@@ -1523,6 +1527,12 @@ class MainWindow(QtWidgets.QMainWindow):
         processed_img = dlg.get_processed_image()
         preprocessing_info = dlg.get_preprocessing_info()
         
+        # LOG: Check processed image before converting to QImage
+        logger.info(f"Processed image from dialog: shape={processed_img.shape}, dtype={processed_img.dtype}")
+        logger.info(f"  Stats: min={processed_img.min()}, max={processed_img.max()}, mean={processed_img.mean():.2f}")
+        logger.info(f"  First pixel: {processed_img[0, 0]}")
+        logger.info(f"  Contiguous: {processed_img.flags['C_CONTIGUOUS']}")
+        
         # Confirm replacement
         reply = QtWidgets.QMessageBox.question(
             self,
@@ -1564,6 +1574,18 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # Make a deep copy to ensure image data persists
         self.image = qt_img.copy()
+        
+        # LOG: Verify QImage after copy
+        logger.info(f"QImage after copy: format={self.image.format()}, size={self.image.width()}x{self.image.height()}")
+        
+        # LOG: Verify we can read back the same data
+        test_read_back = utils.img_qt_to_arr(self.image)[:, :, :3]
+        logger.info(f"Read back from QImage: shape={test_read_back.shape}, mean={test_read_back.mean():.2f}")
+        logger.info(f"  First pixel after read-back: {test_read_back[0, 0]}")
+        if np.array_equal(processed_img, test_read_back):
+            logger.info("  ✓ QImage->numpy round-trip is identical")
+        else:
+            logger.error(f"  ✗ QImage->numpy round-trip DIFFERS! Max diff: {np.abs(processed_img.astype(float) - test_read_back.astype(float)).max()}")
         
         # CRITICAL: Also update imageData to match the preprocessed image
         # This ensures that everything (canvas, detection, save) uses the preprocessed version
