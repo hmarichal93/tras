@@ -41,7 +41,6 @@ from labelme.widgets import UniqueLabelQListWidget
 from labelme.widgets import ZoomWidget
 from labelme.widgets import download_ai_model
 from labelme.widgets import TreeRingDialog
-from labelme._automation.tree_rings import RingDetectParams, detect_tree_rings
 
 from . import utils
 
@@ -1123,43 +1122,30 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.image.isNull():
             self.errorMessage(self.tr("No image"), self.tr("Please open an image first."))
             return
-        # Ask parameters
+        
+        # Show detection dialog
         image_np = utils.img_qt_to_arr(self.image)[:, :, :3]
         dlg = TreeRingDialog(image_width=self.image.width(), image_height=self.image.height(), parent=self, image_np=image_np)
         if dlg.exec_() != QtWidgets.QDialog.Accepted:
             return
         
-        # Check if CS-TRD or DeepCS-TRD was used
+        # Get rings from CS-TRD or DeepCS-TRD
         cstrd_rings = dlg.get_cstrd_rings()
         deepcstrd_rings = dlg.get_deepcstrd_rings()
         
         if cstrd_rings is not None:
-            # Use CS-TRD rings
             rings = cstrd_rings
         elif deepcstrd_rings is not None:
-            # Use DeepCS-TRD rings
             rings = deepcstrd_rings
         else:
-            # Use legacy polar method
-            p = dlg.get_params()
-            params = RingDetectParams(
-                angular_steps=p["angular_steps"],
-                min_radius=p["min_radius"],
-                relative_threshold=p["relative_threshold"],
-                min_peak_distance=p["min_peak_distance"],
-                min_coverage=p["min_coverage"],
-                max_rings=p["max_rings"],
-            )
-            image_np = utils.img_qt_to_arr(self.image)[:, :, :3]
-            rings = detect_tree_rings(
-                image=image_np,
-                center_xy=(p["center_x"], p["center_y"]),
-                params=params,
-            )
+            # No detection method was used
+            self.errorMessage(self.tr("No detection"), self.tr("Please use CS-TRD or DeepCS-TRD detection buttons."))
+            return
         
         if not rings:
             self.show_status_message(self.tr("No rings detected."))
             return
+        
         # Convert to shapes
         shapes: list[Shape] = []
         for i, ring in enumerate(rings, start=1):

@@ -34,39 +34,11 @@ class TreeRingDialog(QtWidgets.QDialog):
         self.cy.setValue(cy_default)
         self.form.addRow(self.tr("Center Y"), self.cy)
 
-        self.angular_steps = QtWidgets.QSpinBox()
-        self.angular_steps.setRange(90, 4096)
-        self.angular_steps.setValue(720)
-        self.form.addRow(self.tr("Angular steps"), self.angular_steps)
-
-        self.min_radius = QtWidgets.QDoubleSpinBox()
-        self.min_radius.setRange(0.0, 1e6)
-        self.min_radius.setDecimals(2)
-        self.min_radius.setValue(5.0)
-        self.form.addRow(self.tr("Min radius"), self.min_radius)
-
-        self.rel_thr = QtWidgets.QDoubleSpinBox()
-        self.rel_thr.setRange(0.0, 1.0)
-        self.rel_thr.setSingleStep(0.05)
-        self.rel_thr.setValue(0.3)
-        self.form.addRow(self.tr("Relative threshold"), self.rel_thr)
-
-        self.min_peak_dist = QtWidgets.QSpinBox()
-        self.min_peak_dist.setRange(1, 9999)
-        self.min_peak_dist.setValue(3)
-        self.form.addRow(self.tr("Min peak distance"), self.min_peak_dist)
-
-        self.min_coverage = QtWidgets.QDoubleSpinBox()
-        self.min_coverage.setRange(0.0, 1.0)
-        self.min_coverage.setSingleStep(0.05)
-        self.min_coverage.setValue(0.6)
-        self.form.addRow(self.tr("Min coverage"), self.min_coverage)
-
-        self.max_rings = QtWidgets.QSpinBox()
-        self.max_rings.setRange(0, 4096)
-        self.max_rings.setToolTip(self.tr("0 = no limit"))
-        self.max_rings.setValue(0)
-        self.form.addRow(self.tr("Max rings"), self.max_rings)
+        # Add separator
+        separator = QtWidgets.QFrame()
+        separator.setFrameShape(QtWidgets.QFrame.HLine)
+        separator.setFrameShadow(QtWidgets.QFrame.Sunken)
+        self.form.addRow(separator)
 
         # Add auto-detect pith button
         self.image_np = image_np
@@ -85,9 +57,8 @@ class TreeRingDialog(QtWidgets.QDialog):
         self.form.addRow(self.btn_deepcstrd)
 
         btns = QtWidgets.QDialogButtonBox(
-            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
+            QtWidgets.QDialogButtonBox.Cancel
         )
-        btns.accepted.connect(self.accept)
         btns.rejected.connect(self.reject)
 
         layout = QtWidgets.QVBoxLayout()
@@ -181,21 +152,6 @@ class TreeRingDialog(QtWidgets.QDialog):
             self.cy.setValue(y)
         except Exception as e:
             QtWidgets.QMessageBox.warning(self, self.tr("APD Error"), str(e))
-
-    def get_params(self) -> dict:
-        params = dict(
-            center_x=float(self.cx.value()),
-            center_y=float(self.cy.value()),
-            angular_steps=int(self.angular_steps.value()),
-            min_radius=float(self.min_radius.value()),
-            relative_threshold=float(self.rel_thr.value()),
-            min_peak_distance=int(self.min_peak_dist.value()),
-            min_coverage=float(self.min_coverage.value()),
-            max_rings=(
-                None if int(self.max_rings.value()) == 0 else int(self.max_rings.value())
-            ),
-        )
-        return params
 
     def get_cstrd_rings(self):
         # Returns rings if CS-TRD was used, else None
