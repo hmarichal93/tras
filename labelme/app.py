@@ -1540,23 +1540,63 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         
         # Check if we have stored pith coordinates from detection
-        if self.pith_xy is None:
-            QtWidgets.QMessageBox.warning(
+        has_detected_pith = self.pith_xy is not None
+        
+        # Ask user whether to use detected pith or click custom pith
+        if has_detected_pith:
+            # Offer choice between detected pith and custom pith
+            msg = QtWidgets.QMessageBox(self)
+            msg.setWindowTitle(self.tr("Pith Location"))
+            msg.setText(self.tr(f"Detected pith at ({self.pith_xy[0]:.1f}, {self.pith_xy[1]:.1f})\n\n"
+                               "How do you want to set the pith (origin of radial line)?"))
+            msg.setIcon(QtWidgets.QMessageBox.Question)
+            
+            use_detected_btn = msg.addButton(self.tr("Use Detected Pith"), QtWidgets.QMessageBox.AcceptRole)
+            custom_pith_btn = msg.addButton(self.tr("Click to Set Custom Pith"), QtWidgets.QMessageBox.ActionRole)
+            cancel_btn = msg.addButton(QtWidgets.QMessageBox.Cancel)
+            
+            msg.exec_()
+            
+            if msg.clickedButton() == cancel_btn:
+                return
+            elif msg.clickedButton() == use_detected_btn:
+                pith_xy = self.pith_xy
+                logger.info(f"Using detected pith: ({pith_xy[0]:.1f}, {pith_xy[1]:.1f})")
+            else:  # custom_pith_btn
+                # Let user click to set pith
+                QtWidgets.QMessageBox.information(
+                    self,
+                    self.tr("Set Custom Pith"),
+                    self.tr("Click on the image to set the pith (tree center).\n\n"
+                           "This will be used as the origin of the radial measurement line.")
+                )
+                self.show_status_message(self.tr("Click on the pith (tree center)..."))
+                pith_xy = self._wait_for_single_click("custom pith")
+                if pith_xy is None:
+                    self.show_status_message(self.tr("Radial measurement cancelled"))
+                    return
+                logger.info(f"Using custom pith: ({pith_xy[0]:.1f}, {pith_xy[1]:.1f})")
+        else:
+            # No detected pith, must click
+            QtWidgets.QMessageBox.information(
                 self,
-                self.tr("No Pith"),
-                self.tr("No pith coordinates found. Please run tree ring detection first to determine the pith location.")
+                self.tr("Set Pith Location"),
+                self.tr("No pith detected. Click on the image to set the pith (tree center).\n\n"
+                       "This will be used as the origin of the radial measurement line.")
             )
-            return
+            self.show_status_message(self.tr("Click on the pith (tree center)..."))
+            pith_xy = self._wait_for_single_click("pith")
+            if pith_xy is None:
+                self.show_status_message(self.tr("Radial measurement cancelled"))
+                return
+            logger.info(f"Using clicked pith: ({pith_xy[0]:.1f}, {pith_xy[1]:.1f})")
         
-        pith_xy = self.pith_xy
-        logger.info(f"Using stored pith coordinates: ({pith_xy[0]:.1f}, {pith_xy[1]:.1f})")
-        
-        # Inform user
+        # Inform user about direction click
         QtWidgets.QMessageBox.information(
             self,
-            self.tr("Measure Ring Width Along Line"),
-            self.tr(f"Using pith at ({pith_xy[0]:.1f}, {pith_xy[1]:.1f}) from detection.\n\n"
-                   "Click on the image to define the radial line direction.\n\n"
+            self.tr("Set Direction"),
+            self.tr(f"Pith set at ({pith_xy[0]:.1f}, {pith_xy[1]:.1f})\n\n"
+                   "Now click on the image to define the radial line direction.\n\n"
                    "The system will measure ring widths along this transect.")
         )
         
