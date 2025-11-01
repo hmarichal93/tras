@@ -1679,10 +1679,28 @@ class MainWindow(QtWidgets.QMainWindow):
         
         return clicked_point[0]
     
+    def _clear_radial_measurement_lines(self):
+        """Remove all radial measurement lines from canvas"""
+        radial_lines = [s for s in self.canvas.shapes if s.label == "radial_measurement_line"]
+        if radial_lines:
+            for line in radial_lines:
+                self.canvas.shapes.remove(line)
+                # Also remove from label list
+                item = self.labelList.findItemByShape(line)
+                if item:
+                    self.labelList.removeItem(item)
+            self.canvas.update()
+            logger.info(f"Cleared {len(radial_lines)} radial measurement line(s)")
+            return len(radial_lines)
+        return 0
+    
     def _draw_radial_measurement_line(self, pith_xy, direction_xy):
         """Draw a visual line showing the radial measurement transect"""
         from labelme.shape import Shape
         import math
+        
+        # First, clear any existing radial measurement lines
+        self._clear_radial_measurement_lines()
         
         # Extend the line to the edge of the image
         # Calculate direction vector
