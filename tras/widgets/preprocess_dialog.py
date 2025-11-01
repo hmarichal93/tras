@@ -253,7 +253,7 @@ class PreprocessDialog(QtWidgets.QDialog):
             # Use PIL for resize to avoid orientation issues
             from PIL import Image as PILImage
             pil_img = PILImage.fromarray(img, mode='RGB')
-            pil_img = pil_img.resize((new_w, new_h), PILImage.Resampling.BILINEAR)
+            pil_img = pil_img.resize((new_w, new_h), PILImage.Resampling.BICUBIC)
             img = np.array(pil_img, dtype=np.uint8)
             
             # Ensure output is contiguous
