@@ -8,6 +8,7 @@ from PyQt5 import QtCore, QtWidgets
 
 
 from labelme.utils.apd_helper import detect_pith_apd
+from labelme.utils.cstrd_helper import detect_rings_cstrd
 from labelme.utils.deepcstrd_helper import detect_rings_deepcstrd
 
 class TreeRingDialog(QtWidgets.QDialog):
@@ -73,8 +74,13 @@ class TreeRingDialog(QtWidgets.QDialog):
         self.btn_auto_pith.clicked.connect(self._on_auto_pith)
         self.form.addRow(self.btn_auto_pith)
 
+        # Add CS-TRD button
+        self.btn_cstrd = QtWidgets.QPushButton(self.tr("Detect with CS-TRD (CPU)"))
+        self.btn_cstrd.clicked.connect(self._on_cstrd)
+        self.form.addRow(self.btn_cstrd)
+
         # Add DeepCSTRD button
-        self.btn_deepcstrd = QtWidgets.QPushButton(self.tr("Detect with DeepCSTRD (AI)"))
+        self.btn_deepcstrd = QtWidgets.QPushButton(self.tr("Detect with DeepCSTRD (GPU)"))
         self.btn_deepcstrd.clicked.connect(self._on_deepcstrd)
         self.form.addRow(self.btn_deepcstrd)
 
@@ -89,6 +95,47 @@ class TreeRingDialog(QtWidgets.QDialog):
         layout.addWidget(btns)
         self.setLayout(layout)
 
+    def _on_cstrd(self):
+        if self.image_np is None:
+            QtWidgets.QMessageBox.warning(self, self.tr("No image"), self.tr("No image data available for CS-TRD."))
+            return
+        try:
+            # Get current center coordinates
+            cx = float(self.cx.value())
+            cy = float(self.cy.value())
+            
+            # Show progress message
+            QtWidgets.QMessageBox.information(
+                self, 
+                self.tr("CS-TRD Running"), 
+                self.tr("CS-TRD is running. This may take 1-2 minutes. Click OK and wait...")
+            )
+            
+            # Run CS-TRD with current parameters
+            rings = detect_rings_cstrd(
+                self.image_np, 
+                center_xy=(cx, cy),
+                sigma=3.0,
+                th_low=5.0,
+                th_high=20.0,
+                alpha=30,
+                nr=360
+            )
+            
+            if not rings:
+                QtWidgets.QMessageBox.information(self, self.tr("No rings found"), self.tr("CS-TRD did not detect any rings."))
+                return
+            
+            self.cstrd_rings = rings
+            QtWidgets.QMessageBox.information(
+                self, 
+                self.tr("CS-TRD Success"), 
+                self.tr(f"Detected {len(rings)} rings in {len(rings[0])} points each. Click OK to insert them.")
+            )
+            self.accept()  # Close dialog and signal to use these rings
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, self.tr("CS-TRD Error"), str(e))
+    
     def _on_deepcstrd(self):
         if self.image_np is None:
             QtWidgets.QMessageBox.warning(self, self.tr("No image"), self.tr("No image data available for DeepCS-TRD."))
@@ -150,6 +197,10 @@ class TreeRingDialog(QtWidgets.QDialog):
         )
         return params
 
+    def get_cstrd_rings(self):
+        # Returns rings if CS-TRD was used, else None
+        return getattr(self, 'cstrd_rings', None)
+    
     def get_deepcstrd_rings(self):
         # Returns rings if DeepCSTRD was used, else None
         return getattr(self, 'deepcstrd_rings', None)
