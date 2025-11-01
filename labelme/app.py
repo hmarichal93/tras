@@ -1526,7 +1526,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.loadShapes(self.canvas.shapes, replace=True)
     
     def _action_measure_radial_width(self) -> None:
-        """Measure ring widths along a radial line from pith"""
+        """Measure ring widths along a radial line from pith - opens dialog"""
+        from labelme.widgets import RadialWidthDialog
+        
         # Check if we have rings
         ring_shapes = [s for s in self.canvas.shapes if s.label and s.label.startswith("ring_")]
         
@@ -1538,6 +1540,52 @@ class MainWindow(QtWidgets.QMainWindow):
                        "Please detect rings first using Tools > Tree Ring Detection.")
             )
             return
+        
+        # Open dialog in a loop to handle multiple actions
+        while True:
+            dlg = RadialWidthDialog(
+                parent=self,
+                pith_xy=self.pith_xy,
+                has_measurement=(self.radial_line_measurements is not None),
+                measurement_data=self.radial_line_measurements
+            )
+            
+            result = dlg.exec_()
+            
+            if result == QtWidgets.QDialog.Rejected:
+                # User closed dialog
+                return
+            
+            action = dlg.get_action()
+            
+            if action == 'set_direction':
+                # Set/change measurement direction
+                success = self._perform_radial_measurement(ring_shapes)
+                if not success:
+                    return  # Error or cancelled
+                # Continue loop to show dialog again with updated measurement
+            
+            elif action == 'clear':
+                # Clear measurement line
+                self._clear_radial_measurement_lines()
+                self.radial_line_measurements = None
+                if self.otherData and "radial_line_measurements" in self.otherData:
+                    del self.otherData["radial_line_measurements"]
+                self.setDirty()
+                self.show_status_message(self.tr("Cleared radial measurement line"))
+                # Continue loop to show dialog again
+            
+            elif action == 'export':
+                # Export to .POS format
+                self._export_radial_to_pos()
+                # Continue loop to show dialog again
+            
+            else:
+                # Unknown action
+                return
+    
+    def _perform_radial_measurement(self, ring_shapes):
+        """Perform the actual radial measurement (pith + direction clicks)"""
         
         # Check if we have stored pith coordinates from detection
         has_detected_pith = self.pith_xy is not None
@@ -1558,7 +1606,7 @@ class MainWindow(QtWidgets.QMainWindow):
             msg.exec_()
             
             if msg.clickedButton() == cancel_btn:
-                return
+                return False
             elif msg.clickedButton() == use_detected_btn:
                 pith_xy = self.pith_xy
                 logger.info(f"Using detected pith: ({pith_xy[0]:.1f}, {pith_xy[1]:.1f})")
@@ -1574,7 +1622,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 pith_xy = self._wait_for_single_click("custom pith")
                 if pith_xy is None:
                     self.show_status_message(self.tr("Radial measurement cancelled"))
-                    return
+                    return False
                 logger.info(f"Using custom pith: ({pith_xy[0]:.1f}, {pith_xy[1]:.1f})")
         else:
             # No detected pith, must click
@@ -1588,7 +1636,7 @@ class MainWindow(QtWidgets.QMainWindow):
             pith_xy = self._wait_for_single_click("pith")
             if pith_xy is None:
                 self.show_status_message(self.tr("Radial measurement cancelled"))
-                return
+                return False
             logger.info(f"Using clicked pith: ({pith_xy[0]:.1f}, {pith_xy[1]:.1f})")
         
         # Inform user about direction click
@@ -1606,7 +1654,7 @@ class MainWindow(QtWidgets.QMainWindow):
         
         if direction_xy is None:
             self.show_status_message(self.tr("Radial measurement cancelled"))
-            return
+            return False
         
         logger.info(f"Radial measurement: Direction point at ({direction_xy[0]:.1f}, {direction_xy[1]:.1f})")
         
@@ -1627,7 +1675,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     self.tr("No ring intersections found along the specified line.\n\n"
                            "Try a different direction or check that rings are properly detected.")
                 )
-                return
+                return False
             
             # Store measurements
             self.radial_line_measurements = {
@@ -1667,7 +1715,7 @@ class MainWindow(QtWidgets.QMainWindow):
             if len(measurements) > 10:
                 message += f"\n... and {len(measurements) - 10} more rings"
             
-            message += f"\n\nRadial widths will be included in CSV export."
+            message += f"\n\nMeasurement saved! Use the dialog to export to .POS format."
             
             QtWidgets.QMessageBox.information(
                 self,
@@ -1678,14 +1726,75 @@ class MainWindow(QtWidgets.QMainWindow):
             self.show_status_message(
                 self.tr(f"✓ Measured {len(measurements)} rings along radial line")
             )
+            
+            return True
         
         except Exception as e:
+            QtWidgets.QApplication.restoreOverrideCursor()
             QtWidgets.QMessageBox.critical(
                 self,
                 self.tr("Measurement Failed"),
                 self.tr(f"Failed to measure ring widths:\n\n{str(e)}")
             )
             logger.error(f"Radial width measurement failed: {e}", exc_info=True)
+            return False
+    
+    def _export_radial_to_pos(self):
+        """Export radial measurements to .POS format for CooRecorder"""
+        from labelme.utils.pos_exporter import export_to_pos
+        
+        if not self.radial_line_measurements:
+            QtWidgets.QMessageBox.warning(
+                self,
+                self.tr("No Measurements"),
+                self.tr("No radial measurements to export.\n\n"
+                       "Please set a measurement direction first.")
+            )
+            return
+        
+        # Get default filename from sample code if available
+        default_filename = "ring_measurements.pos"
+        if self.sample_metadata and 'sample_code' in self.sample_metadata:
+            sample_code = self.sample_metadata['sample_code']
+            safe_code = "".join(c for c in sample_code if c.isalnum() or c in ('-', '_'))
+            default_filename = f"{safe_code}.pos"
+        
+        # Ask user for filename
+        filename, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self,
+            self.tr("Export Radial Measurements to .POS"),
+            default_filename,
+            self.tr("CooRecorder POS Files (*.pos);;All Files (*)")
+        )
+        
+        if not filename:
+            return
+        
+        # Export
+        success = export_to_pos(
+            filepath=filename,
+            measurements=self.radial_line_measurements['measurements'],
+            pith_xy=self.radial_line_measurements['pith_xy'],
+            direction_xy=self.radial_line_measurements['direction_xy'],
+            image_scale=self.image_scale,
+            metadata=self.sample_metadata
+        )
+        
+        if success:
+            QtWidgets.QMessageBox.information(
+                self,
+                self.tr("Export Successful"),
+                self.tr(f"Radial measurements exported to:\n{filename}\n\n"
+                       f"This .POS file can be opened in CooRecorder for further analysis.")
+            )
+            logger.info(f"Exported radial measurements to {filename}")
+        else:
+            QtWidgets.QMessageBox.critical(
+                self,
+                self.tr("Export Failed"),
+                self.tr("Failed to export measurements to .POS format.\n\n"
+                       "Check console for error details.")
+            )
     
     def _wait_for_single_click(self, click_type="point"):
         """Wait for a single click on the canvas and return coordinates"""
