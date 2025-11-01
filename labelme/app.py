@@ -1959,29 +1959,14 @@ class MainWindow(QtWidgets.QMainWindow):
                 x2, y2 = points[(j + 1) % n]
                 perimeter += ((x2 - x1)**2 + (y2 - y1)**2)**0.5
             
-            # Compute ring width (distance to previous ring)
-            ring_width = None
-            if i > 0:
-                # Use centroid distance as approximation
-                prev_points = [(p.x(), p.y()) for p in ring_shapes[i-1].points]
-                
-                # Compute centroids
-                curr_cx = sum(p[0] for p in points) / len(points)
-                curr_cy = sum(p[1] for p in points) / len(points)
-                prev_cx = sum(p[0] for p in prev_points) / len(prev_points)
-                prev_cy = sum(p[1] for p in prev_points) / len(prev_points)
-                
-                ring_width = ((curr_cx - prev_cx)**2 + (curr_cy - prev_cy)**2)**0.5
-            
             cumulative_area += area
             
-            # Add physical measurements if scale is set
+            # Build properties dict (no centroid width)
             props = {
                 'label': shape.label,
-                'area_px': area,
-                'cumulative_area_px': cumulative_area,
-                'perimeter_px': perimeter,
-                'ring_width_px': ring_width
+                'area': area,
+                'cumulative_area': cumulative_area,
+                'perimeter': perimeter
             }
             
             # Add radial width if available
