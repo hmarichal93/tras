@@ -53,6 +53,30 @@ def detect_rings_deepcstrd(
     
     cx, cy = center_xy
     
+    # Check if pith is too close to edges and add padding if needed
+    import cv2
+    h, w = image.shape[:2]
+    min_margin = 100  # DeepCS-TRD needs margin for edge detection
+    
+    pad_top = max(0, min_margin - int(cy))
+    pad_bottom = max(0, min_margin - (h - int(cy)))
+    pad_left = max(0, min_margin - int(cx))
+    pad_right = max(0, min_margin - (w - int(cx)))
+    
+    if any([pad_top, pad_bottom, pad_left, pad_right]):
+        # Add padding with white color (background)
+        image = cv2.copyMakeBorder(
+            image, 
+            pad_top, pad_bottom, pad_left, pad_right,
+            cv2.BORDER_CONSTANT, 
+            value=(255, 255, 255)  # White padding
+        )
+        # Adjust pith coordinates
+        cx += pad_left
+        cy += pad_top
+        print(f"DeepCS-TRD: Added padding - top={pad_top}, bottom={pad_bottom}, left={pad_left}, right={pad_right}")
+        print(f"DeepCS-TRD: Adjusted pith: ({cx:.1f}, {cy:.1f})")
+    
     # Create temporary output directory for DeepCS-TRD
     import tempfile
     temp_dir = tempfile.mkdtemp(prefix="deepcstrd_")
@@ -88,6 +112,10 @@ def detect_rings_deepcstrd(
                 if 'points' in shape and isinstance(shape['points'], list):
                     pts = np.array(shape['points'], dtype=np.float32)
                     if len(pts.shape) == 2 and pts.shape[1] == 2:
+                        # Adjust coordinates back if padding was added
+                        if any([pad_top, pad_bottom, pad_left, pad_right]):
+                            pts[:, 0] -= pad_left  # x coordinates
+                            pts[:, 1] -= pad_top   # y coordinates
                         rings.append(pts)
     
     return rings

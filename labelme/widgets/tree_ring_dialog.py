@@ -99,6 +99,11 @@ class TreeRingDialog(QtWidgets.QDialog):
             cx = float(self.cx.value())
             cy = float(self.cy.value())
             
+            # DEBUG: Check image properties
+            logger.info(f"CS-TRD: Image check - shape={self.image_np.shape}, dtype={self.image_np.dtype}")
+            logger.info(f"CS-TRD: Image stats - min={self.image_np.min()}, max={self.image_np.max()}, mean={self.image_np.mean():.2f}")
+            logger.info(f"CS-TRD: Image memory - contiguous={self.image_np.flags['C_CONTIGUOUS']}, writable={self.image_np.flags['WRITEABLE']}")
+            
             # Show progress message
             QtWidgets.QMessageBox.information(
                 self, 
@@ -155,6 +160,11 @@ class TreeRingDialog(QtWidgets.QDialog):
             # Get current center coordinates
             cx = float(self.cx.value())
             cy = float(self.cy.value())
+            
+            # DEBUG: Check image properties
+            logger.info(f"DeepCS-TRD: Image check - shape={self.image_np.shape}, dtype={self.image_np.dtype}")
+            logger.info(f"DeepCS-TRD: Image stats - min={self.image_np.min()}, max={self.image_np.max()}, mean={self.image_np.mean():.2f}")
+            logger.info(f"DeepCS-TRD: Image memory - contiguous={self.image_np.flags['C_CONTIGUOUS']}, writable={self.image_np.flags['WRITEABLE']}")
             
             # Show progress message
             QtWidgets.QMessageBox.information(

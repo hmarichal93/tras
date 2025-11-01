@@ -61,6 +61,16 @@ class PreprocessDialog(QtWidgets.QDialog):
         crop_group = QtWidgets.QGroupBox(self.tr("1. Crop Image (Optional)"))
         crop_layout = QtWidgets.QVBoxLayout()
         
+        # Warning about tight cropping
+        crop_warning = QtWidgets.QLabel(
+            self.tr("⚠️ Important: Leave adequate margin (>100px) around the wood section.\n"
+                   "CS-TRD and DeepCS-TRD may fail on tightly cropped images.")
+        )
+        crop_warning.setWordWrap(True)
+        crop_warning.setStyleSheet("color: #ff6b00; font-size: 10px; padding: 5px; "
+                                   "background-color: #fff3cd; border-radius: 3px;")
+        crop_layout.addWidget(crop_warning)
+        
         # Crop button
         self.crop_btn = QtWidgets.QPushButton(self.tr("📐 Draw Crop Rectangle"))
         self.crop_btn.clicked.connect(self._on_crop_button)
