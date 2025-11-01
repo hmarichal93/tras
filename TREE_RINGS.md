@@ -38,6 +38,13 @@ Specialized annotation tool for tree ring detection in wood cross-section images
 - **Metadata Storage** - Preprocessing info saved in JSON for traceability
 - **Preview** - See changes before applying
 
+### Scale/Calibration
+- **Two Methods** - Draw line segment or direct input
+- **Physical Units** - mm, cm, μm per pixel
+- **Auto-Adjustment** - Scale updates automatically when resizing images
+- **Physical Measurements** - Ring properties computed in real-world units (mm², cm², μm²)
+- **Export** - CSV files include both pixel and physical measurements
+
 ## 📦 Installation
 
 ### 1. Clone the repository
@@ -121,15 +128,51 @@ labelme
 - U2Net requires GPU for optimal performance
 - Crop region is taken from the **last rectangle** you drew on the canvas
 
+#### Scale/Calibration Workflow (Optional but Recommended for Physical Measurements)
+
+1. **Load Image:** Open your wood cross-section image
+2. **Open Scale Dialog:** Go to `Tools > Set Scale / Calibration`
+3. **Choose Calibration Method:**
+   
+   **Method 1: Draw Line Segment** (recommended if you have a scale bar)
+   - Select "📏 Draw a line segment on the image"
+   - Click "Draw Line" button
+   - Draw a line along a feature of known length (e.g., scale bar, ruler)
+   - Enter the physical length (e.g., "10" mm)
+   - Scale is calculated automatically (e.g., 0.00236 mm/pixel)
+   
+   **Method 2: Direct Input** (if you know the scale)
+   - Select "⌨️ Enter scale directly (if known)"
+   - Enter the scale value (e.g., "0.02")
+   - Select unit (mm, cm, or μm)
+   - Click OK
+
+4. **Verify Scale:** The status bar will show "Scale set: X.XXXXXX unit/pixel"
+5. **Note:** If you resize the image later, the scale will auto-adjust proportionally
+
+**Benefits:**
+- Ring Properties will show measurements in real physical units (mm², cm², μm²)
+- CSV exports include both pixel and physical measurements
+- More accurate for scientific analysis
+
 #### Detection Workflow
 1. **Load Image:** Open a wood cross-section image (or preprocessed image)
-2. **Open Detection Dialog:** Go to `Tools > Tree Ring Detection` (or press shortcut)
-3. **Auto-detect Pith:** Click "Auto-detect pith" button (uses APD, <1 second)
-4. **Choose Detection Method:**
+2. **Set Metadata (Optional):** Go to `Tools > Sample Metadata` to set harvested year, sample code
+3. **Set Scale (Optional):** Go to `Tools > Set Scale / Calibration` (see above)
+4. **Open Detection Dialog:** Go to `Tools > Tree Ring Detection` (or press shortcut)
+5. **Auto-detect Pith:** Click "Auto-detect pith" button (uses APD, <1 second)
+6. **Choose Detection Method:**
    - Click **"Detect with CS-TRD (CPU)"** for edge-based detection (~73 sec, no GPU needed)
    - Click **"Detect with DeepCSTRD (GPU)"** for AI-based detection (~101 sec, requires GPU)
-5. **Refine Results:** Manually edit detected rings, add/remove ring boundaries
-6. **Save:** Save annotations as JSON file
+7. **View Results:** Rings are automatically labeled (by year if metadata set, or ring_1, ring_2, ...)
+8. **Compute Properties:** Go to `Tools > Ring Properties` to see:
+   - Area (mm² or px²)
+   - Cumulative Area
+   - Perimeter (mm or px)
+   - Ring Width (mm or px)
+9. **Export CSV:** Click "Export to CSV" in Ring Properties dialog
+10. **Refine Results:** Manually edit detected rings, add/remove ring boundaries
+11. **Save:** Save annotations as JSON file
 
 ### Python API
 
