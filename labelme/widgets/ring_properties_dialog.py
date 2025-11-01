@@ -35,8 +35,26 @@ class RingPropertiesDialog(QtWidgets.QDialog):
         # Table widget
         self.table = QtWidgets.QTableWidget()
         
-        # Set columns based on whether we have scale
-        if has_scale:
+        # Check if radial width measurements are available
+        has_radial = any(p.get('radial_width_px') is not None for p in ring_properties)
+        
+        # Set columns based on whether we have scale and radial measurements
+        if has_scale and has_radial:
+            self.table.setColumnCount(11)
+            self.table.setHorizontalHeaderLabels([
+                self.tr("Ring"),
+                self.tr(f"Area ({unit}²)"),
+                self.tr(f"Cumul. Area ({unit}²)"),
+                self.tr(f"Perimeter ({unit})"),
+                self.tr(f"Width ({unit})"),
+                self.tr(f"Radial Width ({unit})"),
+                self.tr("Area (px²)"),
+                self.tr("Cumul. Area (px²)"),
+                self.tr("Perimeter (px)"),
+                self.tr("Width (px)"),
+                self.tr("Radial Width (px)")
+            ])
+        elif has_scale:
             self.table.setColumnCount(9)
             self.table.setHorizontalHeaderLabels([
                 self.tr("Ring"),
@@ -48,6 +66,16 @@ class RingPropertiesDialog(QtWidgets.QDialog):
                 self.tr("Cumul. Area (px²)"),
                 self.tr("Perimeter (px)"),
                 self.tr("Width (px)")
+            ])
+        elif has_radial:
+            self.table.setColumnCount(6)
+            self.table.setHorizontalHeaderLabels([
+                self.tr("Ring"),
+                self.tr("Area (px²)"),
+                self.tr("Cumulative Area (px²)"),
+                self.tr("Perimeter (px)"),
+                self.tr("Ring Width (px)"),
+                self.tr("Radial Width (px)")
             ])
         else:
             self.table.setColumnCount(5)
@@ -100,6 +128,16 @@ class RingPropertiesDialog(QtWidgets.QDialog):
                 width_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
                 self.table.setItem(i, col, width_item)
                 col += 1
+                
+                # Radial width (physical) if available
+                if has_radial:
+                    if props.get('radial_width_physical') is not None:
+                        radial_width_item = QtWidgets.QTableWidgetItem(f"{props['radial_width_physical']:.4f}")
+                    else:
+                        radial_width_item = QtWidgets.QTableWidgetItem("N/A")
+                    radial_width_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                    self.table.setItem(i, col, radial_width_item)
+                    col += 1
             
             # Pixel measurements
             # Area (pixels)
@@ -127,6 +165,16 @@ class RingPropertiesDialog(QtWidgets.QDialog):
                 width_px_item = QtWidgets.QTableWidgetItem("N/A")
             width_px_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.table.setItem(i, col, width_px_item)
+            col += 1
+            
+            # Radial width (pixels) if available
+            if has_radial:
+                if props.get('radial_width_px') is not None:
+                    radial_width_px_item = QtWidgets.QTableWidgetItem(f"{props['radial_width_px']:.2f}")
+                else:
+                    radial_width_px_item = QtWidgets.QTableWidgetItem("N/A")
+                radial_width_px_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                self.table.setItem(i, col, radial_width_px_item)
         
         # Auto-resize columns to content
         self.table.resizeColumnsToContents()
@@ -234,8 +282,31 @@ class RingPropertiesDialog(QtWidgets.QDialog):
                 
                 writer.writerow([])  # Empty line separator
                 
-                # Header and data based on whether we have scale
-                if has_scale:
+                # Check if radial measurements are available
+                has_radial = any(p.get('radial_width_px') is not None for p in self.ring_properties)
+                
+                # Header and data based on whether we have scale and radial measurements
+                if has_scale and has_radial:
+                    writer.writerow([
+                        'Ring',
+                        f'Area ({unit}²)', f'Cumulative Area ({unit}²)', f'Perimeter ({unit})', f'Width ({unit})', f'Radial Width ({unit})',
+                        'Area (px²)', 'Cumulative Area (px²)', 'Perimeter (px)', 'Width (px)', 'Radial Width (px)'
+                    ])
+                    for props in self.ring_properties:
+                        writer.writerow([
+                            props['label'],
+                            f"{props['area_physical']:.4f}",
+                            f"{props['cumulative_area_physical']:.4f}",
+                            f"{props['perimeter_physical']:.4f}",
+                            f"{props['ring_width_physical']:.4f}" if props['ring_width_physical'] is not None else 'N/A',
+                            f"{props['radial_width_physical']:.4f}" if props.get('radial_width_physical') is not None else 'N/A',
+                            f"{props['area_px']:.2f}",
+                            f"{props['cumulative_area_px']:.2f}",
+                            f"{props['perimeter_px']:.2f}",
+                            f"{props['ring_width_px']:.2f}" if props['ring_width_px'] is not None else 'N/A',
+                            f"{props['radial_width_px']:.2f}" if props.get('radial_width_px') is not None else 'N/A'
+                        ])
+                elif has_scale:
                     writer.writerow([
                         'Ring',
                         f'Area ({unit}²)', f'Cumulative Area ({unit}²)', f'Perimeter ({unit})', f'Width ({unit})',
@@ -252,6 +323,24 @@ class RingPropertiesDialog(QtWidgets.QDialog):
                             f"{props['cumulative_area_px']:.2f}",
                             f"{props['perimeter_px']:.2f}",
                             f"{props['ring_width_px']:.2f}" if props['ring_width_px'] is not None else 'N/A'
+                        ])
+                elif has_radial:
+                    writer.writerow([
+                        'Ring',
+                        'Area (px²)',
+                        'Cumulative Area (px²)',
+                        'Perimeter (px)',
+                        'Ring Width (px)',
+                        'Radial Width (px)'
+                    ])
+                    for props in self.ring_properties:
+                        writer.writerow([
+                            props['label'],
+                            f"{props['area_px']:.2f}",
+                            f"{props['cumulative_area_px']:.2f}",
+                            f"{props['perimeter_px']:.2f}",
+                            f"{props['ring_width_px']:.2f}" if props['ring_width_px'] is not None else 'N/A',
+                            f"{props['radial_width_px']:.2f}" if props.get('radial_width_px') is not None else 'N/A'
                         ])
                 else:
                     writer.writerow([

@@ -732,6 +732,16 @@ class MainWindow(QtWidgets.QMainWindow):
             self.tr("Set physical scale for measurements (mm, cm, μm per pixel)"),
             enabled=False,
         )
+        
+        # Measure ring width along radial line
+        measureRadialWidth = action(
+            self.tr("Measure Ring Width Along Line"),
+            self._action_measure_radial_width,
+            None,
+            "line",
+            self.tr("Measure ring widths along a radial line from pith"),
+            enabled=False,
+        )
 
         # Group zoom controls into a list for easier toggling.
         self.zoom_actions = (
@@ -758,6 +768,7 @@ class MainWindow(QtWidgets.QMainWindow):
             ringProperties,
             metadata,
             setScale,
+            measureRadialWidth,
         )
         # menu shown at right click
         self.context_menu_actions = (
@@ -825,7 +836,7 @@ class MainWindow(QtWidgets.QMainWindow):
             ),
         )
         utils.addActions(self.menus.help, (help, self.actions.about))
-        utils.addActions(self.menus.tools, (metadata, setScale, None, preprocessImage, None, detectTreeRings, ringProperties))
+        utils.addActions(self.menus.tools, (metadata, setScale, None, preprocessImage, None, detectTreeRings, measureRadialWidth, ringProperties))
         utils.addActions(
             self.menus.view,
             (
@@ -914,6 +925,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.sample_metadata = None  # Store harvested year, sample code, observation
         self.image_scale = None  # Store scale: {'value': float, 'unit': str} e.g., {'value': 0.02, 'unit': 'mm'}
         self.imageArray = None  # Store preprocessed image as numpy array (bypasses QImage corruption)
+        self.radial_line_measurements = None  # Store radial width measurements: {ring_label: {'radial_width': float, ...}}
         self.zoom_level = 100
         self.fit_window = False
         self.zoom_values = {}  # key=filename, value=(zoom_mode, zoom_value)
@@ -1495,6 +1507,172 @@ class MainWindow(QtWidgets.QMainWindow):
         self.canvas.shapes.remove(shape)
         self.loadShapes(self.canvas.shapes, replace=True)
     
+    def _action_measure_radial_width(self) -> None:
+        """Measure ring widths along a radial line from pith"""
+        # Check if we have rings
+        ring_shapes = [s for s in self.canvas.shapes if s.label and s.label.startswith("ring_")]
+        
+        if not ring_shapes:
+            QtWidgets.QMessageBox.information(
+                self,
+                self.tr("No Rings"),
+                self.tr("No tree rings found.\n\n"
+                       "Please detect rings first using Tools > Tree Ring Detection.")
+            )
+            return
+        
+        # Ask user to click to set pith if not already set
+        reply = QtWidgets.QMessageBox.question(
+            self,
+            self.tr("Set Pith Location"),
+            self.tr(f"Found {len(ring_shapes)} rings.\n\n"
+                   "Click on the image to set the pith (tree center),\n"
+                   "then click again to define the radial line direction.\n\n"
+                   "Continue?"),
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+            QtWidgets.QMessageBox.Yes
+        )
+        
+        if reply != QtWidgets.QMessageBox.Yes:
+            return
+        
+        # Get pith click
+        self.show_status_message(self.tr("Click on the pith (tree center)..."))
+        pith_xy = self._wait_for_single_click("pith")
+        
+        if pith_xy is None:
+            self.show_status_message(self.tr("Radial measurement cancelled"))
+            return
+        
+        logger.info(f"Radial measurement: Pith set at ({pith_xy[0]:.1f}, {pith_xy[1]:.1f})")
+        
+        # Get direction click
+        self.show_status_message(self.tr("Click to define the radial line direction..."))
+        direction_xy = self._wait_for_single_click("direction")
+        
+        if direction_xy is None:
+            self.show_status_message(self.tr("Radial measurement cancelled"))
+            return
+        
+        logger.info(f"Radial measurement: Direction point at ({direction_xy[0]:.1f}, {direction_xy[1]:.1f})")
+        
+        # Compute ring widths along the line
+        from labelme.utils.ring_width_measurer import compute_ring_widths_along_line
+        
+        try:
+            QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
+            
+            measurements = compute_ring_widths_along_line(ring_shapes, pith_xy, direction_xy)
+            
+            QtWidgets.QApplication.restoreOverrideCursor()
+            
+            if not measurements:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    self.tr("No Intersections"),
+                    self.tr("No ring intersections found along the specified line.\n\n"
+                           "Try a different direction or check that rings are properly detected.")
+                )
+                return
+            
+            # Store measurements
+            self.radial_line_measurements = {
+                'pith_xy': pith_xy,
+                'direction_xy': direction_xy,
+                'measurements': measurements
+            }
+            
+            # Store in otherData for persistence
+            if self.otherData is None:
+                self.otherData = {}
+            self.otherData["radial_line_measurements"] = self.radial_line_measurements
+            
+            self.setDirty()
+            
+            logger.info(f"✓ Measured {len(measurements)} rings along radial line")
+            
+            # Show summary
+            message = f"Measured {len(measurements)} rings along radial line:\n\n"
+            
+            # Show first few measurements
+            sorted_rings = sorted(measurements.items(), key=lambda x: measurements[x[0]]['distance_from_pith'])
+            for i, (label, data) in enumerate(sorted_rings[:10]):
+                width = data['radial_width']
+                if self.image_scale:
+                    # Convert to physical units
+                    scale = self.image_scale['value']
+                    unit = self.image_scale['unit']
+                    width_physical = width * scale
+                    message += f"{label}: {width_physical:.4f} {unit}\n"
+                else:
+                    message += f"{label}: {width:.2f} px\n"
+            
+            if len(measurements) > 10:
+                message += f"\n... and {len(measurements) - 10} more rings"
+            
+            message += f"\n\nRadial widths will be included in CSV export."
+            
+            QtWidgets.QMessageBox.information(
+                self,
+                self.tr("Radial Width Measurement Complete"),
+                message
+            )
+            
+            self.show_status_message(
+                self.tr(f"✓ Measured {len(measurements)} rings along radial line")
+            )
+        
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(
+                self,
+                self.tr("Measurement Failed"),
+                self.tr(f"Failed to measure ring widths:\n\n{str(e)}")
+            )
+            logger.error(f"Radial width measurement failed: {e}", exc_info=True)
+    
+    def _wait_for_single_click(self, click_type="point"):
+        """Wait for a single click on the canvas and return coordinates"""
+        from PyQt5 import QtCore
+        
+        clicked_point = [None]
+        loop = QtCore.QEventLoop()
+        
+        def single_click_handler(ev):
+            # Transform click to image coordinates
+            pos = self.canvas.transformPos(ev.pos())
+            clicked_point[0] = (pos.x(), pos.y())
+            logger.info(f"{click_type} clicked at ({pos.x():.1f}, {pos.y():.1f})")
+            loop.quit()
+        
+        def key_handler(ev):
+            if ev.key() == QtCore.Qt.Key_Escape:
+                logger.info(f"{click_type} click cancelled")
+                loop.quit()
+        
+        # Temporarily override mouse press event
+        original_mouse_press = self.canvas.mousePressEvent
+        original_key_press = self.canvas.keyPressEvent
+        
+        self.canvas.mousePressEvent = single_click_handler
+        self.canvas.keyPressEvent = key_handler
+        
+        # Set a timeout (30 seconds)
+        timer = QtCore.QTimer()
+        timer.setSingleShot(True)
+        timer.timeout.connect(loop.quit)
+        timer.start(30000)
+        
+        # Wait for click or timeout
+        loop.exec_()
+        
+        # Restore original handlers
+        self.canvas.mousePressEvent = original_mouse_press
+        self.canvas.keyPressEvent = original_key_press
+        
+        timer.stop()
+        
+        return clicked_point[0]
+    
     def _action_ring_properties(self) -> None:
         """Compute and display ring properties (area, perimeter, etc.)"""
         if not self.canvas.shapes:
@@ -1588,6 +1766,17 @@ class MainWindow(QtWidgets.QMainWindow):
                 'ring_width_px': ring_width
             }
             
+            # Add radial width if available
+            if self.radial_line_measurements:
+                measurements = self.radial_line_measurements.get('measurements', {})
+                if shape.label in measurements:
+                    radial_data = measurements[shape.label]
+                    props['radial_width_px'] = radial_data['radial_width']
+                else:
+                    props['radial_width_px'] = None
+            else:
+                props['radial_width_px'] = None
+            
             # Convert to physical units if scale is available
             if self.image_scale:
                 scale = self.image_scale['value']  # e.g., 0.02 mm/pixel
@@ -1597,6 +1786,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 props['cumulative_area_physical'] = cumulative_area * (scale ** 2)
                 props['perimeter_physical'] = perimeter * scale  # pixels * mm/pixel = mm
                 props['ring_width_physical'] = ring_width * scale if ring_width else None
+                props['radial_width_physical'] = props['radial_width_px'] * scale if props['radial_width_px'] is not None else None
                 props['scale'] = scale
                 props['unit'] = unit
             
