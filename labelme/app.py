@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import functools
 import html
+import io
 import math
 import os
 import os.path as osp
@@ -1589,7 +1590,6 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # CRITICAL: Also update imageData to match the preprocessed image
         # This ensures that everything (canvas, detection, save) uses the preprocessed version
-        import io
         from PIL import Image
         buffer = io.BytesIO()
         Image.fromarray(processed_img).save(buffer, format='PNG')
