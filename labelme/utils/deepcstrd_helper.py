@@ -53,6 +53,10 @@ def detect_rings_deepcstrd(
     
     cx, cy = center_xy
     
+    # Create temporary output directory for DeepCS-TRD
+    import tempfile
+    temp_dir = tempfile.mkdtemp(prefix="deepcstrd_")
+    
     # Run DeepCS-TRD
     result = DeepTreeRingDetection(
         im_in=image,
@@ -66,21 +70,25 @@ def detect_rings_deepcstrd(
         weights_path=model_path,
         total_rotations=total_rotations,
         debug_image_input_path=None,
-        debug_output_dir=None,
+        debug_output_dir=temp_dir,
         tile_size=tile_size,
         prediction_map_threshold=prediction_map_threshold
     )
     
     # Extract rings from result
+    # DeepTreeRingDetection returns a tuple: (im_seg, im_pre, ch_e, ch_f, ch_s, ch_c, ch_p, rings_dict)
     rings = []
-    if result and 'rings' in result:
-        for ring_data in result['rings']:
-            if isinstance(ring_data, np.ndarray) and ring_data.shape[1] == 2:
-                rings.append(ring_data.astype(np.float32))
-            elif 'points' in ring_data:
-                pts = np.array(ring_data['points'], dtype=np.float32)
-                if pts.shape[1] == 2:
-                    rings.append(pts)
+    
+    if result is not None and isinstance(result, tuple) and len(result) >= 8:
+        # Extract the rings dictionary (last element of tuple)
+        rings_dict = result[7]
+        
+        if isinstance(rings_dict, dict) and 'shapes' in rings_dict:
+            for shape in rings_dict['shapes']:
+                if 'points' in shape and isinstance(shape['points'], list):
+                    pts = np.array(shape['points'], dtype=np.float32)
+                    if len(pts.shape) == 2 and pts.shape[1] == 2:
+                        rings.append(pts)
     
     return rings
 
