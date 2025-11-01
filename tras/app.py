@@ -716,7 +716,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self._action_metadata,
             None,
             "edit",
-            self.tr("Step 5: Input harvested year, sample code, and observations"),
+            self.tr("Input harvested year, sample code, and observations (can be done at any time)"),
             enabled=False,
         )
         
@@ -834,12 +834,14 @@ class MainWindow(QtWidgets.QMainWindow):
             ),
         )
         utils.addActions(self.menus.help, (help, self.actions.about))
-        # Tools menu organized by workflow order (Steps 2-7)
+        # Tools menu organized by workflow order
         utils.addActions(self.menus.tools, (
+            metadata,           # Step 1: Sample Metadata (optional, before starting)
+            None,
             setScale,           # Step 2: Set Scale
             preprocessImage,    # Step 3: Preprocess
             detectTreeRings,    # Step 4: Detect Rings
-            metadata,           # Step 5: Metadata
+            None,
             measureRadialWidth, # Step 6: Measure Width
             ringProperties,     # Step 7: View Properties
         ))
