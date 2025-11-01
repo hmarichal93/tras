@@ -168,12 +168,18 @@ class PreprocessDialog(QtWidgets.QDialog):
         """Apply all preprocessing steps"""
         img = self.original_image.copy()
         
+        # Ensure image is in RGB format (OpenCV-safe copy)
+        img = np.ascontiguousarray(img, dtype=np.uint8)
+        
         # 1. Resize if needed
         if self.scale_factor != 1.0:
             h, w = img.shape[:2]
             new_w = int(w * self.scale_factor)
             new_h = int(h * self.scale_factor)
+            # cv2.resize preserves channel order (doesn't convert RGB to BGR)
             img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
+            # Ensure output is contiguous and maintains RGB
+            img = np.ascontiguousarray(img, dtype=np.uint8)
         
         # 2. Remove background if enabled
         if self.background_removed:

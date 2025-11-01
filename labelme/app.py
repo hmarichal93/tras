@@ -1076,6 +1076,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.labelList.clear()
         
         # Convert processed image to QImage
+        # Ensure image is contiguous in memory
+        processed_img = np.ascontiguousarray(processed_img, dtype=np.uint8)
+        
         if len(processed_img.shape) == 2:
             # Grayscale
             h, w = processed_img.shape
@@ -1084,14 +1087,15 @@ class MainWindow(QtWidgets.QMainWindow):
                 processed_img.data, w, h, bytes_per_line, QtGui.QImage.Format_Grayscale8
             )
         else:
-            # RGB
+            # RGB - Qt expects RGB format (not BGR)
             h, w, ch = processed_img.shape
             bytes_per_line = ch * w
+            # Format_RGB888 expects RGB order (which is what we have)
             qt_img = QtGui.QImage(
                 processed_img.data, w, h, bytes_per_line, QtGui.QImage.Format_RGB888
             )
         
-        # Replace current image
+        # Make a deep copy to ensure image data persists
         self.image = qt_img.copy()
         self.canvas.loadPixmap(QtGui.QPixmap.fromImage(self.image))
         
