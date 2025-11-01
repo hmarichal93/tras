@@ -1528,30 +1528,26 @@ class MainWindow(QtWidgets.QMainWindow):
             )
             return
         
-        # Ask user to click to set pith if not already set
-        reply = QtWidgets.QMessageBox.question(
+        # Check if we have stored pith coordinates from detection
+        if self.pith_xy is None:
+            QtWidgets.QMessageBox.warning(
+                self,
+                self.tr("No Pith"),
+                self.tr("No pith coordinates found. Please run tree ring detection first to determine the pith location.")
+            )
+            return
+        
+        pith_xy = self.pith_xy
+        logger.info(f"Using stored pith coordinates: ({pith_xy[0]:.1f}, {pith_xy[1]:.1f})")
+        
+        # Inform user
+        QtWidgets.QMessageBox.information(
             self,
-            self.tr("Set Pith Location"),
-            self.tr(f"Found {len(ring_shapes)} rings.\n\n"
-                   "Click on the image to set the pith (tree center),\n"
-                   "then click again to define the radial line direction.\n\n"
-                   "Continue?"),
-            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
-            QtWidgets.QMessageBox.Yes
+            self.tr("Measure Ring Width Along Line"),
+            self.tr(f"Using pith at ({pith_xy[0]:.1f}, {pith_xy[1]:.1f}) from detection.\n\n"
+                   "Click on the image to define the radial line direction.\n\n"
+                   "The system will measure ring widths along this transect.")
         )
-        
-        if reply != QtWidgets.QMessageBox.Yes:
-            return
-        
-        # Get pith click
-        self.show_status_message(self.tr("Click on the pith (tree center)..."))
-        pith_xy = self._wait_for_single_click("pith")
-        
-        if pith_xy is None:
-            self.show_status_message(self.tr("Radial measurement cancelled"))
-            return
-        
-        logger.info(f"Radial measurement: Pith set at ({pith_xy[0]:.1f}, {pith_xy[1]:.1f})")
         
         # Get direction click
         self.show_status_message(self.tr("Click to define the radial line direction..."))
