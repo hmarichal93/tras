@@ -1,14 +1,8 @@
 from typing import Tuple
 import numpy as np
 import cv2
-import sys
-from pathlib import Path
 
-# Add tree ring methods to path
-_tree_ring_path = Path(__file__).parent.parent / "tree_ring_methods" / "apd"
-sys.path.insert(0, str(_tree_ring_path))
-
-from automatic_wood_pith_detector import apd
+from labelme.tree_ring_methods.apd.automatic_wood_pith_detector import apd
 
 def detect_pith_apd(image: np.ndarray, method: str = "apd") -> Tuple[float, float]:
     """

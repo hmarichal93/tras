@@ -3,9 +3,9 @@ import cv2
 from ultralytics import YOLO
 import pandas as pd
 
-from lib.structural_tensor import StructuralTensor, sampling_structural_tensor_matrix
-from lib.optimization import Optimization, LeastSquaresSolution, filter_lo_around_c
-from lib.pclines_parallel_coordinates import pclines_local_orientation_filtering
+from .structural_tensor import StructuralTensor, sampling_structural_tensor_matrix
+from .optimization import Optimization, LeastSquaresSolution, filter_lo_around_c
+from .pclines_parallel_coordinates import pclines_local_orientation_filtering
 
 
 def local_orientation(img_in, st_sigma, st_window):

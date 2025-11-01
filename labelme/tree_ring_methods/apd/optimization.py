@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 from scipy.optimize import minimize
 
-from lib.image import Drawing, Color, resize_image_using_pil_lib
+from .image import Drawing, Color, resize_image_using_pil_lib
 
 class Optimization:
     """
