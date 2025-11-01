@@ -102,7 +102,7 @@ class MainWindow(QtWidgets.QMainWindow):
         Shape.point_size = self._config["shape"]["point_size"]
 
         super().__init__()
-        self.setWindowTitle(f"{__appname__} - Tree Ring Analysis System")
+        self.setWindowTitle(f"{__appname__} - Tree Ring Analyzer Suite")
 
         # Whether we need to save or not.
         self.dirty = False

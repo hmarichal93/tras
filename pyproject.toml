@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tras"
-description = "Tree Ring Analysis System - Specialized tool for dendrochronology"
+description = "TRAS - Tree Ring Analyzer Suite - Specialized tool for dendrochronology"
 license = { text = "GPL-3.0-only" }
 requires-python = ">=3.9"
 version = "1.0.0"

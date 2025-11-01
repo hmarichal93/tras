@@ -1,4 +1,4 @@
-"""TRAS - Tree Ring Analysis System
+"""TRAS - Tree Ring Analyzer Suite
 
 Specialized tool for tree ring detection and dendrochronology analysis.
 Integrates APD, CS-TRD, and DeepCS-TRD methods.
