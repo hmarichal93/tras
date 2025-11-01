@@ -913,6 +913,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.otherData = None
         self.sample_metadata = None  # Store harvested year, sample code, observation
         self.image_scale = None  # Store scale: {'value': float, 'unit': str} e.g., {'value': 0.02, 'unit': 'mm'}
+        self.imageArray = None  # Store preprocessed image as numpy array (bypasses QImage corruption)
         self.zoom_level = 100
         self.fit_window = False
         self.zoom_values = {}  # key=filename, value=(zoom_mode, zoom_value)
@@ -1046,6 +1047,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.filename = None
         self.imagePath = None
         self.imageData = None
+        self.imageArray = None  # Clear preprocessed array
         self.labelFile = None
         self.otherData = None
         self.canvas.resetState()
@@ -1056,21 +1058,26 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         
         # Convert image to RGB888 format first
-        if self.image.format() != QtGui.QImage.Format_RGB888:
-            qimage_rgb = self.image.convertToFormat(QtGui.QImage.Format_RGB888)
+        # Use stored numpy array if available (from preprocessing), otherwise extract from QImage
+        if self.imageArray is not None:
+            # Use the stored preprocessed array (bypasses QImage corruption)
+            image_np = self.imageArray
+            logger.info(f"✓ Using stored preprocessed numpy array: {image_np.shape} ({image_np.dtype})")
         else:
-            qimage_rgb = self.image
+            # Convert QImage to numpy array
+            if self.image.format() != QtGui.QImage.Format_RGB888:
+                qimage_rgb = self.image.convertToFormat(QtGui.QImage.Format_RGB888)
+            else:
+                qimage_rgb = self.image
+            
+            # Extract image as numpy array
+            image_np = utils.img_qt_to_arr(qimage_rgb)[:, :, :3]
+            logger.info(f"Extracted image from QImage: {image_np.shape} ({image_np.dtype})")
         
-        # Extract the currently displayed image as numpy array
-        # This is the preprocessed image if preprocessing was applied
-        image_np = utils.img_qt_to_arr(qimage_rgb)[:, :, :3]
-        
-        # Log image info to confirm we're using the displayed image
-        logger.info(f"Tree ring detection using displayed image: {image_np.shape} ({image_np.dtype})")
+        # Log image info
+        logger.info(f"Tree ring detection image: {image_np.shape} ({image_np.dtype})")
         logger.info(f"  Image stats: min={image_np.min()}, max={image_np.max()}, mean={image_np.mean():.2f}")
         logger.info(f"  First pixel: {image_np[0, 0]}")
-        logger.info(f"  QImage format: {qimage_rgb.format()} (size: {qimage_rgb.width()}x{qimage_rgb.height()})")
-        logger.info(f"  QImage depth: {qimage_rgb.depth()}, byteCount: {qimage_rgb.byteCount()}")
         if self.otherData and "preprocessing" in self.otherData:
             preprocessing_info = self.otherData["preprocessing"]
             logger.info(f"Image was preprocessed: scale={preprocessing_info.get('scale_factor', 1.0)}, "
@@ -1720,17 +1727,13 @@ class MainWindow(QtWidgets.QMainWindow):
         except:
             pass
         
-        # LOG: Verify QImage after copy
-        logger.info(f"QImage after copy: format={self.image.format()}, size={self.image.width()}x{self.image.height()}")
+        # CRITICAL FIX: Store the preprocessed numpy array directly
+        # This bypasses ALL QImage corruption issues
+        self.imageArray = processed_img.copy()  # Store pristine numpy array
+        logger.info(f"✓ Stored preprocessed image as numpy array: shape={self.imageArray.shape}, dtype={self.imageArray.dtype}")
         
-        # LOG: Verify we can read back the same data
-        test_read_back = utils.img_qt_to_arr(self.image)[:, :, :3]
-        logger.info(f"Read back from QImage: shape={test_read_back.shape}, mean={test_read_back.mean():.2f}")
-        logger.info(f"  First pixel after read-back: {test_read_back[0, 0]}")
-        if np.array_equal(processed_img, test_read_back):
-            logger.info("  ✓ QImage->numpy round-trip is identical")
-        else:
-            logger.error(f"  ✗ QImage->numpy round-trip DIFFERS! Max diff: {np.abs(processed_img.astype(float) - test_read_back.astype(float)).max()}")
+        # LOG: Verify QImage format
+        logger.info(f"QImage format: {self.image.format()} (RGB888=13), size={self.image.width()}x{self.image.height()}")
         
         # CRITICAL: Also update imageData to match the preprocessed image
         # This ensures that everything (canvas, detection, save) uses the preprocessed version
