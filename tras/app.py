@@ -230,11 +230,11 @@ class MainWindow(QtWidgets.QMainWindow):
             self.tr("Quit application"),
         )
         open_ = action(
-            self.tr("&Open\n"),
+            self.tr("📁 &Open"),
             self.openFile,
             shortcuts["open"],
             "open",
-            self.tr("Open image or label file"),
+            self.tr("Step 1: Load wood cross-section image or label file"),
         )
         opendir = action(
             self.tr("Open Dir"),
@@ -260,19 +260,19 @@ class MainWindow(QtWidgets.QMainWindow):
             enabled=False,
         )
         save = action(
-            self.tr("&Save\n"),
+            self.tr("💾 &Save"),
             self.saveFile,
             shortcuts["save"],
             "save",
-            self.tr("Save labels to file"),
+            self.tr("Step 8: Export labels and data to file"),
             enabled=False,
         )
         saveAs = action(
-            self.tr("&Save As"),
+            self.tr("💾 Save &As"),
             self.saveFileAs,
             shortcuts["save_as"],
             "save-as",
-            self.tr("Save labels to a different file"),
+            self.tr("Step 8: Export labels to a different file"),
             enabled=False,
         )
 
@@ -672,21 +672,21 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Tree Ring Detection action
         detectTreeRings = action(
-            self.tr("Tree Ring Detection"),
+            self.tr("🎯 Detect Tree Rings"),
             self._action_detect_rings,
             None,
             "objects",
-            self.tr("Detect tree rings using TRAS methods (APD, CS-TRD, DeepCS-TRD)"),
+            self.tr("Step 4: Automatically detect rings using APD, CS-TRD, or DeepCS-TRD"),
             enabled=False,
         )
         
         # Preprocess Image action
         preprocessImage = action(
-            self.tr("Preprocess Image"),
+            self.tr("🖼️ Preprocess Image"),
             self._action_preprocess_image,
             None,
             "edit",
-            self.tr("Resize, crop, and remove background from image"),
+            self.tr("Step 3: Crop, resize, or remove background from image"),
             enabled=False,
         )
         
@@ -702,41 +702,41 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # Ring Properties action
         ringProperties = action(
-            self.tr("Ring Properties"),
+            self.tr("📊 View Ring Properties"),
             self._action_ring_properties,
             None,
             "objects",
-            self.tr("Compute area, perimeter, and other ring properties"),
+            self.tr("Step 7: Compute and view ring area, perimeter, and cumulative measurements"),
             enabled=False,
         )
         
         # Metadata action
         metadata = action(
-            self.tr("Sample Metadata"),
+            self.tr("📝 Sample Metadata"),
             self._action_metadata,
             None,
             "edit",
-            self.tr("Input harvested year, sample code, and observations"),
+            self.tr("Step 5: Input harvested year, sample code, and observations"),
             enabled=False,
         )
         
         # Scale calibration action
         setScale = action(
-            self.tr("Set Scale / Calibration"),
+            self.tr("📏 Set Image Scale"),
             self._action_set_scale,
             None,
             "ruler",
-            self.tr("Set physical scale for measurements (mm, cm, μm per pixel)"),
+            self.tr("Step 2: Set physical scale for measurements (mm, cm, μm per pixel)"),
             enabled=False,
         )
         
         # Measure ring width along radial line
         measureRadialWidth = action(
-            self.tr("Measure Ring Width Along Line"),
+            self.tr("📐 Measure Ring Width"),
             self._action_measure_radial_width,
             None,
             "line",
-            self.tr("Measure ring widths along a radial line from pith"),
+            self.tr("Step 6: Measure ring widths along a radial line from pith"),
             enabled=False,
         )
         
@@ -834,7 +834,15 @@ class MainWindow(QtWidgets.QMainWindow):
             ),
         )
         utils.addActions(self.menus.help, (help, self.actions.about))
-        utils.addActions(self.menus.tools, (metadata, setScale, None, preprocessImage, None, detectTreeRings, measureRadialWidth, None, ringProperties))
+        # Tools menu organized by workflow order (Steps 2-7)
+        utils.addActions(self.menus.tools, (
+            setScale,           # Step 2: Set Scale
+            preprocessImage,    # Step 3: Preprocess
+            detectTreeRings,    # Step 4: Detect Rings
+            metadata,           # Step 5: Metadata
+            measureRadialWidth, # Step 6: Measure Width
+            ringProperties,     # Step 7: View Properties
+        ))
         utils.addActions(
             self.menus.view,
             (
