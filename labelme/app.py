@@ -1705,8 +1705,13 @@ class MainWindow(QtWidgets.QMainWindow):
             tmp_path = tmp.name
             PILImage.fromarray(processed_img).save(tmp_path, format='PNG')
         
-        # Load into QImage
+        # Load into QImage and explicitly convert to RGB888 format
         self.image = QtGui.QImage(tmp_path)
+        
+        # CRITICAL: Ensure the loaded image is in RGB888 format (not BGR or other formats)
+        if self.image.format() != QtGui.QImage.Format_RGB888:
+            logger.info(f"Converting loaded image from format {self.image.format()} to RGB888")
+            self.image = self.image.convertToFormat(QtGui.QImage.Format_RGB888)
         
         # Clean up temp file
         import os
