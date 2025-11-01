@@ -6,7 +6,7 @@ Professional tool for automatic tree ring detection and measurement in wood cros
 
 ### 1. Clone Repository
 ```bash
-git clone -b tras https://github.com/yourusername/labelme.git
+git clone -b tras https://github.com/hmarichal93/tras.git
 cd labelme
 ```
 
@@ -59,10 +59,6 @@ cd tras/tree_ring_methods/deepcstrd
 - **.POS**: CooRecorder-compatible format for radial measurements
 - Physical units automatically converted from pixel measurements
 
-### 🎨 Wood-Themed Interface
-- Natural wood color palette (saddle brown, burlywood, goldenrod)
-- Dendrochronology-specific icons (tree rings, pith, cross-sections)
-- Intuitive UI designed for dendrochronology research
 
 ## Usage
 
@@ -154,4 +150,4 @@ Specialized for dendrochronology research by integrating methods from the [TRAS 
 ---
 
 **TRAS v1.0.0** - Tree Ring Analyzer Suite  
-Professional dendrochronology with beautiful wood-themed UI
+Professional dendrochronology tool
