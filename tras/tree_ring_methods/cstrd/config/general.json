@@ -1,1 +1,1 @@
-{"Nr": 360, "resize": [1000, 1000], "min_chain_lenght": 2, "edge_th": 30, "sigma": 3.0, "th_high": 20.0, "th_low": 5.0, "devernay_path": "devernay", "result_path": "/tmp/cstrd_xuvzar5g", "nr": 360, "min_chain_length": 2, "alpha": 30}
+{"Nr": 360, "resize": [1000, 1000], "min_chain_lenght": 2, "edge_th": 30, "sigma": 3.0, "th_high": 20.0, "th_low": 5.0, "devernay_path": "devernay", "result_path": "/tmp/cstrd__keoxmj9", "nr": 360, "min_chain_length": 2, "alpha": 30}
