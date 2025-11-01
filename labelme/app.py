@@ -1698,27 +1698,22 @@ class MainWindow(QtWidgets.QMainWindow):
         # Ensure image is uint8 and contiguous
         processed_img = np.ascontiguousarray(processed_img, dtype=np.uint8)
         
-        # Convert numpy → QImage using direct constructor (ensures pixel-perfect copy)
-        h, w = processed_img.shape[:2]
+        # Save to temporary file and load - most reliable method
+        # This ensures Qt's image loader handles everything correctly
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+            tmp_path = tmp.name
+            PILImage.fromarray(processed_img).save(tmp_path, format='PNG')
         
-        if len(processed_img.shape) == 2:
-            # Grayscale
-            bytes_per_line = w
-            self.image = QtGui.QImage(
-                processed_img.tobytes(),
-                w, h,
-                bytes_per_line,
-                QtGui.QImage.Format_Grayscale8
-            ).copy()  # .copy() ensures data ownership
-        else:
-            # RGB - use Format_RGB888 for proper byte order
-            bytes_per_line = w * 3
-            self.image = QtGui.QImage(
-                processed_img.tobytes(),
-                w, h,
-                bytes_per_line,
-                QtGui.QImage.Format_RGB888
-            ).copy()  # .copy() ensures data ownership
+        # Load into QImage
+        self.image = QtGui.QImage(tmp_path)
+        
+        # Clean up temp file
+        import os
+        try:
+            os.unlink(tmp_path)
+        except:
+            pass
         
         # LOG: Verify QImage after copy
         logger.info(f"QImage after copy: format={self.image.format()}, size={self.image.width()}x{self.image.height()}")
