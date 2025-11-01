@@ -83,39 +83,48 @@ labelme path/to/image.jpg
 
 ## Citations
 
-### CS-TRD
+### APD (Automatic Pith Detection)
+Marichal, H., Passarella, D., Randall, G. (2025). Automatic Wood Pith Detector: Local Orientation Estimation and Robust Accumulation. In: Pattern Recognition. ICPR 2024. Lecture Notes in Computer Science, vol 15317. Springer, Cham.
+
+**Link:** https://link.springer.com/chapter/10.1007/978-3-031-78447-7_1
+
 ```bibtex
-@article{gonzalez2018automatic,
-  title={Automatic tree-ring detection and delineation in microscopic images of wood samples},
-  author={Gonzalez-Jorge, H and Sanchez, A and Solla, M and Laguela, S and Diaz-Vilari{\~n}o, L and Riveiro, B},
-  journal={Computers and Electronics in Agriculture},
-  volume={150},
-  pages={173--182},
-  year={2018}
+@inproceedings{marichal2025apd,
+  title={Automatic Wood Pith Detector: Local Orientation Estimation and Robust Accumulation},
+  author={Marichal, Henry and Passarella, Diego and Randall, Gregory},
+  booktitle={Pattern Recognition. ICPR 2024},
+  series={Lecture Notes in Computer Science},
+  volume={15317},
+  pages={1--15},
+  year={2025},
+  publisher={Springer, Cham},
+  doi={10.1007/978-3-031-78447-7_1}
 }
 ```
 
-### APD
+### CS-TRD (Classical Tree Ring Detection)
 ```bibtex
-@article{norell2019automatic,
-  title={Automatic pith detection in CT images of wood logs},
-  author={Norell, K and Borgefors, G},
-  journal={Computers and Electronics in Agriculture},
-  volume={157},
-  pages={435--443},
-  year={2019}
+@misc{marichal2024cstrdcrosssectionstree,
+  title={CS-TRD: a Cross Sections Tree Ring Detection method}, 
+  author={Henry Marichal and Diego Passarella and Gregory Randall},
+  year={2024},
+  eprint={2305.10809},
+  archivePrefix={arXiv},
+  primaryClass={cs.CV},
+  url={https://arxiv.org/abs/2305.10809}
 }
 ```
 
-### DeepCS-TRD
+### DeepCS-TRD (Deep Learning Tree Ring Detection)
 ```bibtex
-@article{marichal2021deepcstrd,
-  title={DeepCS-TRD: Deep learning for tree ring detection},
-  author={Marichal, H and Morel, J and Silveira, M and others},
-  journal={Dendrochronologia},
-  volume={68},
-  pages={125847},
-  year={2021}
+@misc{marichal2025deepcstrddeeplearningbasedcrosssection,
+  title={DeepCS-TRD, a Deep Learning-based Cross-Section Tree Ring Detector}, 
+  author={Henry Marichal and Verónica Casaravilla and Candice Power and Karolain Mello and Joaquín Mazarino and Christine Lucas and Ludmila Profumo and Diego Passarella and Gregory Randall},
+  year={2025},
+  eprint={2504.16242},
+  archivePrefix={arXiv},
+  primaryClass={cs.CV},
+  url={https://arxiv.org/abs/2504.16242}
 }
 ```
 
