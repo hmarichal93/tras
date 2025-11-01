@@ -1,6 +1,107 @@
-lala# LabelMe - Tree Ring Detection
+# LabelMe - Tree Ring Detection
 
 Specialized annotation tool for tree ring detection in wood cross-section images. This branch integrates three automatic detection methods from the [TRAS repository](https://github.com/hmarichal93/tras).
+
+---
+
+## 📏 Understanding Ring Width Measurements
+
+This tool provides **two different methods** for measuring ring widths, each suited for different purposes:
+
+### 1. **Width (Centroid-Based)** 
+**What it measures:** Distance between ring centroids  
+**How it works:** Computes the geometric center (centroid) of each ring polygon, then measures the distance between consecutive centroids.
+
+**Pros:**
+- ✅ Fast and automatic
+- ✅ Works well for circular/concentric rings
+- ✅ Good for overall growth trends
+
+**Cons:**
+- ❌ Less accurate for eccentric growth
+- ❌ Doesn't account for directional growth patterns
+- ❌ Can be misleading for non-circular rings
+
+**When to use:** Quick analysis, circular rings, preliminary measurements
+
+---
+
+### 2. **Radial Width (Transect-Based)** ⭐ RECOMMENDED
+**What it measures:** Ring width along a specific radial line from the pith  
+**How it works:** User defines a direction from the pith. The system computes where this line intersects each ring boundary and measures the distance between consecutive intersections.
+
+**Pros:**
+- ✅ Standard dendrochronology method
+- ✅ Accurate for eccentric growth patterns
+- ✅ User can choose measurement direction (avoid compression wood, reaction wood, etc.)
+- ✅ Measures actual ring boundaries, not centroids
+- ✅ More reproducible and scientifically valid
+
+**Cons:**
+- ❌ Requires one extra click (to define direction)
+
+**When to use:** Scientific analysis, publication-quality data, eccentric rings, directional growth patterns
+
+---
+
+### Visual Comparison
+
+```
+Centroid-Based Width:
+┌─────────────────────────────────────┐
+│        Ring 3 (outer)               │
+│    ↓ centroid                       │
+│  ┌─────────────────────┐            │
+│  │   Ring 2            │            │
+│  │  ↓ centroid         │            │
+│  │ ┌─────────────┐     │            │
+│  │ │  Ring 1     │     │            │
+│  │ │ ↓ centroid  │     │            │
+│  │ │    • Pith   │     │            │
+│  │ └─────────────┘     │            │
+│  └─────────────────────┘            │
+└─────────────────────────────────────┘
+
+Width = distance between centroids
+→ Averages growth across entire ring
+
+
+Radial Width (Transect):
+┌─────────────────────────────────────┐
+│        Ring 3 (outer)               │
+│       |← width →|                   │
+│  ┌────┼─────────┼───────┐           │
+│  │ R2 |         |       │           │
+│  │    |← width →|       │           │
+│  │ ┌──┼─────────┼───┐   │           │
+│  │ │R1|         |   │   │           │
+│  │ │  |← width →|   │   │           │
+│  │ │  •─────────────┼───┼───→       │
+│  │ │Pith (radial line)  │           │
+│  │ └──────────────────┘ │           │
+│  └────────────────────────┘         │
+└─────────────────────────────────────┘
+
+Radial Width = distance along line
+→ Measures actual ring boundaries in chosen direction
+```
+
+---
+
+### Which Should You Use?
+
+| Scenario | Recommended Method |
+|----------|-------------------|
+| Quick overview | Centroid-Based Width |
+| Scientific publication | **Radial Width** ⭐ |
+| Eccentric/irregular rings | **Radial Width** ⭐ |
+| Compression/reaction wood | **Radial Width** ⭐ |
+| Comparing multiple samples | **Radial Width** ⭐ |
+| Climate reconstruction | **Radial Width** ⭐ |
+
+**💡 Pro Tip:** In dendrochronology, **radial width along a transect** is the standard method used in research papers and for cross-dating samples.
+
+---
 
 ## 🎯 Features
 
