@@ -31,6 +31,12 @@ Specialized annotation tool for tree ring detection in wood cross-section images
 - **Gleditsia** - Optimized for Gleditsia species
 - **Salix Glauca** - Optimized for Salix species
 
+### Image Preprocessing
+- **Resize** - Scale images (10%-100%) for faster processing
+- **Background Removal** - Remove white backgrounds using thresholding
+- **Metadata Storage** - Preprocessing info saved in JSON for traceability
+- **Preview** - See changes before applying
+
 ## 📦 Installation
 
 ### 1. Clone the repository
@@ -88,8 +94,17 @@ labelme path/to/wood_cross_section.jpg
 labelme
 ```
 
-#### Detection Workflow
+#### Preprocessing Workflow (Optional but Recommended)
 1. **Load Image:** Open a wood cross-section image
+2. **Preprocess Image:** Go to `Tools > Preprocess Image`
+   - **Resize:** Adjust scale slider (10% - 100%) to reduce image size if needed
+   - **Remove Background:** Enable background removal and adjust threshold (for white backgrounds)
+   - **Preview:** Click "Preview Changes" to see the result
+   - **Apply:** Click "Apply" to replace the current image
+3. **Note:** Preprocessing clears existing annotations (you'll be asked to confirm)
+
+#### Detection Workflow
+1. **Load Image:** Open a wood cross-section image (or preprocessed image)
 2. **Open Detection Dialog:** Go to `Tools > Tree Ring Detection` (or press shortcut)
 3. **Auto-detect Pith:** Click "Auto-detect pith" button (uses APD, <1 second)
 4. **Choose Detection Method:**
