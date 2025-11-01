@@ -1995,8 +1995,15 @@ class MainWindow(QtWidgets.QMainWindow):
         
         logger.info(f"✓ Computed properties for {len(ring_properties)} rings")
         
-        # Show dialog with results (include metadata if available)
-        dlg = RingPropertiesDialog(ring_properties, parent=self, metadata=self.sample_metadata)
+        # Prepare metadata including scale and sample info
+        metadata = {}
+        if self.sample_metadata:
+            metadata.update(self.sample_metadata)
+        if self.image_scale:
+            metadata['scale'] = self.image_scale
+        
+        # Show dialog with results
+        dlg = RingPropertiesDialog(ring_properties, parent=self, metadata=metadata if metadata else None)
         dlg.exec_()
     
     def _action_preprocess_image(self) -> None:
