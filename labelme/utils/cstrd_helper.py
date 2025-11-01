@@ -56,14 +56,14 @@ def detect_rings_cstrd(
         sigma=sigma,
         th_low=th_low,
         th_high=th_high,
-        hsize=0,
-        wsize=0,
+        height=0,
+        width=0,
         alpha=alpha,
         nr=nr,
-        min_chain_length=min_chain_length,
+        mc=min_chain_length,
         debug=False,
-        im_path=None,
-        output_dir=None
+        debug_image_input_path=None,
+        debug_output_dir=None
     )
     
     # Extract rings from result

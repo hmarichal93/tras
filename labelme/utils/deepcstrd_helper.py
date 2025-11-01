@@ -4,8 +4,10 @@ import sys
 from pathlib import Path
 
 # Add tree ring methods to path
-_tree_ring_path = Path(__file__).parent.parent / "tree_ring_methods" / "deepcstrd"
-sys.path.insert(0, str(_tree_ring_path))
+_deepcstrd_path = Path(__file__).parent.parent / "tree_ring_methods" / "deepcstrd"
+_cstrd_path = Path(__file__).parent.parent / "tree_ring_methods" / "cstrd"
+sys.path.insert(0, str(_deepcstrd_path))
+sys.path.insert(0, str(_cstrd_path))
 
 from deep_cstrd.deep_tree_ring_detection import DeepTreeRingDetection
 

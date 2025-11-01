@@ -176,26 +176,73 @@ uv pip install ultralytics torch torchvision
    done
    ```
 
+## Additional Testing
+
+### CS-TRD (Partial)
+
+**Status:** ⚠️ REQUIRES MORE WORK
+
+**Progress:**
+- ✅ Devernay edge detector compiled successfully
+- ✅ Config files copied from tras
+- ✅ Shapely 1.7.0 installed with GEOS library symlink
+- ❌ CS-TRD expects specific directory structure and paths
+- ❌ Needs output directory management
+- ❌ Devernay executable path needs fixing
+
+**Issues:**
+- CS-TRD is tightly coupled to its original directory structure
+- Requires more refactoring to work as an imported module
+- Needs wrapper to handle temporary directories and file management
+
+### DeepCS-TRD (Partial)
+
+**Status:** ⚠️ REQUIRES MORE WORK
+
+**Progress:**
+- ✅ Model files available (550MB already copied)
+- ✅ PyTorch and torchvision installed
+- ✅ segmentation-models-pytorch installed
+- ❌ Depends on `urudendro` package (external dependency)
+- ❌ Needs cross_section_tree_ring_detection module from CS-TRD
+
+**Issues:**
+- DeepCS-TRD has dependency on `urudendro` package which is not trivial to install
+- Shares code with CS-TRD, creating circular dependencies
+- Needs more refactoring to decouple from external packages
+
+**Next Steps:**
+- Install or vendor `urudendro` package
+- Refactor CS-TRD to work as a proper Python module
+- Create proper package structure to avoid path manipulation
+- Add comprehensive dependency management
+
 ## Next Steps
 
-- [ ] Test DeepCS-TRD (requires model download ~550MB)
-- [ ] Test CS-TRD (requires Devernay compilation)
+- [ ] Fix CS-TRD directory structure and paths
+- [ ] Install urudendro or vendor its dependencies
+- [ ] Test DeepCS-TRD with all dependencies resolved
 - [ ] Test on more diverse samples (different species, qualities)
 - [ ] Benchmark against manual annotations
 - [ ] Performance optimization for large images
 
 ## Conclusion
 
-✅ **All tree ring detection methods are working correctly!**
+✅ **APD and Classical Polar Method are fully working!**  
+⚠️ **CS-TRD and DeepCS-TRD require additional work**
 
-The integration of TRAS methods into labelme has been successful. The workflow from pith detection to ring delineation to JSON export works seamlessly through both CLI and GUI interfaces.
+The integration of TRAS methods into labelme has been partially successful. The APD pith detection and the existing classical polar-based ring detection work seamlessly through both CLI and GUI interfaces.
 
 **Key Achievements:**
-- APD automatically detects pith without manual input
-- Classical ring detection produces high-quality results
-- CLI tool enables batch processing
-- GUI integration allows manual refinement
-- JSON format is compatible with labelme ecosystem
+- ✅ APD automatically detects pith without manual input (WORKING)
+- ✅ Classical polar ring detection produces high-quality results (WORKING)
+- ✅ CLI tool enables batch processing (WORKING)
+- ✅ GUI integration allows manual refinement (WORKING)
+- ✅ JSON format is compatible with labelme ecosystem (WORKING)
+- ⚠️ CS-TRD needs refactoring for module integration (NEEDS WORK)
+- ⚠️ DeepCS-TRD needs dependency resolution (NEEDS WORK)
 
-**Production Ready:** Yes, for classical polar-based detection with APD pith detection.
+**Production Ready:** 
+- **YES** for APD pith detection + classical polar-based ring detection
+- **NO** (yet) for CS-TRD and DeepCS-TRD - require additional refactoring and dependency management
 
