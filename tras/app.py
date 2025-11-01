@@ -1918,6 +1918,11 @@ class MainWindow(QtWidgets.QMainWindow):
             )
             return
         
+        # Automatically re-label rings before computing properties
+        # (in case user added/removed rings manually)
+        logger.info("Auto-relabeling rings before computing properties...")
+        self._relabel_rings_with_years()
+        
         # Sort rings by label number
         # If using years: sort descending (2020, 2019, 2018... = outermost to innermost)
         # If using numbers: sort ascending (ring_1, ring_2, ring_3... = outermost to innermost)
