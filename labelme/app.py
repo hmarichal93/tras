@@ -722,6 +722,16 @@ class MainWindow(QtWidgets.QMainWindow):
             self.tr("Input harvested year, sample code, and observations"),
             enabled=False,
         )
+        
+        # Scale calibration action
+        setScale = action(
+            self.tr("Set Scale / Calibration"),
+            self._action_set_scale,
+            None,
+            "ruler",
+            self.tr("Set physical scale for measurements (mm, cm, μm per pixel)"),
+            enabled=False,
+        )
 
         # Group zoom controls into a list for easier toggling.
         self.zoom_actions = (
@@ -747,6 +757,7 @@ class MainWindow(QtWidgets.QMainWindow):
             clearAllRings,
             ringProperties,
             metadata,
+            setScale,
         )
         # menu shown at right click
         self.context_menu_actions = (
@@ -814,7 +825,7 @@ class MainWindow(QtWidgets.QMainWindow):
             ),
         )
         utils.addActions(self.menus.help, (help, self.actions.about))
-        utils.addActions(self.menus.tools, (metadata, None, preprocessImage, None, detectTreeRings, ringProperties))
+        utils.addActions(self.menus.tools, (metadata, setScale, None, preprocessImage, None, detectTreeRings, ringProperties))
         utils.addActions(
             self.menus.view,
             (
@@ -901,6 +912,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.maxRecent = 7
         self.otherData = None
         self.sample_metadata = None  # Store harvested year, sample code, observation
+        self.image_scale = None  # Store scale: {'value': float, 'unit': str} e.g., {'value': 0.02, 'unit': 'mm'}
         self.zoom_level = 100
         self.fit_window = False
         self.zoom_values = {}  # key=filename, value=(zoom_mode, zoom_value)
@@ -1365,6 +1377,117 @@ class MainWindow(QtWidgets.QMainWindow):
         logger.info(f"✓ Relabeled {len(ring_shapes)} rings with years")
         self.show_status_message(self.tr(f"Relabeled {len(ring_shapes)} rings with years"))
     
+    def _action_set_scale(self) -> None:
+        """Set physical scale/calibration for measurements"""
+        if self.image.isNull():
+            QtWidgets.QMessageBox.information(
+                self,
+                self.tr("No Image"),
+                self.tr("Please open an image first.")
+            )
+            return
+        
+        from labelme.widgets import ScaleDialog
+        
+        # Get current scale if exists
+        current_scale = self.image_scale['value'] if self.image_scale else None
+        current_unit = self.image_scale['unit'] if self.image_scale else 'mm'
+        
+        # Show scale dialog
+        dlg = ScaleDialog(parent=self, current_scale=current_scale, current_unit=current_unit)
+        result = dlg.exec_()
+        
+        if result == 2:  # Draw line mode
+            # User wants to draw a line
+            self._enter_scale_line_mode()
+            return
+        elif result != QtWidgets.QDialog.Accepted:
+            return
+        
+        # Direct input mode
+        if dlg.get_method() == 'direct':
+            scale_value = dlg.get_scale_value()
+            unit = dlg.get_unit()
+            
+            self.image_scale = {
+                'value': scale_value,
+                'unit': unit
+            }
+            
+            logger.info(f"Scale set (direct input): {scale_value:.6f} {unit}/pixel")
+            
+            # Store in otherData
+            if self.otherData is None:
+                self.otherData = {}
+            self.otherData["image_scale"] = self.image_scale
+            
+            self.setDirty()
+            self.show_status_message(
+                self.tr(f"Scale set: {scale_value:.6f} {unit}/pixel")
+            )
+    
+    def _enter_scale_line_mode(self):
+        """Enter mode for drawing a calibration line"""
+        # Set flag so newShape() knows this is a calibration line
+        self._skip_next_label = True
+        self._waiting_for_scale_line = True
+        self.toggleDrawMode(False, createMode="line")
+        
+        self.show_status_message(
+            self.tr("Draw a line of known length, then specify its physical size...")
+        )
+    
+    def _handle_scale_line(self, shape):
+        """Handle a drawn scale calibration line"""
+        from labelme.widgets import LineCalibrationDialog
+        
+        # Calculate line length in pixels
+        if len(shape.points) < 2:
+            QtWidgets.QMessageBox.warning(
+                self,
+                self.tr("Invalid Line"),
+                self.tr("Please draw a line with at least 2 points.")
+            )
+            # Remove the invalid shape
+            self.canvas.shapes.remove(shape)
+            self.loadShapes(self.canvas.shapes, replace=True)
+            return
+        
+        # Calculate line length (Euclidean distance)
+        p1 = shape.points[0]
+        p2 = shape.points[-1]
+        line_length_pixels = np.sqrt((p2.x() - p1.x())**2 + (p2.y() - p1.y())**2)
+        
+        logger.info(f"Scale calibration line drawn: {line_length_pixels:.2f} pixels")
+        
+        # Show calibration dialog
+        dlg = LineCalibrationDialog(line_length_pixels, parent=self)
+        if dlg.exec_() == QtWidgets.QDialog.Accepted:
+            scale = dlg.get_scale(line_length_pixels)
+            unit = dlg.get_unit()
+            
+            if scale:
+                self.image_scale = {
+                    'value': scale,
+                    'unit': unit
+                }
+                
+                logger.info(f"Scale calibrated: {scale:.6f} {unit}/pixel")
+                
+                # Store in otherData
+                if self.otherData is None:
+                    self.otherData = {}
+                self.otherData["image_scale"] = self.image_scale
+                
+                self.setDirty()
+                self.show_status_message(
+                    self.tr(f"Scale calibrated: {scale:.6f} {unit}/pixel")
+                )
+        
+        # Remove the calibration line (it's just for measurement)
+        self.canvas.shapes.remove(shape)
+        self.loadShapes(self.canvas.shapes, replace=True)
+    
     def _action_ring_properties(self) -> None:
         """Compute and display ring properties (area, perimeter, etc.)"""
         if not self.canvas.shapes:
@@ -1449,13 +1572,28 @@ class MainWindow(QtWidgets.QMainWindow):
             
             cumulative_area += area
             
-            ring_properties.append({
+            # Add physical measurements if scale is set
+            props = {
                 'label': shape.label,
-                'area': area,
-                'cumulative_area': cumulative_area,
-                'perimeter': perimeter,
-                'ring_width': ring_width
-            })
+                'area_px': area,
+                'cumulative_area_px': cumulative_area,
+                'perimeter_px': perimeter,
+                'ring_width_px': ring_width
+            }
+            
+            # Convert to physical units if scale is available
+            if self.image_scale:
+                scale = self.image_scale['value']  # e.g., 0.02 mm/pixel
+                unit = self.image_scale['unit']     # e.g., 'mm'
+                
+                props['area_physical'] = area * (scale ** 2)  # pixels² * (mm/pixel)² = mm²
+                props['cumulative_area_physical'] = cumulative_area * (scale ** 2)
+                props['perimeter_physical'] = perimeter * scale  # pixels * mm/pixel = mm
+                props['ring_width_physical'] = ring_width * scale if ring_width else None
+                props['scale'] = scale
+                props['unit'] = unit
+            
+            ring_properties.append(props)
         
         if not ring_properties:
             QtWidgets.QMessageBox.warning(
@@ -1621,6 +1759,18 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.otherData is None:
             self.otherData = {}
         self.otherData["preprocessing"] = preprocessing_info
+        
+        # Adjust image scale if it was set and image was resized
+        if self.image_scale and preprocessing_info.get('scale_factor', 1.0) != 1.0:
+            scale_factor = preprocessing_info['scale_factor']
+            old_scale = self.image_scale['value']
+            # When image is smaller, each pixel represents more physical distance
+            new_scale = old_scale / scale_factor
+            
+            logger.info(f"Adjusting scale for resize: {old_scale:.6f} → {new_scale:.6f} {self.image_scale['unit']}/pixel")
+            
+            self.image_scale['value'] = new_scale
+            self.otherData["image_scale"] = self.image_scale
         
         # Mark as modified
         self.setDirty()
@@ -2057,11 +2207,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
         position MUST be in global coordinates.
         """
-        # Check if we should skip label prompt (for crop rectangles)
+        # Check if we should skip label prompt (for crop rectangles or scale lines)
         skip_label = getattr(self, '_skip_next_label', False)
         if skip_label:
             self._skip_next_label = False  # Reset flag
-            text = "crop_region"
+            # Check if this is a scale calibration line or crop rectangle
+            if getattr(self, '_waiting_for_scale_line', False):
+                text = "scale_calibration"
+            else:
+                text = "crop_region"
             flags = {}
             group_id = None
             description = ""
@@ -2103,13 +2257,22 @@ class MainWindow(QtWidgets.QMainWindow):
                 self._waiting_for_crop_rect = False
                 # Use QTimer to reopen dialog after current event loop completes
                 QtCore.QTimer.singleShot(100, self._action_preprocess_image)
+            
+            # Check if we just drew a scale calibration line
+            elif getattr(self, '_waiting_for_scale_line', False) and text == "scale_calibration":
+                self._waiting_for_scale_line = False
+                # Calculate line length and show calibration dialog
+                QtCore.QTimer.singleShot(100, lambda: self._handle_scale_line(shape))
         else:
             self.canvas.undoLastLine()
             self.canvas.shapesBackups.pop()
-            # Reset crop flag if drawing was cancelled
+            # Reset flags if drawing was cancelled
             if getattr(self, '_waiting_for_crop_rect', False):
                 self._waiting_for_crop_rect = False
                 self.show_status_message(self.tr("Crop cancelled"))
+            if getattr(self, '_waiting_for_scale_line', False):
+                self._waiting_for_scale_line = False
+                self.show_status_message(self.tr("Scale calibration cancelled"))
 
     def scrollRequest(self, delta, orientation):
         units = -delta * 0.1  # natural scroll
