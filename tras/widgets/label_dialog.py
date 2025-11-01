@@ -42,7 +42,7 @@ class LabelDialog(QtWidgets.QDialog):
         super().__init__(parent)
         self.edit = LabelQLineEdit()
         self.edit.setPlaceholderText(text)
-        self.edit.setValidator(labelme.utils.labelValidator())
+        self.edit.setValidator(tras.utils.labelValidator())
         self.edit.editingFinished.connect(self.postProcess)
         if flags:
             self.edit.textChanged.connect(self.updateFlags)
