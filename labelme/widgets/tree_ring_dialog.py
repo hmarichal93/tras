@@ -41,6 +41,7 @@ class TreeRingDialog(QtWidgets.QDialog):
         # Store references
         self.image_np = image_np
         self.parent_window = parent
+        self.detected_pith_xy = None  # Store pith coordinates when detection succeeds
         
         # STEP 1: Pith Selection
         separator1 = QtWidgets.QFrame()
@@ -135,6 +136,7 @@ class TreeRingDialog(QtWidgets.QDialog):
             
             logger.info(f"CS-TRD: Detected {len(rings)} rings")
             self.cstrd_rings = rings
+            self.detected_pith_xy = (cx, cy)  # Store pith coordinates
             QtWidgets.QMessageBox.information(
                 self, 
                 self.tr("CS-TRD Success"), 
@@ -198,6 +200,7 @@ class TreeRingDialog(QtWidgets.QDialog):
             
             logger.info(f"DeepCS-TRD: Detected {len(rings)} rings")
             self.deepcstrd_rings = rings
+            self.detected_pith_xy = (cx, cy)  # Store pith coordinates
             QtWidgets.QMessageBox.information(
                 self, 
                 self.tr("DeepCS-TRD Success"), 
@@ -260,3 +263,7 @@ class TreeRingDialog(QtWidgets.QDialog):
     def get_deepcstrd_rings(self):
         # Returns rings if DeepCSTRD was used, else None
         return getattr(self, 'deepcstrd_rings', None)
+    
+    def get_pith_xy(self):
+        """Return pith coordinates used for detection, or None"""
+        return getattr(self, "detected_pith_xy", None)

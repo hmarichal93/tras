@@ -926,6 +926,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.image_scale = None  # Store scale: {'value': float, 'unit': str} e.g., {'value': 0.02, 'unit': 'mm'}
         self.imageArray = None  # Store preprocessed image as numpy array (bypasses QImage corruption)
         self.radial_line_measurements = None  # Store radial width measurements: {ring_label: {'radial_width': float, ...}}
+        self.pith_xy = None  # Store pith coordinates from detection: (x, y)
         self.zoom_level = 100
         self.fit_window = False
         self.zoom_values = {}  # key=filename, value=(zoom_mode, zoom_value)
@@ -1140,6 +1141,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Get rings from CS-TRD or DeepCS-TRD
         cstrd_rings = dlg.get_cstrd_rings()
         deepcstrd_rings = dlg.get_deepcstrd_rings()
+        pith_xy = dlg.get_pith_xy()
         
         if cstrd_rings is not None:
             rings = cstrd_rings
@@ -1149,6 +1151,11 @@ class MainWindow(QtWidgets.QMainWindow):
             # No detection method was used
             self.errorMessage(self.tr("No detection"), self.tr("Please use CS-TRD or DeepCS-TRD detection buttons."))
             return
+        
+        # Store pith coordinates for later use (e.g., radial width measurement)
+        if pith_xy:
+            self.pith_xy = pith_xy
+            logger.info(f"Stored pith coordinates: ({pith_xy[0]:.1f}, {pith_xy[1]:.1f})")
         
         if not rings:
             self.show_status_message(self.tr("No rings detected."))
