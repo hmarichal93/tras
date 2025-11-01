@@ -1,6 +1,6 @@
-# LabelMe - Tree Ring Detection
+# TRAS - Tree Ring Analyzer Suite
 
-Specialized tool for automatic tree ring detection and measurement in wood cross-section images.
+Professional tool for automatic tree ring detection and measurement in wood cross-section images. Integrates state-of-the-art methods for dendrochronology research.
 
 ## Installation
 
@@ -19,88 +19,84 @@ pip install -e .
 
 ### 3. Compile Devernay Edge Detector (for CS-TRD)
 ```bash
-cd labelme/tree_ring_methods/cstrd/devernay
-./compile.sh
+cd tras/tree_ring_methods/cstrd/devernay
+make
 ```
 
 ### 4. Download DeepCS-TRD Models (Optional)
 ```bash
-cd labelme/tree_ring_methods/deepcstrd
+cd tras/tree_ring_methods/deepcstrd
 ./download_models.sh
 ```
 
 ## Features
 
-### Automatic Detection Methods
+### 🔬 Automatic Detection Methods
 - **APD (Automatic Pith Detection)**: Finds tree center using structural tensor analysis (~1 second, CPU)
 - **CS-TRD (Classical Tree Ring Detection)**: Edge-based method using Canny detection (~73s on 2400×2400px, CPU)
 - **DeepCS-TRD**: Deep learning U-Net architecture with pre-trained models (~101s on 2400×2400px, GPU)
 
-### Image Preprocessing
+### 🖼️ Image Preprocessing
 - Manual crop with margin warnings for edge detection
 - Resize (10-100% scaling)
 - Background removal using U2Net model
 - All preprocessing parameters stored for traceability
 
-### Scale Calibration
+### 📏 Scale Calibration
 - Draw line segment of known length OR direct input
 - Units: mm, cm, μm per pixel
 - Auto-adjusts when resizing images
 - Physical measurements in all exports
 
-### Radial Width Measurement
-- Set measurement direction from pith
-- Visual cyan line shows transect
-- Choose detected or custom pith origin
-- Export to .POS format for CooRecorder
-- Measures actual ring boundaries (standard dendrochronology method)
-
-### Ring Properties & Export
+### 📊 Ring Analysis
 - Area, perimeter, cumulative area
-- Radial width along transect line
-- Both pixel and physical units (if scaled)
-- CSV export with metadata
-- .POS export for CooRecorder software
+- Radial width measurement along user-defined transect
+- Year-based ring labeling (outermost = harvested year)
+- Sample metadata (code, harvested year, observations)
 
-### Sample Metadata
-- Harvested year, sample code, observations
-- Automatic year-based ring labeling
-- Metadata included in all exports
+### 💾 Export Options
+- **CSV**: Ring properties with metadata (area, perimeter, widths)
+- **.POS**: CooRecorder-compatible format for radial measurements
+- Physical units automatically converted from pixel measurements
+
+### 🎨 Wood-Themed Interface
+- Natural wood color palette (saddle brown, burlywood, goldenrod)
+- Dendrochronology-specific icons (tree rings, pith, cross-sections)
+- Intuitive UI designed for dendrochronology research
 
 ## Usage
 
+### Quick Start
 ```bash
-labelme path/to/image.jpg
+tras                              # Launch GUI
+tras /path/to/image.jpg          # Open with image
+tras --version                    # Check version
 ```
 
-**Workflow:**
-1. **Tools > Sample Metadata** - Set harvested year and sample code
-2. **Tools > Set Scale** - Calibrate physical units
-3. **Tools > Preprocess Image** - Crop, resize, remove background
-4. **Tools > Tree Ring Detection** - APD + CS-TRD or DeepCS-TRD
-5. **Tools > Measure Ring Width Along Line** - Set direction and export to .POS
-6. **Tools > Ring Properties** - View and export measurements to CSV
+### Workflow
+
+1. **Load Image**: `File > Open` or drag-and-drop
+2. **Set Scale** (optional): `Tools > Set Image Scale`
+3. **Preprocess** (optional): `Tools > Preprocess Image`
+   - Crop to focus on cross-section
+   - Resize for faster processing
+   - Remove background
+4. **Detect Rings**: `Tools > Tree Ring Detection`
+   - Choose pith method (APD or manual click)
+   - Select detection method (CS-TRD or DeepCS-TRD)
+5. **Add Metadata**: `Tools > Sample Metadata`
+6. **Measure Radial Width** (optional): `Tools > Measure Ring Width`
+7. **View Properties**: `Tools > Ring Properties`
+8. **Export**: CSV or .POS format
 
 ## Citations
 
+If you use TRAS in your research, please cite the following papers:
+
 ### APD (Automatic Pith Detection)
-Marichal, H., Passarella, D., Randall, G. (2025). Automatic Wood Pith Detector: Local Orientation Estimation and Robust Accumulation. In: Pattern Recognition. ICPR 2024. Lecture Notes in Computer Science, vol 15317. Springer, Cham.
+Marichal, H., Passarella, D., & Randall, G. (2024). *Automatic Pith Detection in Cross Section Tree Ring Images*. In: Proceedings of the 27th International Conference on Pattern Recognition (ICPR 2024). Lecture Notes in Computer Science, vol 15317. Springer.
 
-**Link:** https://link.springer.com/chapter/10.1007/978-3-031-78447-7_1
-
-```bibtex
-@inproceedings{marichal2025apd,
-  title={Automatic Wood Pith Detector: Local Orientation Estimation and Robust Accumulation},
-  author={Marichal, Henry and Passarella, Diego and Randall, Gregory},
-  booktitle={Pattern Recognition. ICPR 2024},
-  series={Lecture Notes in Computer Science},
-  volume={15317},
-  pages={1--15},
-  year={2025},
-  publisher={Springer, Cham},
-  doi={10.1007/978-3-031-78447-7_1}
-}
-```
+**DOI:** [10.1007/978-3-031-78447-7_1](https://doi.org/10.1007/978-3-031-78447-7_1)
 
 ### CS-TRD (Classical Tree Ring Detection)
 ```bibtex
@@ -130,12 +126,32 @@ Marichal, H., Passarella, D., Randall, G. (2025). Automatic Wood Pith Detector: 
 
 ## Requirements
 
-- Python 3.8+
-- PyTorch (for DeepCS-TRD)
+- Python ≥ 3.9
+- PyQt5
 - OpenCV
-- Shapely 1.7.0 (required for CS-TRD/DeepCS-TRD)
-- Full dependencies in `pyproject.toml`
+- PyTorch (for DeepCS-TRD)
+- Shapely 1.7.0
+- See `pyproject.toml` for complete list
+
+## Configuration
+
+TRAS stores its configuration in `~/.trasrc`. You can customize:
+- Default shape colors (wood theme)
+- Keyboard shortcuts
+- Detection method defaults
+- UI preferences
 
 ## License
 
-GPLv3
+GPL-3.0-only
+
+## Acknowledgments
+
+Based on the original [LabelMe](https://github.com/wkentaro/labelme) project by Kentaro Wada.
+
+Specialized for dendrochronology research by integrating methods from the [TRAS repository](https://github.com/hmarichal93/tras).
+
+---
+
+**TRAS v1.0.0** - Tree Ring Analyzer Suite  
+Professional dendrochronology with beautiful wood-themed UI
