@@ -1698,21 +1698,27 @@ class MainWindow(QtWidgets.QMainWindow):
         # Ensure image is uint8 and contiguous
         processed_img = np.ascontiguousarray(processed_img, dtype=np.uint8)
         
-        # Convert numpy → PIL → QImage (most reliable approach)
+        # Convert numpy → QImage using direct constructor (ensures pixel-perfect copy)
+        h, w = processed_img.shape[:2]
+        
         if len(processed_img.shape) == 2:
             # Grayscale
-            pil_img = PILImage.fromarray(processed_img, mode='L')
+            bytes_per_line = w
+            self.image = QtGui.QImage(
+                processed_img.tobytes(),
+                w, h,
+                bytes_per_line,
+                QtGui.QImage.Format_Grayscale8
+            ).copy()  # .copy() ensures data ownership
         else:
-            # RGB
-            pil_img = PILImage.fromarray(processed_img, mode='RGB')
-        
-        # Convert PIL to QImage using QImage.fromData
-        buffer = io.BytesIO()
-        pil_img.save(buffer, format='PNG')
-        buffer.seek(0)
-        
-        self.image = QtGui.QImage()
-        self.image.loadFromData(buffer.read())
+            # RGB - use Format_RGB888 for proper byte order
+            bytes_per_line = w * 3
+            self.image = QtGui.QImage(
+                processed_img.tobytes(),
+                w, h,
+                bytes_per_line,
+                QtGui.QImage.Format_RGB888
+            ).copy()  # .copy() ensures data ownership
         
         # LOG: Verify QImage after copy
         logger.info(f"QImage after copy: format={self.image.format()}, size={self.image.width()}x{self.image.height()}")
