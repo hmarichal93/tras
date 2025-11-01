@@ -2482,6 +2482,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def loadShapes(self, shapes, replace=True):
         self._noSelectionSlot = True
+        if replace:
+            self.labelList.clear()
         for shape in shapes:
             self.addLabel(shape)
         self.labelList.clearSelection()
