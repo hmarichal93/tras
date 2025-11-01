@@ -1,2 +1,2 @@
 {"Nr": 360, "resize": [1000, 1000],"min_chain_lenght": 2, "edge_th": 30, "sigma": 3, "th_high": 20,"th_low": 5,
-  "devernay_path":  "externas/devernay_1.0", "result_path": "./output"}
+  "devernay_path":  "devernay", "result_path": "./output"}

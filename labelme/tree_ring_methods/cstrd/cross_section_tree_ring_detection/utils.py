@@ -43,7 +43,7 @@ def save_config(args, output_dir, repo_path="./"):
     if args.debug:
         config['debug'] = True
 
-    config['devernay_path'] = str(Path(repo_path) / "externas/devernay_1.0")
+    config['devernay_path'] = str(Path(repo_path) / "devernay")
     write_json(config, Path(repo_path) / 'config/general.json')
     return 0
 def saving_results( res, output_dir, save_imgs=True):
