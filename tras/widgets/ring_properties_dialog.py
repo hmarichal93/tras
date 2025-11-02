@@ -525,13 +525,35 @@ class RingPropertiesDialog(QtWidgets.QDialog):
         import matplotlib.pyplot as plt
         import matplotlib.patches as patches
         
-        if not self.parent_window or not hasattr(self.parent_window, 'image'):
+        if not self.parent_window:
+            print("Warning: No parent window available for ring overlay")
             return
         
         try:
-            # Get image from parent
-            from tras.utils import img_qt_to_arr
-            image = img_qt_to_arr(self.parent_window.image)
+            # Get image from parent - try multiple sources
+            image = None
+            
+            # Try 1: Get from QImage
+            if hasattr(self.parent_window, 'image') and self.parent_window.image:
+                from tras.utils import img_qt_to_arr
+                image = img_qt_to_arr(self.parent_window.image)
+                print(f"Got image from QImage: {image.shape}")
+            
+            # Try 2: Get from imageData (numpy array)
+            if image is None and hasattr(self.parent_window, 'imageData') and self.parent_window.imageData is not None:
+                from tras.utils import img_b64_to_arr
+                image = img_b64_to_arr(self.parent_window.imageData)
+                print(f"Got image from imageData: {image.shape}")
+            
+            # Try 3: Load from filename
+            if image is None and hasattr(self.parent_window, 'filename') and self.parent_window.filename:
+                from PIL import Image as PILImage
+                pil_img = PILImage.open(self.parent_window.filename)
+                image = np.array(pil_img)
+                print(f"Got image from file: {image.shape}")
+            
+            if image is None:
+                raise ValueError("Could not load image from any source")
             
             fig, ax = plt.subplots(figsize=(11, 8.5))
             ax.imshow(image)
@@ -592,10 +614,12 @@ class RingPropertiesDialog(QtWidgets.QDialog):
             plt.close()
         
         except Exception as e:
+            import traceback
             print(f"Error creating ring overlay: {e}")
+            print(traceback.format_exc())
             # Create a placeholder page
             fig, ax = plt.subplots(figsize=(11, 8.5))
-            ax.text(0.5, 0.5, 'Ring overlay image not available', 
+            ax.text(0.5, 0.5, f'Ring overlay image not available\nError: {str(e)}', 
                    ha='center', va='center', fontsize=14)
             ax.axis('off')
             pdf.savefig(fig)
