@@ -599,19 +599,23 @@ class MainWindow(QtWidgets.QMainWindow):
                     self,
                     f"About {__appname__}",
                     f"""
-<h3>{__appname__}</h3>
-<p>Image Polygonal Annotation with Python</p>
+<h3>{__appname__} - Tree Ring Analyzer Suite</h3>
+<p>Specialized tool for dendrochronology and tree ring analysis</p>
 <p>Version: {__version__}</p>
-<p>Author: Kentaro Wada</p>
+<p><b>Features:</b></p>
+<ul>
+    <li>Automatic Pith Detection (APD)</li>
+    <li>Tree Ring Detection (CS-TRD, DeepCS-TRD)</li>
+    <li>Radial Width Measurement</li>
+    <li>Image Preprocessing & Scale Calibration</li>
+    <li>Professional PDF Reports</li>
+</ul>
 <p>
-    <a href="https://labelme.io">Homepage</a> |
-    <a href="https://labelme.io/docs">Documentation</a> |
-    <a href="https://labelme.io/docs/troubleshoot">Troubleshooting</a>
+    <a href="https://github.com/hmarichal93/tras">GitHub Repository</a> |
+    <a href="https://github.com/hmarichal93/tras/blob/main/README.md">Documentation</a>
 </p>
-<p>
-    <a href="https://github.com/wkentaro/labelme">GitHub</a> |
-    <a href="https://x.com/labelmeai">Twitter/X</a>
-</p>
+<p><i>Based on LabelMe by Kentaro Wada</i></p>
+<p><i>Adapted for tree ring analysis by the TRAS Team</i></p>
 """,
                 ),
             ),
@@ -2222,7 +2226,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.actions.undo.setEnabled(self.canvas.isShapeRestorable)
 
     def tutorial(self):
-        url = "https://github.com/labelmeai/labelme/tree/main/examples/tutorial"  # NOQA
+        url = "https://github.com/hmarichal93/tras/blob/main/examples/tree_rings/README.md"  # NOQA
         webbrowser.open(url)
 
     def toggleDrawingSensitive(self, drawing=True):
