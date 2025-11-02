@@ -436,9 +436,17 @@ class RingPropertiesDialog(QtWidgets.QDialog):
                 y -= 0.025
             
             if 'observation' in self.metadata:
-                obs = self.metadata['observation'][:100] + ('...' if len(self.metadata['observation']) > 100 else '')
-                ax.text(0.1, y, obs, fontsize=8, style='italic', color='#555', wrap=True)
-                y -= 0.03
+                import textwrap
+                obs_text = self.metadata['observation']
+                # Wrap observations to multiple lines (max 80 chars per line)
+                wrapped_lines = textwrap.wrap(obs_text, width=80)
+                # Display up to 5 lines
+                for line in wrapped_lines[:5]:
+                    ax.text(0.1, y, line, fontsize=8, style='italic', color='#555')
+                    y -= 0.02
+                if len(wrapped_lines) > 5:
+                    ax.text(0.1, y, '...', fontsize=8, style='italic', color='#555')
+                    y -= 0.02
         
         y -= 0.02
         
@@ -537,7 +545,8 @@ class RingPropertiesDialog(QtWidgets.QDialog):
                     # If coming from OpenCV, it might be BGR
                     pass  # PIL already gives RGB
             
-            fig, ax = plt.subplots(figsize=(11, 8.5))
+            # Use same page size as cover page (portrait 8.5 x 11)
+            fig, ax = plt.subplots(figsize=(8.5, 11))
             ax.imshow(image)
             ax.set_title('Tree Rings with Detected Boundaries', 
                         fontsize=16, fontweight='bold', pad=20)
@@ -658,8 +667,8 @@ class RingPropertiesDialog(QtWidgets.QDialog):
             for p in self.ring_properties
         )
         
-        # Create figure with subplots
-        fig = plt.figure(figsize=(11, 8.5))
+        # Create figure with subplots (same page size as cover - portrait)
+        fig = plt.figure(figsize=(8.5, 11))
         gs = GridSpec(2, 2, figure=fig, hspace=0.3, wspace=0.3)
         
         # Prepare data (rings are stored outermost to innermost)
