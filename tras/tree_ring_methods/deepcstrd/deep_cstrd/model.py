@@ -250,7 +250,8 @@ def deep_contour_detector(img,
         draw_normals(img, m_ch_e, gx, gy, output_dir)
 
     im_pre = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
+    if m_ch_e.shape[0] == 0:
+        return []
     # Line 3 Edge filtering module.
     l_ch_f = filter_edges(m_ch_e, cy, cx, gy, gx, alpha, im_pre)
     # Line 4 Sampling edges.

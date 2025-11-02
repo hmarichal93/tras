@@ -150,6 +150,8 @@ def get_border_curve(img, l_ch_f):
 
 
 def change_reference_axis(ch_e_matrix, cy, cx):
+    if ch_e_matrix.shape[0] == 0:
+        return ch_e_matrix
     center = [cx, cy]
     curve_border_index = np.where(ch_e_matrix == DELIMITE_CURVE_ROW)[0]
     X = ch_e_matrix.copy()
