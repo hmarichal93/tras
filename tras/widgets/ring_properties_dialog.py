@@ -608,8 +608,11 @@ class RingPropertiesDialog(QtWidgets.QDialog):
         # Prepare data
         ring_nums = list(range(1, len(self.ring_properties) + 1))
         areas = [p['area'] for p in self.ring_properties]
-        cumulative_areas = [p['cumulative_area'] for p in self.ring_properties]
         perimeters = [p['perimeter'] for p in self.ring_properties]
+        
+        # Compute cumulative area (always increasing)
+        import numpy as np
+        cumulative_areas = np.cumsum(areas).tolist()
         
         if has_scale:
             scale_factor = self.metadata['scale']['value']
@@ -667,7 +670,7 @@ class RingPropertiesDialog(QtWidgets.QDialog):
         ax2.set_xlabel(x_label, fontsize=10, fontweight='bold')
         ax2.grid(True, alpha=0.3)
         
-        # Plot 3: Ring Width (if available) or Area Distribution
+        # Plot 3: Cumulative Radial Distance (if available) or Area Distribution
         ax3 = fig.add_subplot(gs[1, 0])
         if has_radial:
             radial_widths = []
@@ -681,13 +684,15 @@ class RingPropertiesDialog(QtWidgets.QDialog):
                     radial_x_values.append(x_values[i])
             
             if radial_widths:
-                ax3.plot(radial_x_values, radial_widths, 'o-', color='#ff8c00', linewidth=2, markersize=4)
+                # Compute cumulative radial distance (always increasing)
+                cumulative_radial = np.cumsum(radial_widths).tolist()
+                ax3.plot(radial_x_values, cumulative_radial, 'o-', color='#ff8c00', linewidth=2, markersize=4)
                 if has_scale:
-                    ax3.set_ylabel(f'Ring Width ({unit})', fontsize=10, fontweight='bold')
-                    ax3.set_title('Radial Ring Width Over Time', fontsize=12, fontweight='bold')
+                    ax3.set_ylabel(f'Cumulative Distance from Pith ({unit})', fontsize=10, fontweight='bold')
+                    ax3.set_title('Radial Distance Over Time', fontsize=12, fontweight='bold')
                 else:
-                    ax3.set_ylabel('Ring Width (px)', fontsize=10, fontweight='bold')
-                    ax3.set_title('Radial Ring Width', fontsize=12, fontweight='bold')
+                    ax3.set_ylabel('Cumulative Distance from Pith (px)', fontsize=10, fontweight='bold')
+                    ax3.set_title('Radial Distance', fontsize=12, fontweight='bold')
                 ax3.set_xlabel(x_label, fontsize=10, fontweight='bold')
                 ax3.grid(True, alpha=0.3)
         else:
