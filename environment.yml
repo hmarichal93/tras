@@ -1,9 +1,30 @@
-name: tras
 channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.12
-  - geos=3.13
-  - cmake=3.30
-  - pip=24.2
+  # --- Base ---
+  - python=3.10
+  - pip
+  - numpy
+
+  # --- Build tools (cross-platform) ---
+  - make
+  - cmake
+  - pkg-config
+
+  # --- Compilers ---
+  # On Linux/macOS
+  - gcc_linux-64        # provides gcc on Linux
+  - gxx_linux-64        # provides g++ on Linux
+  # On Windows
+  - m2w64-toolchain     # provides gcc/g++, make, etc. on Windows
+
+  # --- Optional developer tools ---
+  - git
+  - jupyterlab
+  - matplotlib
+
+  # --- pip packages ---
+  - pip:
+      - tqdm
+      - imageio

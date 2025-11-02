@@ -14,6 +14,7 @@ import os
 import numpy as np
 import pandas as pd
 from pathlib import Path
+import platform
 
 from cross_section_tree_ring_detection.io import load_config
 from cross_section_tree_ring_detection.drawing import Drawing
@@ -50,7 +51,8 @@ def execute_command(config, image_path, sigma, low, high):
     output_txt = results_path / f"output.txt"
     gx_path = results_path / f"gx.txt"
     gy_path = results_path / f"gy.txt"
-    command = f"{str(root_path)}/devernay  {image_path} -s {sigma} -l {low} -h {high} -t {output_txt} " \
+    executable = "devernay.exe" if platform.system() == "Windows" else "devernay"
+    command = f"{str(root_path)}/{executable}  {image_path} -s {sigma} -l {low} -h {high} -t {output_txt} " \
               f" -x {gx_path} -y {gy_path}"
     os.system(command)
 

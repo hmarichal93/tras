@@ -1,3 +1,4 @@
+CC = gcc
 devernay: devernay_cmd.c io.c io.h devernay.c devernay.h
 	$(CC) -O3 -o devernay devernay_cmd.c io.c devernay.c -lm
 
