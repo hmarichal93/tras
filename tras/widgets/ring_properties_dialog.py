@@ -422,50 +422,39 @@ class RingPropertiesDialog(QtWidgets.QDialog):
         ax.plot([0.1, 0.9], [y_pos, y_pos], 'k-', linewidth=2, color='#8b4513')
         y_pos -= 0.08
         
-        # Metadata section
-        if self.metadata:
+        # Metadata section - compact format to fit on one page
+        if self.metadata and y_pos > 0.2:  # Only add if enough space
             ax.text(0.1, y_pos, 'Sample Information', 
-                    fontsize=16, fontweight='bold', color='#2d5016')
-            y_pos -= 0.05
+                    fontsize=14, fontweight='bold', color='#2d5016')
+            y_pos -= 0.04
             
+            # Compact single-line format for all metadata
+            metadata_items = []
             if 'sample_code' in self.metadata:
-                ax.text(0.15, y_pos, f"Sample Code: {self.metadata['sample_code']}", 
-                        fontsize=12)
-                y_pos -= 0.04
-            
+                metadata_items.append(f"Code: {self.metadata['sample_code']}")
             if 'harvested_year' in self.metadata:
-                ax.text(0.15, y_pos, f"Harvested Year: {self.metadata['harvested_year']}", 
-                        fontsize=12)
-                y_pos -= 0.04
-            
-            if 'observation' in self.metadata:
-                obs_text = self.metadata['observation']
-                # Wrap long observations using textwrap for better formatting
-                import textwrap
-                if len(obs_text) > 60:
-                    # Limit to first 300 characters and wrap
-                    obs_truncated = obs_text[:300] + ('...' if len(obs_text) > 300 else '')
-                    wrapped_lines = textwrap.wrap(obs_truncated, width=70)
-                    ax.text(0.15, y_pos, f"Observations:", fontsize=12, fontweight='bold')
-                    y_pos -= 0.035
-                    # Limit to max 4 lines to prevent overflow
-                    for line in wrapped_lines[:4]:
-                        ax.text(0.18, y_pos, line, fontsize=10, style='italic')
-                        y_pos -= 0.025
-                    y_pos -= 0.01  # Extra spacing after observations
-                else:
-                    ax.text(0.15, y_pos, f"Observations: {obs_text}", 
-                            fontsize=11, style='italic')
-                    y_pos -= 0.04
-            
+                metadata_items.append(f"Year: {self.metadata['harvested_year']}")
             if 'scale' in self.metadata:
                 scale_value = self.metadata['scale']['value']
                 unit = self.metadata['scale']['unit']
-                ax.text(0.15, y_pos, f"Scale: {scale_value:.6f} {unit}/pixel", 
-                        fontsize=12)
-                y_pos -= 0.04
+                metadata_items.append(f"Scale: {scale_value:.4f} {unit}/px")
             
-            y_pos -= 0.03
+            # Display metadata items in compact format
+            if metadata_items:
+                metadata_text = " | ".join(metadata_items)
+                ax.text(0.15, y_pos, metadata_text, fontsize=10)
+                y_pos -= 0.035
+            
+            # Observations - very compact
+            if 'observation' in self.metadata and y_pos > 0.18:
+                obs_text = self.metadata['observation']
+                # Limit to 150 chars max
+                obs_truncated = obs_text[:150] + ('...' if len(obs_text) > 150 else '')
+                ax.text(0.15, y_pos, f"Note: {obs_truncated}", 
+                        fontsize=9, style='italic', color='#666')
+                y_pos -= 0.03
+            
+            y_pos -= 0.02
         
         # Summary statistics
         ax.text(0.1, y_pos, 'Summary Statistics', 
@@ -560,6 +549,14 @@ class RingPropertiesDialog(QtWidgets.QDialog):
             if image is None:
                 raise ValueError("Could not load image from any source")
             
+            # Ensure RGB format for proper display
+            if image.ndim == 2:
+                # Grayscale to RGB
+                image = np.stack([image]*3, axis=-1)
+            elif image.shape[2] == 4:
+                # RGBA to RGB
+                image = image[:, :, :3]
+            
             fig, ax = plt.subplots(figsize=(11, 8.5))
             ax.imshow(image)
             ax.set_title('Tree Rings with Detected Boundaries', 
@@ -569,6 +566,7 @@ class RingPropertiesDialog(QtWidgets.QDialog):
             # Get ring shapes from parent
             if hasattr(self.parent_window, 'labelList'):
                 # Get all ring shapes (filter out radial measurement lines)
+                ring_count = 0
                 for item_idx in range(len(self.parent_window.labelList)):
                     item = self.parent_window.labelList[item_idx]
                     shape = item.shape()
@@ -589,15 +587,19 @@ class RingPropertiesDialog(QtWidgets.QDialog):
                         ax.plot(points_closed[:, 0], points_closed[:, 1], 
                                'g-', linewidth=2, alpha=0.7)
                         
-                        # Add ring label
-                        center_x = np.mean(points[:, 0])
-                        center_y = np.mean(points[:, 1])
-                        ax.text(center_x, center_y, shape.label, 
+                        # Add ring label at a position along the ring perimeter
+                        # Use different angles for different rings to avoid overlap
+                        angle_deg = (ring_count * 25) % 360  # Spread labels around
+                        angle_idx = int(len(points) * angle_deg / 360)
+                        label_x = points[angle_idx, 0]
+                        label_y = points[angle_idx, 1]
+                        ax.text(label_x, label_y, shape.label, 
                                ha='center', va='center', 
-                               fontsize=8, fontweight='bold',
+                               fontsize=7, fontweight='bold',
                                color='white',
-                               bbox=dict(boxstyle='round,pad=0.3', 
-                                       facecolor='green', alpha=0.7))
+                               bbox=dict(boxstyle='round,pad=0.2', 
+                                       facecolor='green', alpha=0.8))
+                        ring_count += 1
             
             # Add scale bar if available
             if self.metadata and 'scale' in self.metadata:
@@ -679,21 +681,27 @@ class RingPropertiesDialog(QtWidgets.QDialog):
         if has_years:
             try:
                 harvested_year = int(self.metadata['harvested_year'])
-                # Extract year from label or calculate (reversed for innermost to outermost)
+                # Extract year from label (already reversed order)
                 x_values = []
-                for i, p in enumerate(reversed(self.ring_properties)):
-                    label = p['label'].replace('ring_', '')
+                for i in range(len(self.ring_properties)):
+                    # Original index (outermost to innermost)
+                    orig_idx = len(self.ring_properties) - 1 - i
+                    label = self.ring_properties[orig_idx]['label'].replace('ring_', '')
                     if label.isdigit():
+                        # Label contains year directly
                         x_values.append(int(label))
                     else:
-                        # Calculate year based on position
-                        x_values.append(harvested_year - (len(self.ring_properties) - i - 1))
+                        # Calculate year: innermost ring (i=0) is oldest
+                        # Outermost ring (i=N-1) is harvested_year
+                        year = harvested_year - (len(self.ring_properties) - 1 - i)
+                        x_values.append(year)
                 x_label = 'Year'
-            except:
-                x_values = list(reversed(ring_nums))
+            except Exception as e:
+                print(f"Error parsing years: {e}, using ring numbers")
+                x_values = list(range(len(self.ring_properties), 0, -1))
                 x_label = 'Ring Number'
         else:
-            x_values = list(reversed(ring_nums))
+            x_values = list(range(len(self.ring_properties), 0, -1))
             x_label = 'Ring Number (Innermost to Outermost)'
         
         # Plot 1: Area vs Ring/Year
