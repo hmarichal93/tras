@@ -194,7 +194,6 @@ If you use TRAS in your research, please cite the following papers:
   pages = {1--15},
   title = {Automatic Wood Pith Detector: Local Orientation Estimation and Robust Accumulation},
   author = {Marichal, Henry and Passarella, Diego and Randall, Gregory},
-  abstract = {A fully automated technique for wood pith detection (APD), relying on the concentric shape of the structure of wood ring slices, is introduced. The method estimates the ring's local orientations using the 2D structure tensor and finds the pith position, optimizing a cost function designed for this problem. We also present a variant (APD-PCL) using the parallel coordinate space that enhances the method's effectiveness when there are no clear tree ring patterns. Furthermore, refining Kurdthongmee's work, a YoloV8 net is trained for pith detection, producing a deep learning-based approach (APD-DL). All methods were tested on seven datasets, including images captured under diverse conditions (controlled laboratory settings, sawmill, and forest) and featuring various tree species (Pinus taeda, Douglas fir, Abies alba, and Gleditsia triacanthos). All proposed approaches outperform existing state-of-the-art methods and can be used in CPU-based real-time applications. Additionally, we provide a novel dataset comprising images of gymnosperm and angiosperm species. Dataset and source code are available at http://github.com/hmarichal93/apd.},
   booktitle = {International Conference on Pattern Recognition (ICPR)}
 }
 ```
