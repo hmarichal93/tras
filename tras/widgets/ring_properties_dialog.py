@@ -541,6 +541,11 @@ class RingPropertiesDialog(QtWidgets.QDialog):
             ax.imshow(image)
             ax.set_title('Tree Rings with Detected Boundaries', 
                         fontsize=16, fontweight='bold', pad=20)
+            
+            # Set explicit axis limits to image bounds (prevents auto-zoom from radial line)
+            img_height, img_width = image.shape[:2]
+            ax.set_xlim(0, img_width)
+            ax.set_ylim(img_height, 0)  # Inverted for image coordinates
             ax.axis('off')
             
             # Get ring shapes from parent
