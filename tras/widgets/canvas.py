@@ -5,7 +5,6 @@ from typing import Literal
 
 import imgviz
 import numpy as np
-import osam
 from loguru import logger
 from PyQt5 import QtCore
 from PyQt5 import QtGui
@@ -17,8 +16,6 @@ from PyQt5.QtCore import Qt
 import tras.utils
 # Removed: from tras._automation import polygon_from_mask (legacy AI features removed)
 from tras.shape import Shape
-
-from .download import download_ai_model
 
 # TODO(unknown):
 # - [maybe] Find optimal epsilon value.
@@ -58,9 +55,6 @@ class Canvas(QtWidgets.QWidget):
     hVertex: int | None
     hShape: Shape | None
 
-    _ai_model_name: str = "sam2:latest"
-    _ai_model_cache: osam.types.Model | None = None
-
     _cursor: QtCore.Qt.CursorShape
 
     def __init__(self, *args, **kwargs):
@@ -80,8 +74,6 @@ class Canvas(QtWidgets.QWidget):
                 "line": False,
                 "point": False,
                 "linestrip": False,
-                "ai_polygon": False,
-                "ai_mask": False,
             },
         )
         super().__init__(*args, **kwargs)
@@ -144,24 +136,9 @@ class Canvas(QtWidgets.QWidget):
             "line",
             "point",
             "linestrip",
-            "ai_polygon",
-            "ai_mask",
         ]:
             raise ValueError(f"Unsupported createMode: {value}")
         self._createMode = value
-
-    def set_ai_model_name(self, model_name: str) -> None:
-        logger.debug("Setting AI model to {!r}", model_name)
-        self._ai_model_name = model_name
-
-    def _get_ai_model(self) -> osam.types.Model:
-        if self._ai_model_cache and self._ai_model_cache.name == self._ai_model_name:
-            return self._ai_model_cache
-
-        model_type = osam.apis.get_model_type_by_name(self._ai_model_name)
-
-        self._ai_model_cache = model_type()
-        return self._ai_model_cache
 
     def storeShapes(self):
         shapesBackup = []
@@ -263,14 +240,6 @@ class Canvas(QtWidgets.QWidget):
     def _get_create_mode_message(self) -> str:
         assert self.drawing()
         isNew: bool = self.current is None
-        if self.createMode == "ai_polygon":
-            return self.tr(
-                "Click points to include or Shift+Click to exclude for ai_polygon"
-            )
-        if self.createMode == "ai_mask":
-            return self.tr(
-                "Click points to include or Shift+Click to exclude for ai_mask"
-            )
         if self.createMode == "line":
             if isNew:
                 return self.tr("Click start point for line")
@@ -310,10 +279,7 @@ class Canvas(QtWidgets.QWidget):
 
         # Polygon drawing.
         if self.drawing():
-            if self.createMode in ["ai_polygon", "ai_mask"]:
-                self.line.shape_type = "points"
-            else:
-                self.line.shape_type = self.createMode
+            self.line.shape_type = self.createMode
 
             self.overrideCursor(CURSOR_DRAW)
             if not self.current:
@@ -339,12 +305,6 @@ class Canvas(QtWidgets.QWidget):
             if self.createMode in ["polygon", "linestrip"]:
                 self.line.points = [self.current[-1], pos]
                 self.line.point_labels = [1, 1]
-            elif self.createMode in ["ai_polygon", "ai_mask"]:
-                self.line.points = [self.current.points[-1], pos]
-                self.line.point_labels = [
-                    self.current.point_labels[-1],
-                    0 if is_shift_pressed else 1,
-                ]
             elif self.createMode == "rectangle":
                 self.line.points = [self.current[0], pos]
                 self.line.point_labels = [1, 1]
@@ -509,37 +469,16 @@ class Canvas(QtWidgets.QWidget):
                         if ev.modifiers() & Qt.ControlModifier:
                             self.finalise()
                 elif not self.outOfPixmap(pos):
-                    if self.createMode in ["ai_polygon", "ai_mask"]:
-                        if not download_ai_model(
-                            model_name=self._ai_model_name, parent=self
-                        ):
-                            return
-
                     # Create new shape.
-                    self.current = Shape(
-                        shape_type="points"
-                        if self.createMode in ["ai_polygon", "ai_mask"]
-                        else self.createMode
-                    )
-                    self.current.addPoint(pos, label=0 if is_shift_pressed else 1)
+                    self.current = Shape(shape_type=self.createMode)
+                    self.current.addPoint(pos, label=1)
                     if self.createMode == "point":
-                        self.finalise()
-                    elif (
-                        self.createMode in ["ai_polygon", "ai_mask"]
-                        and ev.modifiers() & Qt.ControlModifier
-                    ):
                         self.finalise()
                     else:
                         if self.createMode == "circle":
                             self.current.shape_type = "circle"
                         self.line.points = [pos, pos]
-                        if (
-                            self.createMode in ["ai_polygon", "ai_mask"]
-                            and is_shift_pressed
-                        ):
-                            self.line.point_labels = [0, 0]
-                        else:
-                            self.line.point_labels = [1, 1]
+                        self.line.point_labels = [1, 1]
                         self.setHiding()
                         self.drawingPolygon.emit(True)
                         self.update()
@@ -625,8 +564,6 @@ class Canvas(QtWidgets.QWidget):
             return False
         if not self.current:
             return False
-        if self.createMode in ["ai_polygon", "ai_mask"]:
-            return True
         if self.createMode == "linestrip":
             return len(self.current) >= 2
         return len(self.current) >= 3
@@ -635,9 +572,7 @@ class Canvas(QtWidgets.QWidget):
         if self.double_click != "close":
             return
 
-        if (
-            self.createMode == "polygon" and self.canCloseShape()
-        ) or self.createMode in ["ai_polygon", "ai_mask"]:
+        if self.createMode == "polygon" and self.canCloseShape():
             self.finalise()
 
     def selectShapes(self, shapes):
@@ -802,11 +737,7 @@ class Canvas(QtWidgets.QWidget):
             for s in self.selectedShapesCopy:
                 s.paint(p)
 
-        if not self.current or self.createMode not in [
-            "polygon",
-            "ai_polygon",
-            "ai_mask",
-        ]:
+        if not self.current or self.createMode != "polygon":
             p.end()
             return
 
@@ -821,17 +752,6 @@ class Canvas(QtWidgets.QWidget):
                     )
                     drawing_shape.fill_color.setAlpha(64)
                 drawing_shape.addPoint(self.line[1])
-        elif self.createMode in ["ai_polygon", "ai_mask"]:
-            drawing_shape.addPoint(
-                point=self.line.points[1],
-                label=self.line.point_labels[1],
-            )
-            _update_shape_with_sam(
-                sam=self._get_ai_model(),
-                pixmap=self.pixmap,
-                shape=drawing_shape,
-                createMode=self.createMode,
-            )
         drawing_shape.fill = self.fillDrawing()
         drawing_shape.selected = self.fillDrawing()
         drawing_shape.paint(p)
@@ -856,13 +776,6 @@ class Canvas(QtWidgets.QWidget):
 
     def finalise(self):
         assert self.current
-        if self.createMode in ["ai_polygon", "ai_mask"]:
-            _update_shape_with_sam(
-                sam=self._get_ai_model(),
-                pixmap=self.pixmap,
-                shape=self.current,
-                createMode=self.createMode,
-            )
         self.current.close()
 
         self.shapes.append(self.current)
@@ -1073,94 +986,3 @@ class Canvas(QtWidgets.QWidget):
         self.pixmap = QtGui.QPixmap()
         self.shapesBackups = []
         self.update()
-
-
-def _update_shape_with_sam(
-    sam: osam.types.Model,
-    pixmap: QtGui.QPixmap,
-    shape: Shape,
-    createMode: Literal["ai_polygon", "ai_mask"],
-) -> None:
-    if createMode not in ["ai_polygon", "ai_mask"]:
-        raise ValueError(
-            f"createMode must be 'ai_polygon' or 'ai_mask', not {createMode}"
-        )
-
-    image_embedding: osam.types.ImageEmbedding = _compute_image_embedding(
-        sam=sam, pixmap=pixmap
-    )
-
-    response: osam.types.GenerateResponse = sam.generate(
-        request=osam.types.GenerateRequest(
-            model=sam.name,
-            image_embedding=image_embedding,
-            prompt=osam.types.Prompt(
-                points=[[point.x(), point.y()] for point in shape.points],
-                point_labels=shape.point_labels,
-            ),
-        )
-    )
-    if not response.annotations:
-        logger.warning("No annotations returned by model {!r}", sam)
-        return
-
-    if createMode == "ai_mask":
-        y1: int
-        x1: int
-        y2: int
-        x2: int
-        if response.annotations[0].bounding_box is None:
-            y1, x1, y2, x2 = imgviz.instances.mask_to_bbox(
-                [response.annotations[0].mask]
-            )[0].astype(int)
-        else:
-            y1 = response.annotations[0].bounding_box.ymin
-            x1 = response.annotations[0].bounding_box.xmin
-            y2 = response.annotations[0].bounding_box.ymax
-            x2 = response.annotations[0].bounding_box.xmax
-        shape.setShapeRefined(
-            shape_type="mask",
-            points=[QPointF(x1, y1), QPointF(x2, y2)],
-            point_labels=[1, 1],
-            mask=response.annotations[0].mask[y1 : y2 + 1, x1 : x2 + 1],
-        )
-    elif createMode == "ai_polygon":
-        points = polygon_from_mask.compute_polygon_from_mask(
-            mask=response.annotations[0].mask
-        )
-        if len(points) < 2:
-            return
-        shape.setShapeRefined(
-            shape_type="polygon",
-            points=[QPointF(point[0], point[1]) for point in points],
-            point_labels=[1] * len(points),
-        )
-
-
-def _compute_image_embedding(
-    sam: osam.types.Model, pixmap: QtGui.QPixmap
-) -> osam.types.ImageEmbedding:
-    return __compute_image_embedding(sam=sam, pixmap=_QPixmapForLruCache(pixmap))
-
-
-class _QPixmapForLruCache(QtGui.QPixmap):
-    def __hash__(self) -> int:
-        qimage: QtGui.QImage = self.toImage()
-        bits = qimage.constBits()
-        if bits is None:
-            return hash(None)
-        return hash(bits.asstring(qimage.sizeInBytes()))
-
-    def __eq__(self, other) -> bool:
-        if not isinstance(other, _QPixmapForLruCache):
-            return False
-        return self.__hash__() == other.__hash__()
-
-
-@functools.lru_cache(maxsize=3)
-def __compute_image_embedding(
-    sam: osam.types.Model, pixmap: _QPixmapForLruCache
-) -> osam.types.ImageEmbedding:
-    logger.debug("Computing image embeddings for model {!r}", sam.name)
-    image: np.ndarray = tras.utils.img_qt_to_arr(pixmap.toImage())
-    return sam.encode_image(image=imgviz.asrgb(image))

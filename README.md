@@ -10,8 +10,8 @@
 
 [![License](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue)](https://www.python.org)
-[![Version](https://img.shields.io/badge/Version-1.0.0-green)](https://github.com/hmarichal93/tras)
-[![arXiv](https://img.shields.io/badge/arXiv-2305.10809-b31b1b.svg)](https://arxiv.org/abs/2305.10809)
+[![Version](https://img.shields.io/badge/Version-2.0.0-green)](https://github.com/hmarichal93/tras)
+[![arXiv](https://img.shields.io/badge/arXiv-2305.10809-b31b1b.svg)]()
 
 </div>
 
@@ -27,26 +27,38 @@ TRAS integrates **state-of-the-art computer vision** and **deep learning methods
 
 ## Installation
 
-### 1. Clone Repository
+### 1. Install System Dependencies
 ```bash
-git clone -b tras https://github.com/hmarichal93/tras.git
-cd labelme
+# Ubuntu/Debian
+sudo apt-get install -y libgeos-dev
+
+# macOS
+brew install geos
+
+# Windows: install via conda
+conda install -c conda-forge geos
 ```
 
-### 2. Install Dependencies
+### 2. Clone Repository
+```bash
+git clone -b tras https://github.com/hmarichal93/tras.git
+cd tras
+```
+
+### 3. Install Python Dependencies
 ```bash
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -e .
 ```
 
-### 3. Compile Devernay Edge Detector (for CS-TRD)
+### 4. Compile Devernay Edge Detector (for CS-TRD)
 ```bash
 cd tras/tree_ring_methods/cstrd/devernay
 make
 ```
 
-### 4. Download DeepCS-TRD Models (Optional)
+### 5. Download DeepCS-TRD Models (Optional)
 ```bash
 cd tras/tree_ring_methods/deepcstrd
 ./download_models.sh
@@ -231,7 +243,7 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 
 <div align="center">
 
-**TRAS v1.0.0** - Tree Ring Analyzer Suite
+**TRAS v2.0.0** - Tree Ring Analyzer Suite
 
 *Advancing dendrochronology research through intelligent automation*
 

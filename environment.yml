@@ -1,0 +1,9 @@
+name: tras
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12
+  - geos=3.13
+  - cmake=3.30
+  - pip=24.2
