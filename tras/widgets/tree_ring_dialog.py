@@ -62,6 +62,25 @@ class TreeRingDialog(QtWidgets.QDialog):
         self.btn_auto_pith = QtWidgets.QPushButton(self.tr("Auto-detect pith (APD)"))
         self.btn_auto_pith.clicked.connect(self._on_auto_pith)
         self.form.addRow(self.btn_auto_pith)
+        
+        # APD Advanced Parameters (collapsible)
+        self.apd_advanced_group = QtWidgets.QGroupBox(self.tr("APD Advanced Parameters"))
+        self.apd_advanced_group.setCheckable(True)
+        self.apd_advanced_group.setChecked(False)  # Collapsed by default
+        apd_layout = QtWidgets.QFormLayout()
+        
+        self.apd_st_sigma = QtWidgets.QDoubleSpinBox()
+        self.apd_st_sigma.setRange(0.1, 10.0)
+        self.apd_st_sigma.setValue(1.2)
+        self.apd_st_sigma.setSingleStep(0.1)
+        apd_layout.addRow(self.tr("Structure Tensor Sigma:"), self.apd_st_sigma)
+        
+        self.apd_method = QtWidgets.QComboBox()
+        self.apd_method.addItems(["apd", "apd_pcl"])
+        apd_layout.addRow(self.tr("Method:"), self.apd_method)
+        
+        self.apd_advanced_group.setLayout(apd_layout)
+        self.form.addRow(self.apd_advanced_group)
 
         # STEP 2: Ring Detection
         separator2 = QtWidgets.QFrame()
@@ -88,12 +107,118 @@ class TreeRingDialog(QtWidgets.QDialog):
             self.btn_cstrd.setToolTip(self.tr("Classical edge-based tree ring detection (~73s, CPU-only)"))
         
         self.form.addRow(self.btn_cstrd)
+        
+        # CS-TRD Advanced Parameters (collapsible)
+        self.cstrd_advanced_group = QtWidgets.QGroupBox(self.tr("CS-TRD Advanced Parameters"))
+        self.cstrd_advanced_group.setCheckable(True)
+        self.cstrd_advanced_group.setChecked(False)  # Collapsed by default
+        cstrd_layout = QtWidgets.QFormLayout()
+        
+        self.cstrd_sigma = QtWidgets.QDoubleSpinBox()
+        self.cstrd_sigma.setRange(0.5, 10.0)
+        self.cstrd_sigma.setValue(3.0)
+        self.cstrd_sigma.setSingleStep(0.5)
+        cstrd_layout.addRow(self.tr("Gaussian Sigma:"), self.cstrd_sigma)
+        
+        self.cstrd_th_low = QtWidgets.QDoubleSpinBox()
+        self.cstrd_th_low.setRange(0.0, 50.0)
+        self.cstrd_th_low.setValue(5.0)
+        self.cstrd_th_low.setSingleStep(1.0)
+        cstrd_layout.addRow(self.tr("Low Threshold:"), self.cstrd_th_low)
+        
+        self.cstrd_th_high = QtWidgets.QDoubleSpinBox()
+        self.cstrd_th_high.setRange(0.0, 100.0)
+        self.cstrd_th_high.setValue(20.0)
+        self.cstrd_th_high.setSingleStep(1.0)
+        cstrd_layout.addRow(self.tr("High Threshold:"), self.cstrd_th_high)
+        
+        self.cstrd_alpha = QtWidgets.QSpinBox()
+        self.cstrd_alpha.setRange(1, 180)
+        self.cstrd_alpha.setValue(30)
+        cstrd_layout.addRow(self.tr("Alpha (deg):"), self.cstrd_alpha)
+        
+        self.cstrd_nr = QtWidgets.QSpinBox()
+        self.cstrd_nr.setRange(36, 720)
+        self.cstrd_nr.setValue(360)
+        self.cstrd_nr.setSingleStep(36)
+        cstrd_layout.addRow(self.tr("Radial Samples:"), self.cstrd_nr)
+        
+        self.cstrd_advanced_group.setLayout(cstrd_layout)
+        if is_windows:
+            self.cstrd_advanced_group.setEnabled(False)
+        self.form.addRow(self.cstrd_advanced_group)
 
         # Add DeepCSTRD button
         self.btn_deepcstrd = QtWidgets.QPushButton(self.tr("Detect with DeepCSTRD (GPU)"))
         self.btn_deepcstrd.clicked.connect(self._on_deepcstrd)
         self.btn_deepcstrd.setToolTip(self.tr("Deep learning-based tree ring detection (~101s, GPU-accelerated)"))
         self.form.addRow(self.btn_deepcstrd)
+        
+        # DeepCS-TRD Model Selection & Advanced Parameters
+        self.deepcstrd_advanced_group = QtWidgets.QGroupBox(self.tr("DeepCS-TRD Model & Parameters"))
+        self.deepcstrd_advanced_group.setCheckable(True)
+        self.deepcstrd_advanced_group.setChecked(False)  # Collapsed by default
+        deepcstrd_layout = QtWidgets.QFormLayout()
+        
+        # Model Selection
+        self.deepcstrd_model = QtWidgets.QComboBox()
+        self.deepcstrd_model.addItems([
+            "generic (all species)",
+            "pinus_v1 (Pinus taeda v1)",
+            "pinus_v2 (Pinus taeda v2)",
+            "gleditsia (Gleditsia triacanthos)",
+            "salix (Salix humboldtiana)"
+        ])
+        self.deepcstrd_model.setToolTip(
+            self.tr("Select the model trained on your target species.\n"
+                   "Generic works well for most species.\n"
+                   "Species-specific models may provide better results.")
+        )
+        deepcstrd_layout.addRow(self.tr("Model:"), self.deepcstrd_model)
+        
+        # Tile Size
+        self.deepcstrd_tile_size = QtWidgets.QComboBox()
+        self.deepcstrd_tile_size.addItems(["0 (Full image)", "256 (Tiled)"])
+        self.deepcstrd_tile_size.setToolTip(
+            self.tr("Tiled processing (256) uses less memory but may be slower.\n"
+                   "Full image (0) is faster but requires more GPU memory.")
+        )
+        deepcstrd_layout.addRow(self.tr("Processing Mode:"), self.deepcstrd_tile_size)
+        
+        # Advanced parameters
+        self.deepcstrd_alpha = QtWidgets.QSpinBox()
+        self.deepcstrd_alpha.setRange(1, 180)
+        self.deepcstrd_alpha.setValue(45)
+        deepcstrd_layout.addRow(self.tr("Alpha (deg):"), self.deepcstrd_alpha)
+        
+        self.deepcstrd_nr = QtWidgets.QSpinBox()
+        self.deepcstrd_nr.setRange(36, 720)
+        self.deepcstrd_nr.setValue(360)
+        self.deepcstrd_nr.setSingleStep(36)
+        deepcstrd_layout.addRow(self.tr("Radial Samples:"), self.deepcstrd_nr)
+        
+        self.deepcstrd_rotations = QtWidgets.QSpinBox()
+        self.deepcstrd_rotations.setRange(1, 10)
+        self.deepcstrd_rotations.setValue(5)
+        self.deepcstrd_rotations.setToolTip(
+            self.tr("Test-time augmentation rotations.\n"
+                   "Higher = more accurate but slower.")
+        )
+        deepcstrd_layout.addRow(self.tr("Rotations (TTA):"), self.deepcstrd_rotations)
+        
+        self.deepcstrd_threshold = QtWidgets.QDoubleSpinBox()
+        self.deepcstrd_threshold.setRange(0.0, 1.0)
+        self.deepcstrd_threshold.setValue(0.5)
+        self.deepcstrd_threshold.setSingleStep(0.05)
+        self.deepcstrd_threshold.setToolTip(
+            self.tr("Prediction confidence threshold.\n"
+                   "Lower = more rings (may include false positives)\n"
+                   "Higher = fewer rings (may miss some).")
+        )
+        deepcstrd_layout.addRow(self.tr("Prediction Threshold:"), self.deepcstrd_threshold)
+        
+        self.deepcstrd_advanced_group.setLayout(deepcstrd_layout)
+        self.form.addRow(self.deepcstrd_advanced_group)
 
         btns = QtWidgets.QDialogButtonBox(
             QtWidgets.QDialogButtonBox.Cancel
@@ -130,15 +255,24 @@ class TreeRingDialog(QtWidgets.QDialog):
             logger.info(f"CS-TRD: Starting ring detection on image {self.image_np.shape}, center=({cx:.1f}, {cy:.1f})")
             QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
             
+            # Get parameters from UI
+            sigma = self.cstrd_sigma.value()
+            th_low = self.cstrd_th_low.value()
+            th_high = self.cstrd_th_high.value()
+            alpha = self.cstrd_alpha.value()
+            nr = self.cstrd_nr.value()
+            
+            logger.info(f"CS-TRD: Parameters - sigma={sigma}, th_low={th_low}, th_high={th_high}, alpha={alpha}, nr={nr}")
+            
             # Run CS-TRD with current parameters
             rings = detect_rings_cstrd(
                 self.image_np, 
                 center_xy=(cx, cy),
-                sigma=3.0,
-                th_low=5.0,
-                th_high=20.0,
-                alpha=30,
-                nr=360
+                sigma=sigma,
+                th_low=th_low,
+                th_high=th_high,
+                alpha=alpha,
+                nr=nr
             )
             
             QApplication.restoreOverrideCursor()
@@ -193,16 +327,30 @@ class TreeRingDialog(QtWidgets.QDialog):
             logger.info(f"DeepCS-TRD: Starting ring detection on image {self.image_np.shape}, center=({cx:.1f}, {cy:.1f})")
             QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
             
+            # Get model selection and parameters from UI
+            model_text = self.deepcstrd_model.currentText()
+            model_id = model_text.split(" ")[0]  # Extract "generic", "pinus_v1", etc.
+            
+            tile_text = self.deepcstrd_tile_size.currentText()
+            tile_size = 256 if "256" in tile_text else 0
+            
+            alpha = self.deepcstrd_alpha.value()
+            nr = self.deepcstrd_nr.value()
+            total_rotations = self.deepcstrd_rotations.value()
+            prediction_map_threshold = self.deepcstrd_threshold.value()
+            
+            logger.info(f"DeepCS-TRD: Model={model_id}, tile_size={tile_size}, alpha={alpha}, nr={nr}, rotations={total_rotations}, threshold={prediction_map_threshold}")
+            
             # Run DeepCS-TRD with current parameters
             rings = detect_rings_deepcstrd(
                 self.image_np, 
                 center_xy=(cx, cy),
-                model_id="generic",
-                tile_size=0,
-                alpha=45,
-                nr=360,
-                total_rotations=5,
-                prediction_map_threshold=0.5
+                model_id=model_id,
+                tile_size=tile_size,
+                alpha=alpha,
+                nr=nr,
+                total_rotations=total_rotations,
+                prediction_map_threshold=prediction_map_threshold
             )
             
             QApplication.restoreOverrideCursor()
@@ -243,10 +391,13 @@ class TreeRingDialog(QtWidgets.QDialog):
             QtWidgets.QMessageBox.warning(self, self.tr("No image"), self.tr("No image data available for pith detection."))
             return
         try:
-            logger.info(f"APD: Starting pith detection on image {self.image_np.shape}")
+            # Get APD parameters from UI
+            method = self.apd_method.currentText()
+            
+            logger.info(f"APD: Starting pith detection on image {self.image_np.shape}, method={method}")
             QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
             
-            x, y = detect_pith_apd(self.image_np)
+            x, y = detect_pith_apd(self.image_np, method=method)
             
             QApplication.restoreOverrideCursor()
             logger.info(f"APD: Detected pith at ({x:.1f}, {y:.1f})")
