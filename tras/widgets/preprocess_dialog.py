@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from PyQt5 import QtCore, QtWidgets, QtGui
+from PyQt5.QtWidgets import QApplication
 import numpy as np
 import cv2
 import tempfile
@@ -187,7 +188,13 @@ class PreprocessDialog(QtWidgets.QDialog):
     def _on_preview(self):
         """Preview preprocessing"""
         try:
+            # Set wait cursor during processing
+            QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
+            
             self._apply_preprocessing()
+            
+            # Restore cursor
+            QApplication.restoreOverrideCursor()
             
             # Display preview image
             display_img = self.processed_image.copy()
@@ -225,6 +232,7 @@ class PreprocessDialog(QtWidgets.QDialog):
             QtWidgets.QMessageBox.information(self, self.tr("Preview"), info_text)
             
         except Exception as e:
+            QApplication.restoreOverrideCursor()
             QtWidgets.QMessageBox.critical(
                 self, 
                 self.tr("Preview Error"),
@@ -290,8 +298,15 @@ class PreprocessDialog(QtWidgets.QDialog):
     
     def get_processed_image(self) -> np.ndarray:
         """Get the processed image"""
-        self._apply_preprocessing()
-        return self.processed_image
+        try:
+            # Set wait cursor during processing
+            QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
+            self._apply_preprocessing()
+            QApplication.restoreOverrideCursor()
+            return self.processed_image
+        except Exception as e:
+            QApplication.restoreOverrideCursor()
+            raise e
     
     def get_preprocessing_info(self) -> dict:
         """Get preprocessing metadata"""
