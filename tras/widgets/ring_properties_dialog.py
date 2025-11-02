@@ -24,6 +24,11 @@ class RingPropertiesDialog(QtWidgets.QDialog):
         self.setModal(True)
         self.resize(700, 500)
         
+        # Compute correct cumulative areas
+        areas = [p['area'] for p in ring_properties]
+        cumulative_areas = np.cumsum(areas).tolist()
+        self.cumulative_areas = cumulative_areas
+        
         layout = QtWidgets.QVBoxLayout()
         
         # Info label
@@ -101,6 +106,9 @@ class RingPropertiesDialog(QtWidgets.QDialog):
         for row, props in enumerate(ring_properties):
             col = 0
             
+            # Get correct cumulative area for this row
+            cumul_area_px = self.cumulative_areas[row]
+            
             # Ring label
             self.table.setItem(row, col, QtWidgets.QTableWidgetItem(props['label']))
             col += 1
@@ -110,7 +118,7 @@ class RingPropertiesDialog(QtWidgets.QDialog):
                 
                 # Physical measurements
                 area_physical = props['area'] * (scale_value ** 2)
-                cumul_physical = props['cumulative_area'] * (scale_value ** 2)
+                cumul_physical = cumul_area_px * (scale_value ** 2)
                 perim_physical = props['perimeter'] * scale_value
                 
                 self.table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{area_physical:.4f}"))
@@ -133,7 +141,7 @@ class RingPropertiesDialog(QtWidgets.QDialog):
             # Pixel measurements
             self.table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{props['area']:.2f}"))
             col += 1
-            self.table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{props['cumulative_area']:.2f}"))
+            self.table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{cumul_area_px:.2f}"))
             col += 1
             self.table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{props['perimeter']:.2f}"))
             col += 1
@@ -266,11 +274,14 @@ class RingPropertiesDialog(QtWidgets.QDialog):
                                        'Perimeter (px)'])
                 
                 # Write data rows
-                for props in self.ring_properties:
+                for idx, props in enumerate(self.ring_properties):
+                    # Get correct cumulative area for this row
+                    cumul_area_px = self.cumulative_areas[idx]
+                    
                     if has_scale:
                         scale_value = self.metadata['scale']['value']
                         area_physical = props['area'] * (scale_value ** 2)
-                        cumul_physical = props['cumulative_area'] * (scale_value ** 2)
+                        cumul_physical = cumul_area_px * (scale_value ** 2)
                         perim_physical = props['perimeter'] * scale_value
                         
                         if has_radial:
@@ -281,7 +292,7 @@ class RingPropertiesDialog(QtWidgets.QDialog):
                                 f"{area_physical:.4f}", f"{cumul_physical:.4f}",
                                 f"{perim_physical:.4f}",
                                 f"{radial_physical:.4f}" if radial_physical is not None else 'N/A',
-                                f"{props['area']:.2f}", f"{props['cumulative_area']:.2f}",
+                                f"{props['area']:.2f}", f"{cumul_area_px:.2f}",
                                 f"{props['perimeter']:.2f}"
                             ])
                         else:
@@ -289,7 +300,7 @@ class RingPropertiesDialog(QtWidgets.QDialog):
                                 props['label'],
                                 f"{area_physical:.4f}", f"{cumul_physical:.4f}",
                                 f"{perim_physical:.4f}",
-                                f"{props['area']:.2f}", f"{props['cumulative_area']:.2f}",
+                                f"{props['area']:.2f}", f"{cumul_area_px:.2f}",
                                 f"{props['perimeter']:.2f}"
                             ])
                     else:
@@ -298,7 +309,7 @@ class RingPropertiesDialog(QtWidgets.QDialog):
                             writer.writerow([
                                 props['label'],
                                 f"{props['area']:.2f}",
-                                f"{props['cumulative_area']:.2f}",
+                                f"{cumul_area_px:.2f}",
                                 f"{props['perimeter']:.2f}",
                                 f"{radial_px:.2f}" if radial_px is not None else 'N/A'
                             ])
@@ -306,7 +317,7 @@ class RingPropertiesDialog(QtWidgets.QDialog):
                             writer.writerow([
                                 props['label'],
                                 f"{props['area']:.2f}",
-                                f"{props['cumulative_area']:.2f}",
+                                f"{cumul_area_px:.2f}",
                                 f"{props['perimeter']:.2f}"
                             ])
             
