@@ -15,6 +15,9 @@ dependencies:
   
   # --- Compilers (Linux/macOS - Windows users: see README) ---
   - compilers
+  
+  # --- System libraries ---
+  - geos  # Required by shapely 1.7.0
 
   # --- Optional developer tools ---
   - git
