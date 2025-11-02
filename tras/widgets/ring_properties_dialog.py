@@ -570,7 +570,8 @@ class RingPropertiesDialog(QtWidgets.QDialog):
                     
                     if shape and hasattr(shape, 'points') and shape.points:
                         # Draw ring boundary
-                        points = np.array(shape.points)
+                        # Convert QPointF objects to numpy array of coordinates
+                        points = np.array([[p.x(), p.y()] for p in shape.points])
                         # Close the polygon by adding the first point at the end
                         points_closed = np.vstack([points, points[0:1]])
                         ax.plot(points_closed[:, 0], points_closed[:, 1], 
