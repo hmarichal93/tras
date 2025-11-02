@@ -1,1 +1,0 @@
-../instance_segmentation/labelme2voc.py
