@@ -127,15 +127,21 @@ def _get_model_path(model_id: str, tile_size: int = 0) -> str:
     # Normalize tile size
     tile_size = 0 if tile_size not in [0, 256] else tile_size
     
-    model_map = {
-        "pinus_v1": f"{tile_size}_pinus_v1_1504.pth",
-        "pinus_v2": f"{tile_size}_pinus_v2_1504.pth",
-        "gleditsia": f"{tile_size}_gleditsia_1504.pth",
-        "salix": f"{tile_size}_salix_1504.pth",
-        "generic": "0_all_1504.pth",
-    }
+    # Special case: generic model is always full image
+    if model_id == "generic":
+        model_path = base_path / "0_all_1504.pth"
+    else:
+        # Try to find model file with specified tile size
+        model_path = base_path / f"{tile_size}_{model_id}_1504.pth"
+        
+        # If not found and tile_size=256, fallback to tile_size=0
+        if not model_path.exists() and tile_size == 256:
+            print(f"Warning: Tiled model for {model_id} not found, using full image model")
+            model_path = base_path / f"0_{model_id}_1504.pth"
     
-    if model_id not in model_map:
-        model_id = "generic"
+    # If still not found, fallback to generic
+    if not model_path.exists():
+        print(f"Warning: Model {model_id} not found, using generic model")
+        model_path = base_path / "0_all_1504.pth"
     
-    return str(base_path / model_map[model_id])
+    return str(model_path)

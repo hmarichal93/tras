@@ -161,20 +161,26 @@ class TreeRingDialog(QtWidgets.QDialog):
         deepcstrd_layout = QtWidgets.QFormLayout()
         
         # Model Selection
+        model_row = QtWidgets.QHBoxLayout()
         self.deepcstrd_model = QtWidgets.QComboBox()
-        self.deepcstrd_model.addItems([
-            "generic (all species)",
-            "pinus_v1 (Pinus taeda v1)",
-            "pinus_v2 (Pinus taeda v2)",
-            "gleditsia (Gleditsia triacanthos)",
-            "salix (Salix humboldtiana)"
-        ])
+        self._populate_model_list()
         self.deepcstrd_model.setToolTip(
             self.tr("Select the model trained on your target species.\n"
                    "Generic works well for most species.\n"
                    "Species-specific models may provide better results.")
         )
-        deepcstrd_layout.addRow(self.tr("Model:"), self.deepcstrd_model)
+        model_row.addWidget(self.deepcstrd_model, stretch=3)
+        
+        # Upload Model button
+        self.btn_upload_model = QtWidgets.QPushButton(self.tr("📁 Upload"))
+        self.btn_upload_model.setToolTip(
+            self.tr("Upload a new DeepCS-TRD model (.pth file).\n"
+                   "You'll be asked for a model name and tile size.")
+        )
+        self.btn_upload_model.clicked.connect(self._on_upload_model)
+        model_row.addWidget(self.btn_upload_model, stretch=1)
+        
+        deepcstrd_layout.addRow(self.tr("Model:"), model_row)
         
         # Tile Size
         self.deepcstrd_tile_size = QtWidgets.QComboBox()
@@ -432,3 +438,130 @@ class TreeRingDialog(QtWidgets.QDialog):
     def get_pith_xy(self):
         """Return pith coordinates used for detection, or None"""
         return getattr(self, "detected_pith_xy", None)
+    
+    def _populate_model_list(self):
+        """Populate the model dropdown with available models."""
+        from pathlib import Path
+        
+        # Get models directory
+        models_dir = Path(__file__).parent.parent / "tree_ring_methods" / "deepcstrd" / "models" / "deep_cstrd"
+        
+        # Predefined models with friendly names
+        model_names = {
+            "generic": "generic (all species)",
+            "pinus_v1": "pinus_v1 (Pinus taeda v1)",
+            "pinus_v2": "pinus_v2 (Pinus taeda v2)",
+            "gleditsia": "gleditsia (Gleditsia triacanthos)",
+            "salix": "salix (Salix humboldtiana)"
+        }
+        
+        # Scan for additional custom models
+        if models_dir.exists():
+            for model_file in models_dir.glob("0_*.pth"):
+                model_id = model_file.stem.replace("0_", "").replace("_1504", "")
+                if model_id not in model_names:
+                    # Custom model - add with generic name
+                    model_names[model_id] = f"{model_id} (custom)"
+        
+        # Add models to dropdown
+        self.deepcstrd_model.clear()
+        for model_id, display_name in model_names.items():
+            self.deepcstrd_model.addItem(display_name)
+    
+    def _on_upload_model(self):
+        """Handle model upload button click."""
+        from pathlib import Path
+        import shutil
+        
+        # File dialog to select .pth file
+        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self,
+            self.tr("Select DeepCS-TRD Model File"),
+            "",
+            self.tr("PyTorch Model Files (*.pth);;All Files (*)")
+        )
+        
+        if not file_path:
+            return  # User cancelled
+        
+        # Ask for model name
+        model_name, ok = QtWidgets.QInputDialog.getText(
+            self,
+            self.tr("Model Name"),
+            self.tr("Enter a name for this model (e.g., 'eucalyptus', 'oak'):\n"
+                   "(Use only letters, numbers, and underscores)")
+        )
+        
+        if not ok or not model_name:
+            return  # User cancelled
+        
+        # Validate model name
+        model_name = model_name.strip().lower().replace(" ", "_")
+        if not model_name.replace("_", "").isalnum():
+            QtWidgets.QMessageBox.warning(
+                self,
+                self.tr("Invalid Name"),
+                self.tr("Model name can only contain letters, numbers, and underscores.")
+            )
+            return
+        
+        # Ask for tile size
+        tile_size, ok = QtWidgets.QInputDialog.getItem(
+            self,
+            self.tr("Tile Size"),
+            self.tr("What tile size was this model trained with?"),
+            ["0 (Full image)", "256 (Tiled)"],
+            0,
+            False
+        )
+        
+        if not ok:
+            return  # User cancelled
+        
+        tile_prefix = "256" if "256" in tile_size else "0"
+        
+        # Get destination path
+        models_dir = Path(__file__).parent.parent / "tree_ring_methods" / "deepcstrd" / "models" / "deep_cstrd"
+        dest_file = models_dir / f"{tile_prefix}_{model_name}_1504.pth"
+        
+        if dest_file.exists():
+            reply = QtWidgets.QMessageBox.question(
+                self,
+                self.tr("File Exists"),
+                self.tr(f"Model '{model_name}' already exists. Overwrite?"),
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No
+            )
+            if reply != QtWidgets.QMessageBox.Yes:
+                return
+        
+        try:
+            # Copy model file
+            shutil.copy2(file_path, dest_file)
+            
+            # Refresh model list
+            current_selection = self.deepcstrd_model.currentText()
+            self._populate_model_list()
+            
+            # Try to select the newly uploaded model
+            new_model_text = f"{model_name} (custom)"
+            index = self.deepcstrd_model.findText(new_model_text)
+            if index >= 0:
+                self.deepcstrd_model.setCurrentIndex(index)
+            
+            QtWidgets.QMessageBox.information(
+                self,
+                self.tr("Upload Success"),
+                self.tr(f"Model '{model_name}' uploaded successfully!\n\n"
+                       f"File: {dest_file.name}\n"
+                       f"Location: {models_dir}")
+            )
+            
+            logger.info(f"Uploaded new DeepCS-TRD model: {dest_file}")
+            
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(
+                self,
+                self.tr("Upload Failed"),
+                self.tr(f"Failed to upload model:\n{str(e)}")
+            )
+            logger.error(f"Failed to upload model: {e}")
