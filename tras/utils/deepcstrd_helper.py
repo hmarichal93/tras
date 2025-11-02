@@ -19,7 +19,9 @@ def detect_rings_deepcstrd(
     alpha: int = 45,
     nr: int = 360,
     total_rotations: int = 5,
-    prediction_map_threshold: float = 0.5
+    prediction_map_threshold: float = 0.5,
+    width: int = 0,
+    height: int = 0
 ) -> List[np.ndarray]:
     """
     Run DeepCS-TRD on the given image and return a list of ring polylines (Nx2 arrays).
@@ -33,6 +35,8 @@ def detect_rings_deepcstrd(
         nr: Number of radial samples (360 = 1 degree resolution)
         total_rotations: Number of rotations for test-time augmentation
         prediction_map_threshold: Threshold for binary prediction map
+        width: Resize width (0 = no resize) (default: 0)
+        height: Resize height (0 = no resize) (default: 0)
     
     Returns:
         List of ring polylines, each as Nx2 array of (x, y) points
@@ -86,8 +90,8 @@ def detect_rings_deepcstrd(
         im_in=image,
         cy=int(cy),
         cx=int(cx),
-        height=0,
-        width=0,
+        height=height,
+        width=width,
         alpha=alpha,
         nr=nr,
         mc=2,

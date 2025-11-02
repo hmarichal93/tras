@@ -143,6 +143,28 @@ class TreeRingDialog(QtWidgets.QDialog):
         self.cstrd_nr.setSingleStep(36)
         cstrd_layout.addRow(self.tr("Radial Samples:"), self.cstrd_nr)
         
+        # Resize parameters
+        self.cstrd_width = QtWidgets.QSpinBox()
+        self.cstrd_width.setRange(0, 10000)
+        self.cstrd_width.setValue(0)
+        self.cstrd_width.setSingleStep(100)
+        self.cstrd_width.setToolTip(
+            self.tr("Resize image width (0 = no resize).\n"
+                   "Smaller images process faster but may reduce accuracy.\n"
+                   "Recommended: 1000-2000 for faster processing.")
+        )
+        cstrd_layout.addRow(self.tr("Resize Width (px):"), self.cstrd_width)
+        
+        self.cstrd_height = QtWidgets.QSpinBox()
+        self.cstrd_height.setRange(0, 10000)
+        self.cstrd_height.setValue(0)
+        self.cstrd_height.setSingleStep(100)
+        self.cstrd_height.setToolTip(
+            self.tr("Resize image height (0 = no resize).\n"
+                   "Leave both at 0 to use original size.")
+        )
+        cstrd_layout.addRow(self.tr("Resize Height (px):"), self.cstrd_height)
+        
         self.cstrd_advanced_group.setLayout(cstrd_layout)
         if is_windows:
             self.cstrd_advanced_group.setEnabled(False)
@@ -202,6 +224,28 @@ class TreeRingDialog(QtWidgets.QDialog):
         self.deepcstrd_nr.setValue(360)
         self.deepcstrd_nr.setSingleStep(36)
         deepcstrd_layout.addRow(self.tr("Radial Samples:"), self.deepcstrd_nr)
+        
+        # Resize parameters
+        self.deepcstrd_width = QtWidgets.QSpinBox()
+        self.deepcstrd_width.setRange(0, 10000)
+        self.deepcstrd_width.setValue(0)
+        self.deepcstrd_width.setSingleStep(100)
+        self.deepcstrd_width.setToolTip(
+            self.tr("Resize image width (0 = no resize).\n"
+                   "Smaller images use less GPU memory and process faster.\n"
+                   "Recommended: 1000-2000 for faster processing.")
+        )
+        deepcstrd_layout.addRow(self.tr("Resize Width (px):"), self.deepcstrd_width)
+        
+        self.deepcstrd_height = QtWidgets.QSpinBox()
+        self.deepcstrd_height.setRange(0, 10000)
+        self.deepcstrd_height.setValue(0)
+        self.deepcstrd_height.setSingleStep(100)
+        self.deepcstrd_height.setToolTip(
+            self.tr("Resize image height (0 = no resize).\n"
+                   "Leave both at 0 to use original size.")
+        )
+        deepcstrd_layout.addRow(self.tr("Resize Height (px):"), self.deepcstrd_height)
         
         self.deepcstrd_rotations = QtWidgets.QSpinBox()
         self.deepcstrd_rotations.setRange(1, 10)
@@ -267,8 +311,10 @@ class TreeRingDialog(QtWidgets.QDialog):
             th_high = self.cstrd_th_high.value()
             alpha = self.cstrd_alpha.value()
             nr = self.cstrd_nr.value()
+            width = self.cstrd_width.value()
+            height = self.cstrd_height.value()
             
-            logger.info(f"CS-TRD: Parameters - sigma={sigma}, th_low={th_low}, th_high={th_high}, alpha={alpha}, nr={nr}")
+            logger.info(f"CS-TRD: Parameters - sigma={sigma}, th_low={th_low}, th_high={th_high}, alpha={alpha}, nr={nr}, resize=({width}, {height})")
             
             # Run CS-TRD with current parameters
             rings = detect_rings_cstrd(
@@ -278,7 +324,9 @@ class TreeRingDialog(QtWidgets.QDialog):
                 th_low=th_low,
                 th_high=th_high,
                 alpha=alpha,
-                nr=nr
+                nr=nr,
+                width=width,
+                height=height
             )
             
             QApplication.restoreOverrideCursor()
@@ -344,8 +392,10 @@ class TreeRingDialog(QtWidgets.QDialog):
             nr = self.deepcstrd_nr.value()
             total_rotations = self.deepcstrd_rotations.value()
             prediction_map_threshold = self.deepcstrd_threshold.value()
+            width = self.deepcstrd_width.value()
+            height = self.deepcstrd_height.value()
             
-            logger.info(f"DeepCS-TRD: Model={model_id}, tile_size={tile_size}, alpha={alpha}, nr={nr}, rotations={total_rotations}, threshold={prediction_map_threshold}")
+            logger.info(f"DeepCS-TRD: Model={model_id}, tile_size={tile_size}, alpha={alpha}, nr={nr}, rotations={total_rotations}, threshold={prediction_map_threshold}, resize=({width}, {height})")
             
             # Run DeepCS-TRD with current parameters
             rings = detect_rings_deepcstrd(
@@ -356,7 +406,9 @@ class TreeRingDialog(QtWidgets.QDialog):
                 alpha=alpha,
                 nr=nr,
                 total_rotations=total_rotations,
-                prediction_map_threshold=prediction_map_threshold
+                prediction_map_threshold=prediction_map_threshold,
+                width=width,
+                height=height
             )
             
             QApplication.restoreOverrideCursor()

@@ -16,7 +16,9 @@ def detect_rings_cstrd(
     th_high: float = 20.0,
     alpha: int = 30,
     nr: int = 360,
-    min_chain_length: int = 2
+    min_chain_length: int = 2,
+    width: int = 0,
+    height: int = 0
 ) -> List[np.ndarray]:
     """
     Run CS-TRD (Classical tree ring detection) on the given image.
@@ -32,6 +34,8 @@ def detect_rings_cstrd(
         alpha: Alpha parameter for angular sampling (default: 30)
         nr: Number of radial samples (default: 360 = 1 degree resolution)
         min_chain_length: Minimum chain length to keep (default: 2)
+        width: Resize width (0 = no resize) (default: 0)
+        height: Resize height (0 = no resize) (default: 0)
     
     Returns:
         List of ring polylines, each as Nx2 array of (x, y) points
@@ -100,6 +104,8 @@ def detect_rings_cstrd(
             "--alpha", str(alpha),
             "--nr", str(nr),
             "--min_chain_length", str(min_chain_length),
+            "--wsize", str(width),
+            "--hsize", str(height),
             "--save_imgs", "0",  # Don't save debug images
             "--debug", "0"
         ]
