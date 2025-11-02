@@ -145,9 +145,6 @@ tras --version                    # Check version
 
 ## 📖 Workflow
 
-<p align="center">
-  <img src="assets/workflow-diagram.png" alt="TRAS Workflow" width="700"/>
-</p>
 
 <details>
 <summary><b>📋 Step-by-step guide</b></summary>
@@ -190,9 +187,17 @@ tras --version                    # Check version
 If you use TRAS in your research, please cite the following papers:
 
 ### APD (Automatic Pith Detection)
-Marichal, H., Passarella, D., & Randall, G. (2024). *Automatic Pith Detection in Cross Section Tree Ring Images*. In: Proceedings of the 27th International Conference on Pattern Recognition (ICPR 2024). Lecture Notes in Computer Science, vol 15317. Springer.
-
-**DOI:** [10.1007/978-3-031-78447-7_1](https://doi.org/10.1007/978-3-031-78447-7_1)
+```bibtex
+@inproceedings{apd,
+  isbn = {978-3-031-78447-7},
+  year = {2025},
+  pages = {1--15},
+  title = {Automatic Wood Pith Detector: Local Orientation Estimation and Robust Accumulation},
+  author = {Marichal, Henry and Passarella, Diego and Randall, Gregory},
+  abstract = {A fully automated technique for wood pith detection (APD), relying on the concentric shape of the structure of wood ring slices, is introduced. The method estimates the ring's local orientations using the 2D structure tensor and finds the pith position, optimizing a cost function designed for this problem. We also present a variant (APD-PCL) using the parallel coordinate space that enhances the method's effectiveness when there are no clear tree ring patterns. Furthermore, refining Kurdthongmee's work, a YoloV8 net is trained for pith detection, producing a deep learning-based approach (APD-DL). All methods were tested on seven datasets, including images captured under diverse conditions (controlled laboratory settings, sawmill, and forest) and featuring various tree species (Pinus taeda, Douglas fir, Abies alba, and Gleditsia triacanthos). All proposed approaches outperform existing state-of-the-art methods and can be used in CPU-based real-time applications. Additionally, we provide a novel dataset comprising images of gymnosperm and angiosperm species. Dataset and source code are available at http://github.com/hmarichal93/apd.},
+  booktitle = {International Conference on Pattern Recognition (ICPR)}
+}
+```
 
 ### CS-TRD (Classical Tree Ring Detection)
 ```bibtex
@@ -254,7 +259,6 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 ## 🙏 Acknowledgments
 
 - Based on the original [LabelMe](https://github.com/wkentaro/labelme) annotation tool by Kentaro Wada
-- Integrates methods from the [TRAS research repository](https://github.com/hmarichal93/tras)
 - U2Net model for background removal from [xuebinqin/U-2-Net](https://github.com/xuebinqin/U-2-Net)
 
 ---
