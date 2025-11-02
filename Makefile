@@ -22,7 +22,7 @@ help:
 		awk 'BEGIN {FS = ":.*?# "}; \
 		{printf "  $(BOLD_BLUE)%-20s$(NC) %s\n", $$1, $$2}'
 
-PACKAGE_NAME:=labelme
+PACKAGE_NAME:=tras
 
 setup:  # Setup the development environment
 	$(call exec,uv sync --dev)
@@ -39,7 +39,7 @@ mypy:
 	$(call exec,uv run mypy --package $(PACKAGE_NAME))
 
 check_translate: update_translate
-	$(call exec,git diff --exit-code labelme/translate)
+	$(call exec,git diff --exit-code tras/translate)
 
 check: lint mypy check_translate # Run checks
 
