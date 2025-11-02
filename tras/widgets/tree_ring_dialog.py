@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import platform
 from typing import Optional
 
 from loguru import logger
@@ -71,14 +72,27 @@ class TreeRingDialog(QtWidgets.QDialog):
         detection_label = QtWidgets.QLabel(self.tr("<b>Step 2: Detect Tree Rings</b>"))
         self.form.addRow(detection_label)
         
-        # Add CS-TRD button
+        # Add CS-TRD button (disabled on Windows)
         self.btn_cstrd = QtWidgets.QPushButton(self.tr("Detect with CS-TRD (CPU)"))
         self.btn_cstrd.clicked.connect(self._on_cstrd)
+        
+        # Disable CS-TRD on Windows
+        is_windows = platform.system() == "Windows"
+        if is_windows:
+            self.btn_cstrd.setEnabled(False)
+            self.btn_cstrd.setToolTip(
+                self.tr("CS-TRD is not available on Windows due to compilation requirements.\n"
+                       "Please use DeepCS-TRD instead, or run TRAS on Linux/macOS for CS-TRD.")
+            )
+        else:
+            self.btn_cstrd.setToolTip(self.tr("Classical edge-based tree ring detection (~73s, CPU-only)"))
+        
         self.form.addRow(self.btn_cstrd)
 
         # Add DeepCSTRD button
         self.btn_deepcstrd = QtWidgets.QPushButton(self.tr("Detect with DeepCSTRD (GPU)"))
         self.btn_deepcstrd.clicked.connect(self._on_deepcstrd)
+        self.btn_deepcstrd.setToolTip(self.tr("Deep learning-based tree ring detection (~101s, GPU-accelerated)"))
         self.form.addRow(self.btn_deepcstrd)
 
         btns = QtWidgets.QDialogButtonBox(

@@ -69,11 +69,12 @@ pip install -e .
 ```bash
 pip install git+https://github.com/hmarichal93/uruDendro.git
 ```
-### 2. Compile Devernay Edge Detector (for CS-TRD)
+### 2. Compile Devernay Edge Detector (for CS-TRD, Linux/macOS only)
 ```bash
 cd tras/tree_ring_methods/cstrd/devernay
 make
 ```
+> **Note**: CS-TRD is not available on Windows. Windows users should use DeepCS-TRD instead.
 
 ### 3. Download DeepCS-TRD Models (Optional)
 ```bash
@@ -89,7 +90,7 @@ cd tras/tree_ring_methods/deepcstrd
 
 ### 🔬 **Automatic Detection**
 - **APD**: Automatic Pith Detection (~1s, CPU)
-- **CS-TRD**: Classical edge detection (~73s, CPU)
+- **CS-TRD**: Classical edge detection (~73s, CPU) *[Linux/macOS only]*
 - **DeepCS-TRD**: Deep learning U-Net (~101s, GPU)
 
 <img src="assets/detection-methods.png" alt="Detection Methods" width="100%"/>
@@ -165,7 +166,7 @@ tras --version                    # Check version
 4. **🎯 Detect Rings**
    - `Tools > Tree Ring Detection`
    - Choose pith: APD (auto) or manual click
-   - Select method: CS-TRD or DeepCS-TRD
+   - Select method: CS-TRD (Linux/macOS) or DeepCS-TRD (all platforms)
 
 5. **📝 Add Metadata**
    - `Tools > Sample Metadata`
