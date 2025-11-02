@@ -617,7 +617,7 @@ class RingPropertiesDialog(QtWidgets.QDialog):
         fig = plt.figure(figsize=(11, 8.5))
         gs = GridSpec(2, 2, figure=fig, hspace=0.3, wspace=0.3)
         
-        # Prepare data
+        # Prepare data (rings are stored outermost to innermost)
         ring_nums = list(range(1, len(self.ring_properties) + 1))
         areas = [p['area'] for p in self.ring_properties]
         perimeters = [p['perimeter'] for p in self.ring_properties]
@@ -626,6 +626,10 @@ class RingPropertiesDialog(QtWidgets.QDialog):
         # Rings are ordered outermost to innermost, so we cumsum in reverse
         import numpy as np
         cumulative_areas = np.cumsum(areas[::-1])[::-1].tolist()
+        
+        # Reverse all data to plot from innermost (pith) to outermost (bark)
+        areas = areas[::-1]
+        cumulative_areas = cumulative_areas[::-1]
         
         if has_scale:
             scale_factor = self.metadata['scale']['value']
@@ -638,9 +642,9 @@ class RingPropertiesDialog(QtWidgets.QDialog):
         if has_years:
             try:
                 harvested_year = int(self.metadata['harvested_year'])
-                # Extract year from label or calculate
+                # Extract year from label or calculate (reversed for innermost to outermost)
                 x_values = []
-                for i, p in enumerate(self.ring_properties):
+                for i, p in enumerate(reversed(self.ring_properties)):
                     label = p['label'].replace('ring_', '')
                     if label.isdigit():
                         x_values.append(int(label))
@@ -649,11 +653,11 @@ class RingPropertiesDialog(QtWidgets.QDialog):
                         x_values.append(harvested_year - (len(self.ring_properties) - i - 1))
                 x_label = 'Year'
             except:
-                x_values = ring_nums
+                x_values = list(reversed(ring_nums))
                 x_label = 'Ring Number'
         else:
-            x_values = ring_nums
-            x_label = 'Ring Number (Outermost to Innermost)'
+            x_values = list(reversed(ring_nums))
+            x_label = 'Ring Number (Innermost to Outermost)'
         
         # Plot 1: Area vs Ring/Year
         ax1 = fig.add_subplot(gs[0, 0])
@@ -688,7 +692,8 @@ class RingPropertiesDialog(QtWidgets.QDialog):
         if has_radial:
             radial_widths = []
             radial_x_values = []
-            for i, p in enumerate(self.ring_properties):
+            # Iterate in reversed order to match the plot direction (innermost to outermost)
+            for i, p in enumerate(reversed(self.ring_properties)):
                 if p.get('radial_width_px') is not None:
                     if has_scale:
                         radial_widths.append(p['radial_width_px'] * scale_factor)
