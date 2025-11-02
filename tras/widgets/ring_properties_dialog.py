@@ -564,11 +564,11 @@ class RingPropertiesDialog(QtWidgets.QDialog):
             # Get ring shapes from parent
             if hasattr(self.parent_window, 'labelList'):
                 # Get all ring shapes
-                for item_idx in range(self.parent_window.labelList.count()):
-                    item = self.parent_window.labelList.item(item_idx)
-                    shape = self.parent_window.labelList.get_shape_from_item(item)
+                for item_idx in range(len(self.parent_window.labelList)):
+                    item = self.parent_window.labelList[item_idx]
+                    shape = item.shape()
                     
-                    if shape and shape.points:
+                    if shape and hasattr(shape, 'points') and shape.points:
                         # Draw ring boundary
                         points = np.array(shape.points)
                         # Close the polygon
