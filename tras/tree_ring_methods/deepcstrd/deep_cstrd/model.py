@@ -187,8 +187,9 @@ def remove_duplicated_elements_in_numpy_array(matrix):
             repeated_indices = np.where(indices == i)[0]  # Find all occurrences
             mask[repeated_indices[1:]] = True  # Mark all except the first one
 
-    # Replace repeated rows with [-1, -1]
-    matrix[mask] = [-1, -1]
+    # Replace repeated rows with [-1, -1] (only if there are duplicates)
+    if np.any(mask):
+        matrix[mask] = [-1, -1]
     return matrix
 
 def from_prediction_mask_to_curves(pred, model, output_dir=None, debug=False) -> np.ndarray:
