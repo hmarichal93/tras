@@ -86,7 +86,7 @@ cd tras/tree_ring_methods/deepcstrd
 
 <table>
 <tr>
-<td width="50%">
+<td width="50%" valign="top">
 
 ### 🔬 **Automatic Detection**
 - **APD**: Automatic Pith Detection (~1s, CPU)
@@ -96,7 +96,7 @@ cd tras/tree_ring_methods/deepcstrd
 <img src="assets/detection-methods.png" alt="Detection Methods" width="100%"/>
 
 </td>
-<td width="50%">
+<td width="50%" valign="top">
 
 ### 🖼️ **Preprocessing**
 - Smart crop with edge warnings
@@ -109,7 +109,7 @@ cd tras/tree_ring_methods/deepcstrd
 </td>
 </tr>
 <tr>
-<td width="50%">
+<td width="50%" valign="top">
 
 ### 📏 **Scale Calibration**
 - Draw known-length segment
@@ -120,7 +120,7 @@ cd tras/tree_ring_methods/deepcstrd
 <img src="assets/scale-calibration.png" alt="Scale Calibration" width="100%"/>
 
 </td>
-<td width="50%">
+<td width="50%" valign="top">
 
 ### 📊 **Analysis & Export**
 - Ring properties (area, perimeter)
