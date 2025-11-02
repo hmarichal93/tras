@@ -484,32 +484,42 @@ class RingPropertiesDialog(QtWidgets.QDialog):
             # Get image from parent - try multiple sources
             image = None
             
-            # Try 1: Get from imageData (numpy array) - most reliable for preprocessed images
-            if hasattr(self.parent_window, 'imageData') and self.parent_window.imageData is not None:
-                from tras.utils import img_b64_to_arr
-                image = img_b64_to_arr(self.parent_window.imageData)
-                print(f"Got image from imageData: {image.shape}, dtype={image.dtype}")
+            # Try 1: Load from filename using PIL (most reliable for color)
+            if hasattr(self.parent_window, 'filename') and self.parent_window.filename:
+                try:
+                    from PIL import Image as PILImage
+                    pil_img = PILImage.open(self.parent_window.filename).convert('RGB')
+                    image = np.array(pil_img)
+                    print(f"Got image from file (PIL RGB): {image.shape}")
+                except Exception as e:
+                    print(f"Failed to load from filename: {e}")
+                    image = None
             
-            # Try 2: Load from filename using PIL (most reliable for color)
-            elif hasattr(self.parent_window, 'filename') and self.parent_window.filename:
-                from PIL import Image as PILImage
-                pil_img = PILImage.open(self.parent_window.filename).convert('RGB')
-                image = np.array(pil_img)
-                print(f"Got image from file (PIL RGB): {image.shape}")
+            # Try 2: Get from QImage via PIL
+            if image is None and hasattr(self.parent_window, 'image') and self.parent_window.image:
+                try:
+                    from PIL import Image as PILImage
+                    from PyQt5.QtCore import QBuffer, QIODevice
+                    # Convert QImage to PIL Image for proper color handling
+                    buffer = QBuffer()
+                    buffer.open(QIODevice.WriteOnly)
+                    self.parent_window.image.save(buffer, "PNG")
+                    pil_img = PILImage.open(io.BytesIO(buffer.data())).convert('RGB')
+                    image = np.array(pil_img)
+                    print(f"Got image from QImage via PIL: {image.shape}")
+                except Exception as e:
+                    print(f"Failed to load from QImage: {e}")
+                    image = None
             
-            # Try 3: Get from QImage (last resort, may have color issues)
-            elif hasattr(self.parent_window, 'image') and self.parent_window.image:
-                from PIL import Image as PILImage
-                from PyQt5.QtCore import QBuffer, QIODevice
-                # Convert QImage to PIL Image for proper color handling
-                buffer = QBuffer()
-                buffer.open(QIODevice.WriteOnly)
-                self.parent_window.image.save(buffer, "PNG")
-                pil_img = PILImage.open(io.BytesIO(buffer.data())).convert('RGB')
-                image = np.array(pil_img)
-                print(f"Got image from QImage via PIL: {image.shape}")
-            else:
-                image = None
+            # Try 3: Get from imageData (base64) - last resort, may have format issues
+            if image is None and hasattr(self.parent_window, 'imageData') and self.parent_window.imageData is not None:
+                try:
+                    from tras.utils import img_b64_to_arr
+                    image = img_b64_to_arr(self.parent_window.imageData)
+                    print(f"Got image from imageData: {image.shape}, dtype={image.dtype}")
+                except Exception as e:
+                    print(f"Failed to load from imageData: {e}")
+                    image = None
             
             if image is None:
                 raise ValueError("Could not load image from any source")
