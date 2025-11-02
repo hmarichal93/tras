@@ -402,122 +402,79 @@ class RingPropertiesDialog(QtWidgets.QDialog):
         """Create cover page with metadata and summary statistics"""
         import matplotlib.pyplot as plt
         
-        fig = plt.figure(figsize=(8.5, 11))
-        fig.patch.set_facecolor('white')
-        ax = fig.add_subplot(111)
+        fig, ax = plt.subplots(figsize=(8.5, 11))
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
         ax.axis('off')
         
         # Title
-        y_pos = 0.95
-        ax.text(0.5, y_pos, 'Tree Ring Analysis Report', 
-                ha='center', va='top', fontsize=24, fontweight='bold', 
-                color='#2d5016')
-        y_pos -= 0.08
-        
-        ax.text(0.5, y_pos, 'TRAS - Tree Ring Analyzer Suite', 
-                ha='center', va='top', fontsize=12, color='#666666')
-        y_pos -= 0.05
+        ax.text(0.5, 0.92, 'Tree Ring Analysis Report', 
+                ha='center', fontsize=20, fontweight='bold', color='#2d5016')
+        ax.text(0.5, 0.88, 'TRAS - Tree Ring Analyzer Suite', 
+                ha='center', fontsize=11, color='#666666')
         
         # Horizontal line
-        ax.plot([0.1, 0.9], [y_pos, y_pos], 'k-', linewidth=2, color='#8b4513')
-        y_pos -= 0.08
+        ax.plot([0.1, 0.9], [0.85, 0.85], 'k-', linewidth=1.5, color='#8b4513')
         
-        # Metadata section - compact format to fit on one page
-        if self.metadata and y_pos > 0.2:  # Only add if enough space
-            ax.text(0.1, y_pos, 'Sample Information', 
-                    fontsize=14, fontweight='bold', color='#2d5016')
-            y_pos -= 0.04
+        # Metadata - ultra compact
+        y = 0.80
+        if self.metadata:
+            ax.text(0.1, y, 'Sample', fontsize=11, fontweight='bold', color='#2d5016')
+            y -= 0.03
             
-            # Compact single-line format for all metadata
-            metadata_items = []
+            items = []
             if 'sample_code' in self.metadata:
-                metadata_items.append(f"Code: {self.metadata['sample_code']}")
+                items.append(f"{self.metadata['sample_code']}")
             if 'harvested_year' in self.metadata:
-                metadata_items.append(f"Year: {self.metadata['harvested_year']}")
+                items.append(f"{self.metadata['harvested_year']}")
             if 'scale' in self.metadata:
                 scale_value = self.metadata['scale']['value']
                 unit = self.metadata['scale']['unit']
-                metadata_items.append(f"Scale: {scale_value:.4f} {unit}/px")
+                items.append(f"{scale_value:.4f} {unit}/px")
+            if items:
+                ax.text(0.1, y, " • ".join(items), fontsize=9)
+                y -= 0.025
             
-            # Display metadata items in compact format
-            if metadata_items:
-                metadata_text = " | ".join(metadata_items)
-                ax.text(0.15, y_pos, metadata_text, fontsize=10)
-                y_pos -= 0.035
-            
-            # Observations - very compact
-            if 'observation' in self.metadata and y_pos > 0.18:
-                obs_text = self.metadata['observation']
-                # Limit to 150 chars max
-                obs_truncated = obs_text[:150] + ('...' if len(obs_text) > 150 else '')
-                ax.text(0.15, y_pos, f"Note: {obs_truncated}", 
-                        fontsize=9, style='italic', color='#666')
-                y_pos -= 0.03
-            
-            y_pos -= 0.02
+            if 'observation' in self.metadata:
+                obs = self.metadata['observation'][:100] + ('...' if len(self.metadata['observation']) > 100 else '')
+                ax.text(0.1, y, obs, fontsize=8, style='italic', color='#555', wrap=True)
+                y -= 0.03
         
-        # Summary statistics
-        ax.text(0.1, y_pos, 'Summary Statistics', 
-                fontsize=16, fontweight='bold', color='#2d5016')
-        y_pos -= 0.05
+        y -= 0.02
+        
+        # Summary - compact
+        ax.text(0.1, y, 'Statistics', fontsize=11, fontweight='bold', color='#2d5016')
+        y -= 0.03
         
         total_rings = len(self.ring_properties)
-        total_area = sum(p['area'] for p in self.ring_properties)
-        avg_area = total_area / total_rings if total_rings > 0 else 0
-        total_perim = sum(p['perimeter'] for p in self.ring_properties)
-        avg_perim = total_perim / total_rings if total_rings > 0 else 0
-        
         has_scale = self.metadata and 'scale' in self.metadata
-        has_radial = any(p.get('radial_width_px') is not None for p in self.ring_properties)
+        
+        ax.text(0.1, y, f"Rings: {total_rings}", fontsize=9)
+        y -= 0.025
         
         if has_scale:
             unit = self.metadata['scale']['unit']
             scale_factor = self.metadata['scale']['value']
-            scale_factor_sq = scale_factor ** 2
-            
-            ax.text(0.15, y_pos, f"Total Rings Detected: {total_rings}", fontsize=12)
-            y_pos -= 0.04
-            ax.text(0.15, y_pos, f"Total Area: {total_area*scale_factor_sq:.2f} {unit}² ({total_area:.2f} px²)", 
-                    fontsize=12)
-            y_pos -= 0.04
-            ax.text(0.15, y_pos, f"Average Ring Area: {avg_area*scale_factor_sq:.2f} {unit}² ({avg_area:.2f} px²)", 
-                    fontsize=12)
-            y_pos -= 0.04
-            ax.text(0.15, y_pos, f"Total Perimeter: {total_perim*scale_factor:.2f} {unit} ({total_perim:.2f} px)", 
-                    fontsize=12)
-            y_pos -= 0.04
-            
-            if has_radial:
-                radial_widths = [p.get('radial_width_px', 0) for p in self.ring_properties if p.get('radial_width_px') is not None]
-                if radial_widths:
-                    avg_width = sum(radial_widths) / len(radial_widths)
-                    ax.text(0.15, y_pos, f"Average Ring Width: {avg_width*scale_factor:.4f} {unit} ({avg_width:.2f} px)", 
-                            fontsize=12)
-                    y_pos -= 0.04
+            total_area = sum(p['area'] for p in self.ring_properties) * (scale_factor ** 2)
+            ax.text(0.1, y, f"Total area: {total_area:.1f} {unit}²", fontsize=9)
         else:
-            ax.text(0.15, y_pos, f"Total Rings Detected: {total_rings}", fontsize=12)
-            y_pos -= 0.04
-            ax.text(0.15, y_pos, f"Total Area: {total_area:.2f} px²", fontsize=12)
-            y_pos -= 0.04
-            ax.text(0.15, y_pos, f"Average Ring Area: {avg_area:.2f} px²", fontsize=12)
-            y_pos -= 0.04
-            ax.text(0.15, y_pos, f"Total Perimeter: {total_perim:.2f} px", fontsize=12)
-            y_pos -= 0.04
+            total_area = sum(p['area'] for p in self.ring_properties)
+            ax.text(0.1, y, f"Total area: {total_area:.0f} px²", fontsize=9)
         
         # Footer
-        ax.text(0.5, 0.05, f"Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", 
-                ha='center', fontsize=9, color='#666666')
-        ax.text(0.5, 0.02, 'TRAS v2.0.0 | github.com/hmarichal93/tras', 
-                ha='center', fontsize=8, color='#999999')
+        ax.text(0.5, 0.05, f"{datetime.now().strftime('%Y-%m-%d')}", 
+                ha='center', fontsize=8, color='#999')
+        ax.text(0.5, 0.02, 'github.com/hmarichal93/tras', 
+                ha='center', fontsize=7, color='#ccc')
         
-        plt.tight_layout()
-        pdf.savefig(fig, bbox_inches='tight')
+        pdf.savefig(fig)
         plt.close()
     
     def _create_ring_overlay_page(self, pdf):
         """Create page with image and ring overlays"""
         import matplotlib.pyplot as plt
         import matplotlib.patches as patches
+        import io
         
         if not self.parent_window:
             print("Warning: No parent window available for ring overlay")
@@ -527,24 +484,32 @@ class RingPropertiesDialog(QtWidgets.QDialog):
             # Get image from parent - try multiple sources
             image = None
             
-            # Try 1: Get from QImage
-            if hasattr(self.parent_window, 'image') and self.parent_window.image:
-                from tras.utils import img_qt_to_arr
-                image = img_qt_to_arr(self.parent_window.image)
-                print(f"Got image from QImage: {image.shape}")
-            
-            # Try 2: Get from imageData (numpy array)
-            if image is None and hasattr(self.parent_window, 'imageData') and self.parent_window.imageData is not None:
+            # Try 1: Get from imageData (numpy array) - most reliable for preprocessed images
+            if hasattr(self.parent_window, 'imageData') and self.parent_window.imageData is not None:
                 from tras.utils import img_b64_to_arr
                 image = img_b64_to_arr(self.parent_window.imageData)
-                print(f"Got image from imageData: {image.shape}")
+                print(f"Got image from imageData: {image.shape}, dtype={image.dtype}")
             
-            # Try 3: Load from filename
-            if image is None and hasattr(self.parent_window, 'filename') and self.parent_window.filename:
+            # Try 2: Load from filename using PIL (most reliable for color)
+            elif hasattr(self.parent_window, 'filename') and self.parent_window.filename:
                 from PIL import Image as PILImage
-                pil_img = PILImage.open(self.parent_window.filename)
+                pil_img = PILImage.open(self.parent_window.filename).convert('RGB')
                 image = np.array(pil_img)
-                print(f"Got image from file: {image.shape}")
+                print(f"Got image from file (PIL RGB): {image.shape}")
+            
+            # Try 3: Get from QImage (last resort, may have color issues)
+            elif hasattr(self.parent_window, 'image') and self.parent_window.image:
+                from PIL import Image as PILImage
+                from PyQt5.QtCore import QBuffer, QIODevice
+                # Convert QImage to PIL Image for proper color handling
+                buffer = QBuffer()
+                buffer.open(QIODevice.WriteOnly)
+                self.parent_window.image.save(buffer, "PNG")
+                pil_img = PILImage.open(io.BytesIO(buffer.data())).convert('RGB')
+                image = np.array(pil_img)
+                print(f"Got image from QImage via PIL: {image.shape}")
+            else:
+                image = None
             
             if image is None:
                 raise ValueError("Could not load image from any source")
@@ -553,9 +518,14 @@ class RingPropertiesDialog(QtWidgets.QDialog):
             if image.ndim == 2:
                 # Grayscale to RGB
                 image = np.stack([image]*3, axis=-1)
-            elif image.shape[2] == 4:
-                # RGBA to RGB
-                image = image[:, :, :3]
+            elif image.ndim == 3:
+                if image.shape[2] == 4:
+                    # RGBA to RGB
+                    image = image[:, :, :3]
+                elif image.shape[2] == 3:
+                    # Already RGB, but ensure it's not BGR
+                    # If coming from OpenCV, it might be BGR
+                    pass  # PIL already gives RGB
             
             fig, ax = plt.subplots(figsize=(11, 8.5))
             ax.imshow(image)
