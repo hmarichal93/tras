@@ -4,9 +4,12 @@ Only supports radial width (transect-based) - no centroid width
 """
 import csv
 from pathlib import Path
+from datetime import datetime
 
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QApplication
+import numpy as np
 
 
 class RingPropertiesDialog(QtWidgets.QDialog):
@@ -16,6 +19,7 @@ class RingPropertiesDialog(QtWidgets.QDialog):
         super().__init__(parent)
         self.ring_properties = ring_properties
         self.metadata = metadata or {}
+        self.parent_window = parent  # Store reference to main window
         self.setWindowTitle(self.tr("Tree Ring Properties"))
         self.setModal(True)
         self.resize(700, 500)
@@ -180,10 +184,18 @@ class RingPropertiesDialog(QtWidgets.QDialog):
         summary_label.setStyleSheet("padding: 10px; background-color: #f0f0f0; border-radius: 5px;")
         layout.addWidget(summary_label)
         
-        # Export button
-        export_btn = QtWidgets.QPushButton(self.tr("Export to CSV"))
-        export_btn.clicked.connect(self._export_csv)
-        layout.addWidget(export_btn)
+        # Export buttons row
+        export_layout = QtWidgets.QHBoxLayout()
+        
+        export_csv_btn = QtWidgets.QPushButton(self.tr("📊 Export to CSV"))
+        export_csv_btn.clicked.connect(self._export_csv)
+        export_layout.addWidget(export_csv_btn)
+        
+        export_pdf_btn = QtWidgets.QPushButton(self.tr("📄 Generate PDF Report"))
+        export_pdf_btn.clicked.connect(self._export_pdf)
+        export_layout.addWidget(export_pdf_btn)
+        
+        layout.addLayout(export_layout)
         
         # Close button
         close_btn = QtWidgets.QPushButton(self.tr("Close"))
@@ -308,3 +320,414 @@ class RingPropertiesDialog(QtWidgets.QDialog):
                 self, self.tr("Export Failed"),
                 self.tr(f"Failed to export CSV:\n{str(e)}")
             )
+    
+    def _export_pdf(self):
+        """Generate PDF report with ring overlays and analysis plots"""
+        # Get default filename from sample code
+        default_filename = "tree_ring_report.pdf"
+        if self.metadata.get('sample_code'):
+            sample_code = self.metadata['sample_code']
+            safe_code = "".join(c for c in sample_code if c.isalnum() or c in ('-', '_'))
+            default_filename = f"{safe_code}_report.pdf"
+        
+        filename, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self, self.tr("Save PDF Report"), default_filename, 
+            self.tr("PDF Files (*.pdf)")
+        )
+        
+        if not filename:
+            return
+        
+        try:
+            # Set wait cursor
+            QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
+            
+            # Import matplotlib here (lazy import)
+            import matplotlib
+            matplotlib.use('Agg')  # Use non-interactive backend
+            import matplotlib.pyplot as plt
+            from matplotlib.backends.backend_pdf import PdfPages
+            import matplotlib.patches as patches
+            from matplotlib.gridspec import GridSpec
+            
+            # Create PDF
+            with PdfPages(filename) as pdf:
+                # Page 1: Cover page with metadata and summary
+                self._create_cover_page(pdf)
+                
+                # Page 2: Image with ring overlays
+                self._create_ring_overlay_page(pdf)
+                
+                # Page 3: Analysis plots
+                self._create_analysis_plots(pdf)
+                
+                # Add metadata to PDF
+                d = pdf.infodict()
+                d['Title'] = 'Tree Ring Analysis Report'
+                d['Author'] = 'TRAS - Tree Ring Analyzer Suite'
+                d['Subject'] = f"Sample: {self.metadata.get('sample_code', 'Unknown')}"
+                d['Keywords'] = 'Dendrochronology, Tree Rings, Wood Analysis'
+                d['CreationDate'] = datetime.now()
+            
+            QApplication.restoreOverrideCursor()
+            
+            QtWidgets.QMessageBox.information(
+                self, self.tr("PDF Generated"),
+                self.tr(f"PDF report successfully generated:\n{filename}")
+            )
+        
+        except Exception as e:
+            QApplication.restoreOverrideCursor()
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"PDF Export Error: {error_details}")
+            QtWidgets.QMessageBox.critical(
+                self, self.tr("PDF Generation Error"),
+                self.tr(f"Failed to generate PDF:\n{str(e)}\n\nMake sure matplotlib is installed.")
+            )
+    
+    def _create_cover_page(self, pdf):
+        """Create cover page with metadata and summary statistics"""
+        import matplotlib.pyplot as plt
+        
+        fig = plt.figure(figsize=(8.5, 11))
+        fig.patch.set_facecolor('white')
+        ax = fig.add_subplot(111)
+        ax.axis('off')
+        
+        # Title
+        y_pos = 0.95
+        ax.text(0.5, y_pos, 'Tree Ring Analysis Report', 
+                ha='center', va='top', fontsize=24, fontweight='bold', 
+                color='#2d5016')
+        y_pos -= 0.08
+        
+        ax.text(0.5, y_pos, 'TRAS - Tree Ring Analyzer Suite', 
+                ha='center', va='top', fontsize=12, color='#666666')
+        y_pos -= 0.05
+        
+        # Horizontal line
+        ax.plot([0.1, 0.9], [y_pos, y_pos], 'k-', linewidth=2, color='#8b4513')
+        y_pos -= 0.08
+        
+        # Metadata section
+        if self.metadata:
+            ax.text(0.1, y_pos, 'Sample Information', 
+                    fontsize=16, fontweight='bold', color='#2d5016')
+            y_pos -= 0.05
+            
+            if 'sample_code' in self.metadata:
+                ax.text(0.15, y_pos, f"Sample Code: {self.metadata['sample_code']}", 
+                        fontsize=12)
+                y_pos -= 0.04
+            
+            if 'harvested_year' in self.metadata:
+                ax.text(0.15, y_pos, f"Harvested Year: {self.metadata['harvested_year']}", 
+                        fontsize=12)
+                y_pos -= 0.04
+            
+            if 'observation' in self.metadata:
+                obs_text = self.metadata['observation']
+                # Wrap long observations
+                if len(obs_text) > 60:
+                    lines = [obs_text[i:i+60] for i in range(0, len(obs_text), 60)]
+                    ax.text(0.15, y_pos, f"Observations:", fontsize=12)
+                    y_pos -= 0.04
+                    for line in lines:
+                        ax.text(0.18, y_pos, line, fontsize=11, style='italic')
+                        y_pos -= 0.03
+                else:
+                    ax.text(0.15, y_pos, f"Observations: {obs_text}", 
+                            fontsize=12, style='italic')
+                    y_pos -= 0.04
+            
+            if 'scale' in self.metadata:
+                scale_value = self.metadata['scale']['value']
+                unit = self.metadata['scale']['unit']
+                ax.text(0.15, y_pos, f"Scale: {scale_value:.6f} {unit}/pixel", 
+                        fontsize=12)
+                y_pos -= 0.04
+            
+            y_pos -= 0.03
+        
+        # Summary statistics
+        ax.text(0.1, y_pos, 'Summary Statistics', 
+                fontsize=16, fontweight='bold', color='#2d5016')
+        y_pos -= 0.05
+        
+        total_rings = len(self.ring_properties)
+        total_area = sum(p['area'] for p in self.ring_properties)
+        avg_area = total_area / total_rings if total_rings > 0 else 0
+        total_perim = sum(p['perimeter'] for p in self.ring_properties)
+        avg_perim = total_perim / total_rings if total_rings > 0 else 0
+        
+        has_scale = self.metadata and 'scale' in self.metadata
+        has_radial = any(p.get('radial_width_px') is not None for p in self.ring_properties)
+        
+        if has_scale:
+            unit = self.metadata['scale']['unit']
+            scale_factor = self.metadata['scale']['value']
+            scale_factor_sq = scale_factor ** 2
+            
+            ax.text(0.15, y_pos, f"Total Rings Detected: {total_rings}", fontsize=12)
+            y_pos -= 0.04
+            ax.text(0.15, y_pos, f"Total Area: {total_area*scale_factor_sq:.2f} {unit}² ({total_area:.2f} px²)", 
+                    fontsize=12)
+            y_pos -= 0.04
+            ax.text(0.15, y_pos, f"Average Ring Area: {avg_area*scale_factor_sq:.2f} {unit}² ({avg_area:.2f} px²)", 
+                    fontsize=12)
+            y_pos -= 0.04
+            ax.text(0.15, y_pos, f"Total Perimeter: {total_perim*scale_factor:.2f} {unit} ({total_perim:.2f} px)", 
+                    fontsize=12)
+            y_pos -= 0.04
+            
+            if has_radial:
+                radial_widths = [p.get('radial_width_px', 0) for p in self.ring_properties if p.get('radial_width_px') is not None]
+                if radial_widths:
+                    avg_width = sum(radial_widths) / len(radial_widths)
+                    ax.text(0.15, y_pos, f"Average Ring Width: {avg_width*scale_factor:.4f} {unit} ({avg_width:.2f} px)", 
+                            fontsize=12)
+                    y_pos -= 0.04
+        else:
+            ax.text(0.15, y_pos, f"Total Rings Detected: {total_rings}", fontsize=12)
+            y_pos -= 0.04
+            ax.text(0.15, y_pos, f"Total Area: {total_area:.2f} px²", fontsize=12)
+            y_pos -= 0.04
+            ax.text(0.15, y_pos, f"Average Ring Area: {avg_area:.2f} px²", fontsize=12)
+            y_pos -= 0.04
+            ax.text(0.15, y_pos, f"Total Perimeter: {total_perim:.2f} px", fontsize=12)
+            y_pos -= 0.04
+        
+        # Footer
+        ax.text(0.5, 0.05, f"Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", 
+                ha='center', fontsize=9, color='#666666')
+        ax.text(0.5, 0.02, 'TRAS v2.0.0 | github.com/hmarichal93/tras', 
+                ha='center', fontsize=8, color='#999999')
+        
+        plt.tight_layout()
+        pdf.savefig(fig, bbox_inches='tight')
+        plt.close()
+    
+    def _create_ring_overlay_page(self, pdf):
+        """Create page with image and ring overlays"""
+        import matplotlib.pyplot as plt
+        import matplotlib.patches as patches
+        
+        if not self.parent_window or not hasattr(self.parent_window, 'image'):
+            return
+        
+        try:
+            # Get image from parent
+            from tras.utils import img_qt_to_arr
+            image = img_qt_to_arr(self.parent_window.image)
+            
+            fig, ax = plt.subplots(figsize=(11, 8.5))
+            ax.imshow(image)
+            ax.set_title('Tree Rings with Detected Boundaries', 
+                        fontsize=16, fontweight='bold', pad=20)
+            ax.axis('off')
+            
+            # Get ring shapes from parent
+            if hasattr(self.parent_window, 'labelList'):
+                # Get all ring shapes
+                for item_idx in range(self.parent_window.labelList.count()):
+                    item = self.parent_window.labelList.item(item_idx)
+                    shape = self.parent_window.labelList.get_shape_from_item(item)
+                    
+                    if shape and shape.points:
+                        # Draw ring boundary
+                        points = np.array(shape.points)
+                        # Close the polygon
+                        points_closed = np.vstack([points, points[0]])
+                        ax.plot(points_closed[:, 0], points_closed[:, 1], 
+                               'g-', linewidth=2, alpha=0.7)
+                        
+                        # Add ring label
+                        center_x = np.mean(points[:, 0])
+                        center_y = np.mean(points[:, 1])
+                        ax.text(center_x, center_y, shape.label, 
+                               ha='center', va='center', 
+                               fontsize=8, fontweight='bold',
+                               color='white',
+                               bbox=dict(boxstyle='round,pad=0.3', 
+                                       facecolor='green', alpha=0.7))
+            
+            # Add scale bar if available
+            if self.metadata and 'scale' in self.metadata:
+                scale_value = self.metadata['scale']['value']
+                unit = self.metadata['scale']['unit']
+                
+                # Add 1 cm scale bar (or appropriate size)
+                img_height, img_width = image.shape[:2]
+                scale_length_physical = 1.0  # 1 unit
+                scale_length_pixels = scale_length_physical / scale_value
+                
+                # Position in bottom-right corner
+                margin = 50
+                bar_y = img_height - margin
+                bar_x_start = img_width - margin - scale_length_pixels
+                bar_x_end = img_width - margin
+                
+                ax.plot([bar_x_start, bar_x_end], [bar_y, bar_y], 
+                       'k-', linewidth=3)
+                ax.text((bar_x_start + bar_x_end) / 2, bar_y - 15, 
+                       f'1 {unit}',
+                       ha='center', fontsize=10, fontweight='bold',
+                       bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+            
+            plt.tight_layout()
+            pdf.savefig(fig, bbox_inches='tight', dpi=150)
+            plt.close()
+        
+        except Exception as e:
+            print(f"Error creating ring overlay: {e}")
+            # Create a placeholder page
+            fig, ax = plt.subplots(figsize=(11, 8.5))
+            ax.text(0.5, 0.5, 'Ring overlay image not available', 
+                   ha='center', va='center', fontsize=14)
+            ax.axis('off')
+            pdf.savefig(fig)
+            plt.close()
+    
+    def _create_analysis_plots(self, pdf):
+        """Create analysis plots page"""
+        import matplotlib.pyplot as plt
+        from matplotlib.gridspec import GridSpec
+        
+        has_scale = self.metadata and 'scale' in self.metadata
+        has_radial = any(p.get('radial_width_px') is not None for p in self.ring_properties)
+        has_years = 'harvested_year' in self.metadata and all(
+            p['label'].replace('ring_', '').isdigit() or p['label'].isdigit() 
+            for p in self.ring_properties
+        )
+        
+        # Create figure with subplots
+        fig = plt.figure(figsize=(11, 8.5))
+        gs = GridSpec(2, 2, figure=fig, hspace=0.3, wspace=0.3)
+        
+        # Prepare data
+        ring_nums = list(range(1, len(self.ring_properties) + 1))
+        areas = [p['area'] for p in self.ring_properties]
+        cumulative_areas = [p['cumulative_area'] for p in self.ring_properties]
+        perimeters = [p['perimeter'] for p in self.ring_properties]
+        
+        if has_scale:
+            scale_factor = self.metadata['scale']['value']
+            scale_factor_sq = scale_factor ** 2
+            unit = self.metadata['scale']['unit']
+            areas_scaled = [a * scale_factor_sq for a in areas]
+            cumulative_areas_scaled = [ca * scale_factor_sq for ca in cumulative_areas]
+        
+        # Determine x-axis (ring number or year)
+        if has_years:
+            try:
+                harvested_year = int(self.metadata['harvested_year'])
+                # Extract year from label or calculate
+                x_values = []
+                for i, p in enumerate(self.ring_properties):
+                    label = p['label'].replace('ring_', '')
+                    if label.isdigit():
+                        x_values.append(int(label))
+                    else:
+                        # Calculate year based on position
+                        x_values.append(harvested_year - (len(self.ring_properties) - i - 1))
+                x_label = 'Year'
+            except:
+                x_values = ring_nums
+                x_label = 'Ring Number'
+        else:
+            x_values = ring_nums
+            x_label = 'Ring Number (Outermost to Innermost)'
+        
+        # Plot 1: Area vs Ring/Year
+        ax1 = fig.add_subplot(gs[0, 0])
+        if has_scale:
+            ax1.plot(x_values, areas_scaled, 'o-', color='#8b4513', linewidth=2, markersize=4)
+            ax1.set_ylabel(f'Ring Area ({unit}²)', fontsize=10, fontweight='bold')
+            ax1.set_title('Ring Area Over Time', fontsize=12, fontweight='bold')
+        else:
+            ax1.plot(x_values, areas, 'o-', color='#8b4513', linewidth=2, markersize=4)
+            ax1.set_ylabel('Ring Area (px²)', fontsize=10, fontweight='bold')
+            ax1.set_title('Ring Area', fontsize=12, fontweight='bold')
+        ax1.set_xlabel(x_label, fontsize=10, fontweight='bold')
+        ax1.grid(True, alpha=0.3)
+        
+        # Plot 2: Cumulative Area
+        ax2 = fig.add_subplot(gs[0, 1])
+        if has_scale:
+            ax2.plot(x_values, cumulative_areas_scaled, 'o-', color='#2d5016', linewidth=2, markersize=4)
+            ax2.fill_between(x_values, cumulative_areas_scaled, alpha=0.3, color='#2d5016')
+            ax2.set_ylabel(f'Cumulative Area ({unit}²)', fontsize=10, fontweight='bold')
+            ax2.set_title('Cumulative Ring Area', fontsize=12, fontweight='bold')
+        else:
+            ax2.plot(x_values, cumulative_areas, 'o-', color='#2d5016', linewidth=2, markersize=4)
+            ax2.fill_between(x_values, cumulative_areas, alpha=0.3, color='#2d5016')
+            ax2.set_ylabel('Cumulative Area (px²)', fontsize=10, fontweight='bold')
+            ax2.set_title('Cumulative Ring Area', fontsize=12, fontweight='bold')
+        ax2.set_xlabel(x_label, fontsize=10, fontweight='bold')
+        ax2.grid(True, alpha=0.3)
+        
+        # Plot 3: Ring Width (if available) or Area Distribution
+        ax3 = fig.add_subplot(gs[1, 0])
+        if has_radial:
+            radial_widths = []
+            radial_x_values = []
+            for i, p in enumerate(self.ring_properties):
+                if p.get('radial_width_px') is not None:
+                    if has_scale:
+                        radial_widths.append(p['radial_width_px'] * scale_factor)
+                    else:
+                        radial_widths.append(p['radial_width_px'])
+                    radial_x_values.append(x_values[i])
+            
+            if radial_widths:
+                ax3.plot(radial_x_values, radial_widths, 'o-', color='#ff8c00', linewidth=2, markersize=4)
+                if has_scale:
+                    ax3.set_ylabel(f'Ring Width ({unit})', fontsize=10, fontweight='bold')
+                    ax3.set_title('Radial Ring Width Over Time', fontsize=12, fontweight='bold')
+                else:
+                    ax3.set_ylabel('Ring Width (px)', fontsize=10, fontweight='bold')
+                    ax3.set_title('Radial Ring Width', fontsize=12, fontweight='bold')
+                ax3.set_xlabel(x_label, fontsize=10, fontweight='bold')
+                ax3.grid(True, alpha=0.3)
+        else:
+            # Show area distribution histogram
+            ax3.hist(areas_scaled if has_scale else areas, bins=min(20, len(areas)), 
+                    color='#8b4513', alpha=0.7, edgecolor='black')
+            if has_scale:
+                ax3.set_xlabel(f'Ring Area ({unit}²)', fontsize=10, fontweight='bold')
+            else:
+                ax3.set_xlabel('Ring Area (px²)', fontsize=10, fontweight='bold')
+            ax3.set_ylabel('Frequency', fontsize=10, fontweight='bold')
+            ax3.set_title('Ring Area Distribution', fontsize=12, fontweight='bold')
+            ax3.grid(True, alpha=0.3, axis='y')
+        
+        # Plot 4: Growth Rate (year-over-year area change) or Perimeter
+        ax4 = fig.add_subplot(gs[1, 1])
+        if len(areas) > 1:
+            # Calculate growth rate (area difference between consecutive rings)
+            growth_rates = [areas[i] - areas[i-1] for i in range(1, len(areas))]
+            growth_x = x_values[1:]  # Skip first ring
+            
+            if has_scale:
+                growth_rates_scaled = [gr * scale_factor_sq for gr in growth_rates]
+                ax4.bar(growth_x, growth_rates_scaled, color='#228b22', alpha=0.7, edgecolor='black')
+                ax4.set_ylabel(f'Area Change ({unit}²)', fontsize=10, fontweight='bold')
+                ax4.set_title('Ring-to-Ring Area Change', fontsize=12, fontweight='bold')
+            else:
+                ax4.bar(growth_x, growth_rates, color='#228b22', alpha=0.7, edgecolor='black')
+                ax4.set_ylabel('Area Change (px²)', fontsize=10, fontweight='bold')
+                ax4.set_title('Ring-to-Ring Area Change', fontsize=12, fontweight='bold')
+            ax4.set_xlabel(x_label, fontsize=10, fontweight='bold')
+            ax4.axhline(y=0, color='red', linestyle='--', linewidth=1, alpha=0.5)
+            ax4.grid(True, alpha=0.3, axis='y')
+        else:
+            ax4.text(0.5, 0.5, 'Insufficient data\nfor growth rate analysis', 
+                    ha='center', va='center', fontsize=12)
+            ax4.axis('off')
+        
+        plt.suptitle('Tree Ring Analysis - Quantitative Measurements', 
+                    fontsize=14, fontweight='bold', y=0.98)
+        
+        pdf.savefig(fig, bbox_inches='tight')
+        plt.close()
