@@ -440,17 +440,22 @@ class RingPropertiesDialog(QtWidgets.QDialog):
             
             if 'observation' in self.metadata:
                 obs_text = self.metadata['observation']
-                # Wrap long observations
+                # Wrap long observations using textwrap for better formatting
+                import textwrap
                 if len(obs_text) > 60:
-                    lines = [obs_text[i:i+60] for i in range(0, len(obs_text), 60)]
-                    ax.text(0.15, y_pos, f"Observations:", fontsize=12)
-                    y_pos -= 0.04
-                    for line in lines:
-                        ax.text(0.18, y_pos, line, fontsize=11, style='italic')
-                        y_pos -= 0.03
+                    # Limit to first 300 characters and wrap
+                    obs_truncated = obs_text[:300] + ('...' if len(obs_text) > 300 else '')
+                    wrapped_lines = textwrap.wrap(obs_truncated, width=70)
+                    ax.text(0.15, y_pos, f"Observations:", fontsize=12, fontweight='bold')
+                    y_pos -= 0.035
+                    # Limit to max 4 lines to prevent overflow
+                    for line in wrapped_lines[:4]:
+                        ax.text(0.18, y_pos, line, fontsize=10, style='italic')
+                        y_pos -= 0.025
+                    y_pos -= 0.01  # Extra spacing after observations
                 else:
                     ax.text(0.15, y_pos, f"Observations: {obs_text}", 
-                            fontsize=12, style='italic')
+                            fontsize=11, style='italic')
                     y_pos -= 0.04
             
             if 'scale' in self.metadata:
@@ -563,12 +568,19 @@ class RingPropertiesDialog(QtWidgets.QDialog):
             
             # Get ring shapes from parent
             if hasattr(self.parent_window, 'labelList'):
-                # Get all ring shapes
+                # Get all ring shapes (filter out radial measurement lines)
                 for item_idx in range(len(self.parent_window.labelList)):
                     item = self.parent_window.labelList[item_idx]
                     shape = item.shape()
                     
+                    # Only draw polygon shapes (rings), not lines (radial measurement)
                     if shape and hasattr(shape, 'points') and shape.points:
+                        # Skip non-polygon shapes (like radial measurement lines)
+                        if hasattr(shape, 'shape_type') and shape.shape_type != 'polygon':
+                            continue
+                        # Also skip shapes that don't look like rings
+                        if not (hasattr(shape, 'label') and 'ring' in shape.label.lower()):
+                            continue
                         # Draw ring boundary
                         # Convert QPointF objects to numpy array of coordinates
                         points = np.array([[p.x(), p.y()] for p in shape.points])
