@@ -26,8 +26,22 @@ TRAS integrates **state-of-the-art computer vision** and **deep learning methods
 </p>
 
 ## Installation
-
-### 1. Install System Dependencies
+### 1. Python
+#### Conda
+##### 1. Download Anaconda
+##### 2. Clone Repository
+```bash
+git clone -b tras https://github.com/hmarichal93/tras.git
+cd tras
+```
+##### 3. Install
+```bash
+conda env create -f environment.yml
+conda activate tras
+pip install -e . 
+```
+#### Venv
+##### 1. Install System Dependencies
 ```bash
 # Ubuntu/Debian
 sudo apt-get install -y libgeos-dev
@@ -39,26 +53,29 @@ brew install geos
 conda install -c conda-forge geos
 ```
 
-### 2. Clone Repository
+##### 2. Clone Repository
 ```bash
 git clone -b tras https://github.com/hmarichal93/tras.git
 cd tras
 ```
 
-### 3. Install Python Dependencies
+#### 3. Install Python Dependencies
 ```bash
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -e .
 ```
-
-### 4. Compile Devernay Edge Detector (for CS-TRD)
+### 2. Urudendro
+```bash
+pip install git+https://github.com/hmarichal93/uruDendro.git
+```
+### 2. Compile Devernay Edge Detector (for CS-TRD)
 ```bash
 cd tras/tree_ring_methods/cstrd/devernay
 make
 ```
 
-### 5. Download DeepCS-TRD Models (Optional)
+### 3. Download DeepCS-TRD Models (Optional)
 ```bash
 cd tras/tree_ring_methods/deepcstrd
 ./download_models.sh

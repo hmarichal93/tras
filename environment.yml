@@ -8,17 +8,13 @@ dependencies:
   - pip
   - numpy
 
-  # --- Build tools (cross-platform) ---
+  # --- Build tools ---
   - make
   - cmake
   - pkg-config
-
-  # --- Compilers ---
-  # On Linux/macOS
-  - gcc_linux-64        # provides gcc on Linux
-  - gxx_linux-64        # provides g++ on Linux
-  # On Windows
-  - m2w64-toolchain     # provides gcc/g++, make, etc. on Windows
+  
+  # --- Compilers (Linux/macOS - Windows users: see README) ---
+  - compilers
 
   # --- Optional developer tools ---
   - git
