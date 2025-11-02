@@ -24,9 +24,10 @@ class RingPropertiesDialog(QtWidgets.QDialog):
         self.setModal(True)
         self.resize(700, 500)
         
-        # Compute correct cumulative areas
+        # Compute correct cumulative areas from pith outward
+        # Rings are ordered outermost to innermost, so cumsum in reverse
         areas = [p['area'] for p in ring_properties]
-        cumulative_areas = np.cumsum(areas).tolist()
+        cumulative_areas = np.cumsum(areas[::-1])[::-1].tolist()
         self.cumulative_areas = cumulative_areas
         
         layout = QtWidgets.QVBoxLayout()
@@ -621,9 +622,10 @@ class RingPropertiesDialog(QtWidgets.QDialog):
         areas = [p['area'] for p in self.ring_properties]
         perimeters = [p['perimeter'] for p in self.ring_properties]
         
-        # Compute cumulative area (always increasing)
+        # Compute cumulative area from pith (innermost) outward
+        # Rings are ordered outermost to innermost, so we cumsum in reverse
         import numpy as np
-        cumulative_areas = np.cumsum(areas).tolist()
+        cumulative_areas = np.cumsum(areas[::-1])[::-1].tolist()
         
         if has_scale:
             scale_factor = self.metadata['scale']['value']
