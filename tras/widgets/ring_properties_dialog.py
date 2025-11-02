@@ -580,6 +580,27 @@ class RingPropertiesDialog(QtWidgets.QDialog):
                                bbox=dict(boxstyle='round,pad=0.2', 
                                        facecolor='green', alpha=0.8))
                         ring_count += 1
+                
+                # Now draw the radial measurement line (if exists)
+                for item_idx in range(len(self.parent_window.labelList)):
+                    item = self.parent_window.labelList[item_idx]
+                    shape = item.shape()
+                    
+                    # Look for line shapes (radial measurement)
+                    if shape and hasattr(shape, 'points') and shape.points:
+                        if hasattr(shape, 'shape_type') and shape.shape_type in ['line', 'linestrip']:
+                            # Draw radial measurement line
+                            points = np.array([[p.x(), p.y()] for p in shape.points])
+                            ax.plot(points[:, 0], points[:, 1], 
+                                   'r-', linewidth=3, alpha=0.8, linestyle='--',
+                                   label='Radial measurement')
+                            # Add arrow at the end
+                            if len(points) >= 2:
+                                dx = points[-1, 0] - points[-2, 0]
+                                dy = points[-1, 1] - points[-2, 1]
+                                ax.arrow(points[-2, 0], points[-2, 1], dx, dy,
+                                       head_width=20, head_length=30, 
+                                       fc='red', ec='red', alpha=0.8, linewidth=2)
             
             # Add scale bar if available
             if self.metadata and 'scale' in self.metadata:
