@@ -679,7 +679,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.tr("Detect Tree Rings"),
             self._action_detect_rings,
             None,
-            "objects",
+            "tree_ring",
             self.tr("Step 4: Automatically detect rings using APD, CS-TRD, or DeepCS-TRD"),
             enabled=False,
         )
@@ -689,7 +689,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.tr("Preprocess Image"),
             self._action_preprocess_image,
             None,
-            "edit",
+            "color",
             self.tr("Step 3: Crop, resize, or remove background from image"),
             enabled=False,
         )
@@ -709,7 +709,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.tr("View Ring Properties"),
             self._action_ring_properties,
             None,
-            "objects",
+            "labels",
             self.tr("Step 7: Compute and view ring area, perimeter, and cumulative measurements"),
             enabled=False,
         )
@@ -719,7 +719,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.tr("Sample Metadata"),
             self._action_metadata,
             None,
-            "edit",
+            "file",
             self.tr("Input harvested year, sample code, and observations (can be done at any time)"),
             enabled=False,
         )
@@ -729,7 +729,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.tr("Set Image Scale"),
             self._action_set_scale,
             None,
-            "fit",
+            "zoom",
             self.tr("Step 2: Set physical scale for measurements (mm, cm, μm per pixel)"),
             enabled=False,
         )
