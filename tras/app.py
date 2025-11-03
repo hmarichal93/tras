@@ -230,7 +230,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.tr("Quit application"),
         )
         open_ = action(
-            self.tr("📁 &Open"),
+            self.tr("&Open"),
             self.openFile,
             shortcuts["open"],
             "open",
@@ -260,7 +260,7 @@ class MainWindow(QtWidgets.QMainWindow):
             enabled=False,
         )
         save = action(
-            self.tr("💾 &Save"),
+            self.tr("&Save"),
             self.saveFile,
             shortcuts["save"],
             "save",
@@ -268,7 +268,7 @@ class MainWindow(QtWidgets.QMainWindow):
             enabled=False,
         )
         saveAs = action(
-            self.tr("💾 Save &As"),
+            self.tr("Save &As"),
             self.saveFileAs,
             shortcuts["save_as"],
             "save-as",
