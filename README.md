@@ -50,6 +50,12 @@ cd tras-2.0.0
 
 > **Alternative**: Download manually from [Releases](https://github.com/hmarichal93/tras/releases/latest) and extract
 
+> **🪟 Important for Windows Users:**
+> After downloading and extracting TRAS:
+> 1. Open **Anaconda Prompt** (not regular Command Prompt - search for "Anaconda Prompt" in the Start menu)
+> 2. Navigate to the extracted directory: `cd path\to\tras-2.0.0`
+> 3. Then follow the installation commands below
+
 ##### 3. Install
 ```bash
 conda env create -f environment.yml
