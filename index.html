@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="TRAS - Tree Ring Analyzer Suite v2.0.0 - Professional dendrochronology software with automatic tree ring detection and measurement">
+    <meta name="author" content="Henry Marichal">
+    <meta name="keywords" content="dendrochronology, tree rings, computer vision, deep learning, PyTorch, wood analysis">
+    
+    <title>TRAS - Tree Ring Analyzer Suite v2.0.0</title>
+    
+    <link rel="stylesheet" href="../styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* Additional TRAS-specific styles */
+        .hero-tras {
+            background: linear-gradient(135deg, #2d5016 0%, #3d6b1f 50%, #4a7c26 100%);
+            padding: 120px 0 80px;
+            color: white;
+        }
+        
+        .tras-logo {
+            max-width: 180px;
+            margin-bottom: 30px;
+            filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
+        }
+        
+        .version-badge {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            margin-top: 15px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .badges {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 25px 0;
+            flex-wrap: wrap;
+        }
+        
+        .badges img {
+            height: 20px;
+        }
+        
+        .screenshot-main {
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            margin: 40px auto;
+            max-width: 900px;
+            width: 100%;
+            display: block;
+        }
+        
+        .feature-grid-2col {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin: 40px 0;
+        }
+        
+        .feature-card-image {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .feature-card-image:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        }
+        
+        .feature-card-image img {
+            width: 100%;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .feature-card-image h3 {
+            color: #2d5016;
+            margin-bottom: 10px;
+        }
+        
+        .workflow-steps {
+            counter-reset: step-counter;
+            margin: 40px 0;
+        }
+        
+        .workflow-step {
+            position: relative;
+            padding-left: 60px;
+            margin-bottom: 30px;
+        }
+        
+        .workflow-step::before {
+            counter-increment: step-counter;
+            content: counter(step-counter);
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: linear-gradient(135deg, #2d5016, #4a7c26);
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.2rem;
+        }
+        
+        .workflow-step h4 {
+            margin-bottom: 8px;
+            color: #2d5016;
+        }
+        
+        .code-block {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            margin: 15px 0;
+        }
+        
+        .citation-box {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border-left: 4px solid #4a7c26;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            overflow-x: auto;
+        }
+        
+        .pdf-report-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        
+        .pdf-page-card {
+            text-align: center;
+        }
+        
+        .pdf-page-card img {
+            width: 100%;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s;
+        }
+        
+        .pdf-page-card img:hover {
+            transform: scale(1.05);
+        }
+        
+        .pdf-page-card h4 {
+            margin-top: 15px;
+            color: #2d5016;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 40px 0;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #2d5016;
+            display: block;
+        }
+        
+        .stat-label {
+            color: #666;
+            margin-top: 8px;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="../index.html" style="color: inherit; text-decoration: none;">← HM</a>
+            </div>
+            <div class="nav-links">
+                <a href="#overview">Overview</a>
+                <a href="#features">Features</a>
+                <a href="#installation">Installation</a>
+                <a href="#usage">Usage</a>
+                <a href="#citations">Citations</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero-tras">
+        <div class="container" style="text-align: center;">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 20px;">
+                <img src="assets/tras-logo.png" alt="TRAS Logo" class="tras-logo" style="margin-bottom: 0;">
+                <div style="text-align: left;">
+                    <h1 style="font-size: 3rem; margin: 0; line-height: 1;">TRAS</h1>
+                    <p style="font-size: 1.2rem; margin: 5px 0 10px 0; opacity: 0.95;">Tree Ring Analyzer Suite</p>
+                    <div class="version-badge" style="margin-top: 0; display: inline-block;">
+                        <i class="fas fa-tag"></i> Version 2.0.0
+                    </div>
+                </div>
+            </div>
+            <p style="margin-top: 25px; font-size: 1.1rem; max-width: 700px; margin-left: auto; margin-right: auto;">
+                Professional dendrochronology software integrating state-of-the-art computer vision and deep learning methods for automatic tree ring detection and measurement
+            </p>
+            <div class="badges">
+                <img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License">
+                <img src="https://img.shields.io/badge/Python-3.9%2B-blue" alt="Python">
+                <img src="https://img.shields.io/badge/Version-2.0.0-green" alt="Version">
+                <img src="https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey" alt="Platform">
+            </div>
+            <div style="margin-top: 30px; display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                <a href="https://github.com/hmarichal93/tras/tree/streamlit2labelme" target="_blank" class="btn btn-primary" style="background: white; color: #2d5016;">
+                    <i class="fab fa-github"></i> View on GitHub
+                </a>
+                <a href="https://github.com/hmarichal93/tras/blob/main/README.md" target="_blank" class="btn btn-secondary" style="border-color: white; color: white;">
+                    <i class="fas fa-book"></i> Documentation
+                </a>
+                <a href="https://github.com/hmarichal93/tras/blob/main/examples/tree_rings/README.md" target="_blank" class="btn btn-secondary" style="border-color: white; color: white;">
+                    <i class="fas fa-graduation-cap"></i> Tutorial
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Overview Section -->
+    <section id="overview" class="about">
+        <div class="container">
+            <h2 class="section-title">Overview</h2>
+            <p class="lead" style="text-align: center; max-width: 800px; margin: 0 auto 40px;">
+                TRAS is a comprehensive GUI application built with PyQt5 that combines three state-of-the-art methods 
+                for dendrochronology research: automatic pith detection (APD), classical edge detection (CS-TRD), 
+                and deep learning-based detection (DeepCS-TRD).
+            </p>
+            <div style="text-align: center;">
+                <img src="assets/screenshot-main.png" alt="TRAS Main Interface" class="screenshot-main">
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <span class="stat-number"><i class="fas fa-clock"></i></span>
+                    <span class="stat-label">Reduces analysis time from hours to minutes</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-number"><i class="fas fa-brain"></i></span>
+                    <span class="stat-label">State-of-the-art deep learning models</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-number"><i class="fas fa-chart-line"></i></span>
+                    <span class="stat-label">Professional PDF reports & exports</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-number"><i class="fas fa-globe"></i></span>
+                    <span class="stat-label">Used by researchers worldwide</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="projects">
+        <div class="container">
+            <h2 class="section-title">Key Features</h2>
+            
+            <div class="feature-grid-2col">
+                <div class="feature-card-image">
+                    <img src="assets/detection-methods.png" alt="Detection Methods">
+                    <h3>🔬 Automatic Detection</h3>
+                    <ul>
+                        <li><strong>APD</strong>: Automatic Pith Detection (~1s, CPU)</li>
+                        <li><strong>CS-TRD</strong>: Classical edge detection (~73s, CPU) <em>[Linux/macOS]</em></li>
+                        <li><strong>DeepCS-TRD</strong>: Deep learning U-Net (~101s, GPU)</li>
+                    </ul>
+                </div>
+                
+                <div class="feature-card-image">
+                    <img src="assets/preprocessing.png" alt="Image Preprocessing">
+                    <h3>🖼️ Image Preprocessing</h3>
+                    <ul>
+                        <li><strong>Crop</strong>: Focus on region of interest</li>
+                        <li><strong>Resize</strong>: Optimize for detection algorithms</li>
+                        <li><strong>Background Removal</strong>: U2Net-based intelligent removal</li>
+                    </ul>
+                </div>
+                
+                <div class="feature-card-image">
+                    <img src="assets/scale-calibration.png" alt="Scale Calibration">
+                    <h3>📏 Scale Calibration</h3>
+                    <ul>
+                        <li>Convert pixel measurements to physical units</li>
+                        <li>Support for mm, cm, and μm</li>
+                        <li>Visual scale bar display</li>
+                    </ul>
+                </div>
+                
+                <div class="feature-card-image">
+                    <img src="assets/analysis-export.png" alt="Analysis & Export">
+                    <h3>📊 Analysis & Export</h3>
+                    <ul>
+                        <li><strong>CSV</strong>: Ring properties with physical measurements</li>
+                        <li><strong>.POS</strong>: CooRecorder format for dendrochronology</li>
+                        <li><strong>JSON</strong>: Complete annotation persistence</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h3 style="text-align: center; margin-top: 60px; margin-bottom: 30px; color: #2d5016;">📄 Professional PDF Reports</h3>
+            <p style="text-align: center; max-width: 700px; margin: 0 auto 30px;">
+                Generate comprehensive, publication-ready reports with a single click. Each report includes sample metadata, 
+                ring overlays, and multi-panel analysis plots.
+            </p>
+            <div class="pdf-report-grid">
+                <div class="pdf-page-card">
+                    <img src="assets/report_page1.png" alt="PDF Report Page 1">
+                    <h4>Cover Page</h4>
+                    <p>Metadata & statistics</p>
+                </div>
+                <div class="pdf-page-card">
+                    <img src="assets/report_page2.png" alt="PDF Report Page 2">
+                    <h4>Ring Overlay</h4>
+                    <p>Detected boundaries & labels</p>
+                </div>
+                <div class="pdf-page-card">
+                    <img src="assets/report_page3.png" alt="PDF Report Page 3">
+                    <h4>Analysis Plots</h4>
+                    <p>Area, growth rate, radial width</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Installation Section -->
+    <section id="installation" class="experience">
+        <div class="container">
+            <h2 class="section-title">Installation</h2>
+            
+            <h3 style="color: #2d5016; margin-bottom: 20px;">Option 1: Conda (Recommended)</h3>
+            <div class="workflow-steps">
+                <div class="workflow-step">
+                    <h4>Clone Repository</h4>
+                    <div class="code-block">git clone -b tras https://github.com/hmarichal93/tras.git
+cd tras</div>
+                </div>
+                <div class="workflow-step">
+                    <h4>Create Conda Environment</h4>
+                    <div class="code-block">conda env create -f environment.yml
+conda activate tras</div>
+                </div>
+                <div class="workflow-step">
+                    <h4>Install TRAS</h4>
+                    <div class="code-block">pip install -e .</div>
+                </div>
+            </div>
+
+            <h3 style="color: #2d5016; margin-top: 40px; margin-bottom: 20px;">Option 2: Virtual Environment</h3>
+            <div class="workflow-steps">
+                <div class="workflow-step">
+                    <h4>Install System Dependencies</h4>
+                    <div class="code-block"># Ubuntu/Debian
+sudo apt-get install -y libgeos-dev
+
+# macOS
+brew install geos
+
+# Windows
+conda install -c conda-forge geos</div>
+                </div>
+                <div class="workflow-step">
+                    <h4>Clone & Install</h4>
+                    <div class="code-block">git clone -b tras https://github.com/hmarichal93/tras.git
+cd tras
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -e .</div>
+                </div>
+            </div>
+
+            <h3 style="color: #2d5016; margin-top: 40px; margin-bottom: 20px;">Additional Components</h3>
+            <div class="workflow-steps">
+                <div class="workflow-step">
+                    <h4>Compile CS-TRD (Linux/macOS only)</h4>
+                    <div class="code-block">cd tras/tree_ring_methods/cstrd/devernay
+make</div>
+                    <p style="margin-top: 10px;"><em>Note: CS-TRD is not available on Windows. Windows users should use DeepCS-TRD.</em></p>
+                </div>
+                <div class="workflow-step">
+                    <h4>Download DeepCS-TRD Models (Optional)</h4>
+                    <div class="code-block">cd tras/tree_ring_methods/deepcstrd
+./download_models.sh</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Usage Section -->
+    <section id="usage" class="skills">
+        <div class="container">
+            <h2 class="section-title">Quick Start</h2>
+            <p style="text-align: center; max-width: 700px; margin: 0 auto 40px;">
+                Launch TRAS and follow the guided workflow to analyze your tree ring samples:
+            </p>
+            
+            <div class="workflow-steps" style="max-width: 800px; margin: 0 auto;">
+                <div class="workflow-step">
+                    <h4>Launch Application</h4>
+                    <div class="code-block">tras</div>
+                </div>
+                <div class="workflow-step">
+                    <h4>Load Image</h4>
+                    <p>Open your wood cross-section image (JPG, PNG, TIFF supported)</p>
+                </div>
+                <div class="workflow-step">
+                    <h4>Set Metadata</h4>
+                    <p>Enter sample code, harvested year, and observations</p>
+                </div>
+                <div class="workflow-step">
+                    <h4>Calibrate Scale</h4>
+                    <p>Draw a reference line and specify its physical length</p>
+                </div>
+                <div class="workflow-step">
+                    <h4>Preprocess (Optional)</h4>
+                    <p>Crop, resize, or remove background to improve detection</p>
+                </div>
+                <div class="workflow-step">
+                    <h4>Detect Rings</h4>
+                    <p>Choose APD for pith, then CS-TRD or DeepCS-TRD for rings</p>
+                </div>
+                <div class="workflow-step">
+                    <h4>Manual Editing (Optional)</h4>
+                    <p>Add/remove points, create new rings, or delete false detections</p>
+                </div>
+                <div class="workflow-step">
+                    <h4>Measure Radial Width</h4>
+                    <p>Set direction from pith and export to .POS format</p>
+                </div>
+                <div class="workflow-step">
+                    <h4>Analyze & Export</h4>
+                    <p>View ring properties, generate PDF reports, export CSV data</p>
+                </div>
+            </div>
+
+            <p style="text-align: center; margin-top: 40px;">
+                <a href="https://github.com/hmarichal93/tras/blob/main/examples/tree_rings/README.md" target="_blank" class="btn btn-primary">
+                    <i class="fas fa-book-open"></i> View Full Tutorial
+                </a>
+            </p>
+        </div>
+    </section>
+
+    <!-- Citations Section -->
+    <section id="citations" class="publications">
+        <div class="container">
+            <h2 class="section-title">Citations</h2>
+            <p class="section-subtitle">
+                If you use TRAS in your research, please cite the relevant papers:
+            </p>
+
+            <div style="max-width: 900px; margin: 0 auto;">
+                <h3 style="color: #2d5016; margin-bottom: 20px;">📘 Automatic Pith Detection (APD)</h3>
+                <div class="citation-box">
+@inproceedings{apd,
+  isbn = {978-3-031-78447-7},
+  year = {2025},
+  pages = {1--15},
+  title = {Automatic Wood Pith Detector: Local Orientation Estimation and Robust Accumulation},
+  author = {Marichal, Henry and Passarella, Diego and Randall, Gregory},
+  abstract = {A fully automated technique for wood pith detection (APD), relying on the concentric shape of the structure of wood ring slices, is introduced...},
+  booktitle = {International Conference on Pattern Recognition (ICPR)}
+}
+                </div>
+                <p style="text-align: center;">
+                    <a href="https://link.springer.com/chapter/10.1007/978-3-031-78447-7_1" target="_blank" class="pub-link">
+                        <i class="fas fa-external-link-alt"></i> View Paper
+                    </a>
+                    <a href="https://github.com/hmarichal93/apd" target="_blank" class="pub-link" style="margin-left: 20px;">
+                        <i class="fab fa-github"></i> View Code
+                    </a>
+                </p>
+
+                <h3 style="color: #2d5016; margin-top: 40px; margin-bottom: 20px;">📘 Classical Tree Ring Detection (CS-TRD)</h3>
+                <div class="citation-box">
+@misc{marichal2024cstrd,
+  title={CS-TRD: a Cross Sections Tree Ring Detection method},
+  author={Henry Marichal and Diego Passarella and Gregory Randall},
+  year={2024},
+  eprint={2305.10809},
+  archivePrefix={arXiv},
+  primaryClass={cs.CV},
+  url={https://arxiv.org/abs/2305.10809},
+}
+                </div>
+                <p style="text-align: center;">
+                    <a href="https://arxiv.org/abs/2305.10809" target="_blank" class="pub-link">
+                        <i class="fas fa-file-alt"></i> arXiv Paper
+                    </a>
+                    <a href="https://www.ipol.im/pub/pre/485/" target="_blank" class="pub-link" style="margin-left: 20px;">
+                        <i class="fas fa-external-link-alt"></i> IPOL Article
+                    </a>
+                </p>
+
+                <h3 style="color: #2d5016; margin-top: 40px; margin-bottom: 20px;">📘 Deep Learning Detection (DeepCS-TRD)</h3>
+                <div class="citation-box">
+@misc{marichal2025deepcstrd,
+  title={DeepCS-TRD, a Deep Learning-based Cross-Section Tree Ring Detector},
+  author={Henry Marichal and Verónica Casaravilla and Candice Power and Karolain Mello and Joaquín Mazarino and Christine Lucas and Ludmila Profumo and Diego Passarella and Gregory Randall},
+  year={2025},
+  eprint={2504.16242},
+  archivePrefix={arXiv},
+  primaryClass={cs.CV},
+  url={https://arxiv.org/abs/2504.16242},
+}
+                </div>
+                <p style="text-align: center;">
+                    <a href="https://arxiv.org/abs/2504.16242" target="_blank" class="pub-link">
+                        <i class="fas fa-file-alt"></i> arXiv Paper
+                    </a>
+                    <a href="https://hmarichal93.github.io/deepcstrd/" target="_blank" class="pub-link" style="margin-left: 20px;">
+                        <i class="fas fa-external-link-alt"></i> Project Page
+                    </a>
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+                <p>&copy; 2025 Henry Marichal. TRAS v2.0.0</p>
+                <div style="display: flex; gap: 20px;">
+                    <a href="https://github.com/hmarichal93/tras" target="_blank" style="color: inherit;">
+                        <i class="fab fa-github"></i> GitHub
+                    </a>
+                    <a href="https://scholar.google.com/citations?user=SiCPozMAAAAJ&hl=en" target="_blank" style="color: inherit;">
+                        <i class="fas fa-graduation-cap"></i> Google Scholar
+                    </a>
+                    <a href="../index.html" style="color: inherit;">
+                        <i class="fas fa-user"></i> About Author
+                    </a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../script.js"></script>
+</body>
+</html>
+
