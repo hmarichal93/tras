@@ -398,11 +398,47 @@ class RingPropertiesDialog(QtWidgets.QDialog):
                 self.tr(f"Failed to generate PDF:\n{str(e)}\n\nMake sure matplotlib is installed.")
             )
     
+    def _add_header(self, fig):
+        """Add header image to the figure"""
+        try:
+            from PIL import Image as PILImage
+            import os
+            
+            # Get the project root directory (where assets folder is)
+            current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            project_root = os.path.dirname(current_dir)
+            header_path = os.path.join(project_root, 'assets', 'header.png')
+            
+            if os.path.exists(header_path):
+                header_img = PILImage.open(header_path)
+                # Add header at the top of the figure using figimage
+                fig_height_px = fig.get_figheight() * fig.dpi
+                fig_width_px = fig.get_figwidth() * fig.dpi
+                
+                # Resize header to fit width (leave some margin)
+                target_width = int(fig_width_px * 0.9)
+                aspect_ratio = header_img.height / header_img.width
+                target_height = int(target_width * aspect_ratio)
+                header_img_resized = header_img.resize((target_width, target_height), PILImage.Resampling.LANCZOS)
+                
+                # Position at top center
+                x_offset = int((fig_width_px - target_width) / 2)
+                y_offset = int(fig_height_px - target_height - 10)  # 10px from top
+                
+                fig.figimage(header_img_resized, xo=x_offset, yo=y_offset, alpha=1.0, zorder=10)
+            else:
+                print(f"Warning: Header image not found at {header_path}")
+        except Exception as e:
+            print(f"Warning: Could not add header: {e}")
+    
     def _create_cover_page(self, pdf):
         """Create cover page with metadata and summary statistics"""
         import matplotlib.pyplot as plt
         
         fig, ax = plt.subplots(figsize=(8.5, 11))
+        
+        # Add header
+        self._add_header(fig)
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 1)
         ax.axis('off')
@@ -483,30 +519,30 @@ class RingPropertiesDialog(QtWidgets.QDialog):
         import matplotlib.pyplot as plt
         import matplotlib.patches as patches
         import io
+        from PIL import Image as PILImage
+        import os
         
         if not self.parent_window:
             print("Warning: No parent window available for ring overlay")
             return
         
         try:
-            # Get image from parent - try multiple sources
+            # Get image from parent - CRITICAL: Use imageArray if available (preprocessed/resized image)
+            # Ring coordinates are in the space of the displayed image
             image = None
             
-            # Try 1: Load from filename using PIL (most reliable for color)
-            if hasattr(self.parent_window, 'filename') and self.parent_window.filename:
+            # Try 1: Use imageArray if available (preprocessed/resized image)
+            if hasattr(self.parent_window, 'imageArray') and self.parent_window.imageArray is not None:
                 try:
-                    from PIL import Image as PILImage
-                    pil_img = PILImage.open(self.parent_window.filename).convert('RGB')
-                    image = np.array(pil_img)
-                    print(f"Got image from file (PIL RGB): {image.shape}")
+                    image = self.parent_window.imageArray.copy()
+                    print(f"Got image from imageArray (preprocessed): {image.shape}")
                 except Exception as e:
-                    print(f"Failed to load from filename: {e}")
+                    print(f"Failed to load from imageArray: {e}")
                     image = None
             
-            # Try 2: Get from QImage via PIL
+            # Try 2: Get from QImage via PIL (current displayed image)
             if image is None and hasattr(self.parent_window, 'image') and self.parent_window.image:
                 try:
-                    from PIL import Image as PILImage
                     from PyQt5.QtCore import QBuffer, QIODevice
                     # Convert QImage to PIL Image for proper color handling
                     buffer = QBuffer()
@@ -519,7 +555,7 @@ class RingPropertiesDialog(QtWidgets.QDialog):
                     print(f"Failed to load from QImage: {e}")
                     image = None
             
-            # Try 3: Get from imageData (base64) - last resort, may have format issues
+            # Try 3: Get from imageData (base64) - last resort
             if image is None and hasattr(self.parent_window, 'imageData') and self.parent_window.imageData is not None:
                 try:
                     from tras.utils import img_b64_to_arr
@@ -547,6 +583,10 @@ class RingPropertiesDialog(QtWidgets.QDialog):
             
             # Use same page size as cover page (portrait 8.5 x 11)
             fig, ax = plt.subplots(figsize=(8.5, 11))
+            
+            # Add header
+            self._add_header(fig)
+            
             ax.imshow(image)
             ax.set_title('Tree Rings with Detected Boundaries', 
                         fontsize=16, fontweight='bold', pad=20)
@@ -616,29 +656,6 @@ class RingPropertiesDialog(QtWidgets.QDialog):
                                        head_width=20, head_length=30, 
                                        fc='red', ec='red', alpha=0.8, linewidth=2)
             
-            # Add scale bar if available
-            if self.metadata and 'scale' in self.metadata:
-                scale_value = self.metadata['scale']['value']
-                unit = self.metadata['scale']['unit']
-                
-                # Add 1 cm scale bar (or appropriate size)
-                img_height, img_width = image.shape[:2]
-                scale_length_physical = 1.0  # 1 unit
-                scale_length_pixels = scale_length_physical / scale_value
-                
-                # Position in bottom-right corner
-                margin = 50
-                bar_y = img_height - margin
-                bar_x_start = img_width - margin - scale_length_pixels
-                bar_x_end = img_width - margin
-                
-                ax.plot([bar_x_start, bar_x_end], [bar_y, bar_y], 
-                       'k-', linewidth=3)
-                ax.text((bar_x_start + bar_x_end) / 2, bar_y - 15, 
-                       f'1 {unit}',
-                       ha='center', fontsize=10, fontweight='bold',
-                       bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
-            
             plt.tight_layout()
             pdf.savefig(fig, bbox_inches='tight', dpi=150)
             plt.close()
@@ -669,6 +686,10 @@ class RingPropertiesDialog(QtWidgets.QDialog):
         
         # Create figure with subplots (same page size as cover - portrait)
         fig = plt.figure(figsize=(8.5, 11))
+        
+        # Add header
+        self._add_header(fig)
+        
         gs = GridSpec(2, 2, figure=fig, hspace=0.3, wspace=0.3)
         
         # Prepare data (rings are stored outermost to innermost)
