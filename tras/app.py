@@ -43,6 +43,7 @@ from tras.widgets import TreeRingDialog
 from tras.widgets import PreprocessDialog
 from tras.widgets import RingPropertiesDialog
 from tras.widgets import MetadataDialog
+from tras.widgets import ShortcutsDialog
 
 from . import utils
 
@@ -474,6 +475,14 @@ class MainWindow(QtWidgets.QMainWindow):
             icon="help",
             tip=self.tr("Show tutorial page"),
         )
+        
+        keyboardShortcuts = action(
+            self.tr("&Keyboard Shortcuts"),
+            self.show_shortcuts_dialog,
+            shortcuts.get("show_shortcuts", "F1"),
+            "help",
+            self.tr("View all keyboard shortcuts"),
+        )
 
         zoom = QtWidgets.QWidgetAction(self)
         zoomBoxLayout = QtWidgets.QVBoxLayout()
@@ -678,7 +687,7 @@ class MainWindow(QtWidgets.QMainWindow):
         detectTreeRings = action(
             self.tr("Detect Tree Rings"),
             self._action_detect_rings,
-            None,
+            shortcuts["detect_tree_rings"],
             "tree_ring",
             self.tr("Step 4: Automatically detect rings using APD, CS-TRD, or DeepCS-TRD"),
             enabled=False,
@@ -688,7 +697,7 @@ class MainWindow(QtWidgets.QMainWindow):
         preprocessImage = action(
             self.tr("Preprocess Image"),
             self._action_preprocess_image,
-            None,
+            shortcuts["preprocess_image"],
             "color",
             self.tr("Step 3: Crop, resize, or remove background from image"),
             enabled=False,
@@ -708,7 +717,7 @@ class MainWindow(QtWidgets.QMainWindow):
         ringProperties = action(
             self.tr("View Ring Properties"),
             self._action_ring_properties,
-            None,
+            shortcuts["view_ring_properties"],
             "labels",
             self.tr("Step 7: Compute and view ring area, perimeter, and cumulative measurements"),
             enabled=False,
@@ -718,7 +727,7 @@ class MainWindow(QtWidgets.QMainWindow):
         metadata = action(
             self.tr("Sample Metadata"),
             self._action_metadata,
-            None,
+            shortcuts["sample_metadata"],
             "file",
             self.tr("Input harvested year, sample code, and observations (can be done at any time)"),
             enabled=False,
@@ -728,7 +737,7 @@ class MainWindow(QtWidgets.QMainWindow):
         setScale = action(
             self.tr("Set Image Scale"),
             self._action_set_scale,
-            None,
+            shortcuts["set_scale"],
             "zoom",
             self.tr("Step 2: Set physical scale for measurements (mm, cm, μm per pixel)"),
             enabled=False,
@@ -738,7 +747,7 @@ class MainWindow(QtWidgets.QMainWindow):
         measureRadialWidth = action(
             self.tr("Measure Ring Width"),
             self._action_measure_radial_width,
-            None,
+            shortcuts["measure_radial_width"],
             "color-line",
             self.tr("Step 6: Measure ring widths along a radial line from pith"),
             enabled=False,
@@ -837,7 +846,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 quit,
             ),
         )
-        utils.addActions(self.menus.help, (help, self.actions.about))
+        utils.addActions(self.menus.help, (help, keyboardShortcuts, None, self.actions.about))
         # Tools menu organized by workflow order
         utils.addActions(self.menus.tools, (
             metadata,           # Step 1: Sample Metadata (optional, before starting)
@@ -2232,6 +2241,11 @@ class MainWindow(QtWidgets.QMainWindow):
     def tutorial(self):
         url = "https://github.com/hmarichal93/tras/blob/main/examples/tree_rings/README.md"  # NOQA
         webbrowser.open(url)
+    
+    def show_shortcuts_dialog(self):
+        """Show the keyboard shortcuts dialog."""
+        dialog = ShortcutsDialog(self._config["shortcuts"], parent=self)
+        dialog.exec_()
 
     def toggleDrawingSensitive(self, drawing=True):
         """Toggle drawing sensitive.

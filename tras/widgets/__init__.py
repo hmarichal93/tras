@@ -12,5 +12,6 @@ from .ring_properties_dialog import RingPropertiesDialog
 from .metadata_dialog import MetadataDialog
 from .scale_dialog import ScaleDialog, LineCalibrationDialog
 from .radial_width_dialog import RadialWidthDialog
+from .shortcuts_dialog import ShortcutsDialog
 from .unique_label_qlist_widget import UniqueLabelQListWidget
 from .zoom_widget import ZoomWidget

@@ -139,6 +139,17 @@ shortcuts:
   hide_all_polygons: null
   toggle_all_polygons: T
 
+  # TRAS-specific shortcuts
+  sample_metadata: Ctrl+M
+  set_scale: Ctrl+L
+  preprocess_image: Ctrl+I
+  detect_tree_rings: Ctrl+T
+  measure_radial_width: Ctrl+G
+  view_ring_properties: Ctrl+K
+  
+  # Help
+  show_shortcuts: F1
+
 # Tree Ring Detection settings (TRAS specific)
 tree_ring_detection:
   # Default method
