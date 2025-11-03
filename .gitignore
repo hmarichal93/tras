@@ -20,3 +20,4 @@ env/
 /labelme/tree_ring_methods/cstrd/devernay/devernay_cmd
 /labelme/tree_ring_methods/cstrd/devernay/*.o
 labelme_debug.log
+F02c*
