@@ -597,9 +597,6 @@ class RingPropertiesDialog(QtWidgets.QDialog):
             # Use same page size as cover page (portrait 8.5 x 11)
             fig, ax = plt.subplots(figsize=(8.5, 11))
             
-            # Add header with layout adjustment
-            self._add_header(fig, adjust_layout=True)
-            
             ax.imshow(image)
             ax.set_title('Tree Rings with Detected Boundaries', 
                         fontsize=16, fontweight='bold', pad=20)
@@ -699,9 +696,6 @@ class RingPropertiesDialog(QtWidgets.QDialog):
         
         # Create figure with subplots (same page size as cover - portrait)
         fig = plt.figure(figsize=(8.5, 11))
-        
-        # Add header with layout adjustment
-        self._add_header(fig, adjust_layout=True)
         
         gs = GridSpec(2, 2, figure=fig, hspace=0.3, wspace=0.3)
         
