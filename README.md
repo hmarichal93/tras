@@ -56,43 +56,7 @@ conda env create -f environment.yml
 conda activate tras
 pip install -e . 
 ```
-#### Venv
-##### 1. Install System Dependencies
-```bash
-# Ubuntu/Debian
-sudo apt-get install -y libgeos-dev
 
-# macOS
-brew install geos
-
-# Windows: install via conda
-conda install -c conda-forge geos
-```
-
-##### 2. Download TRAS
-
-**Linux/macOS:**
-```bash
-wget https://github.com/hmarichal93/tras/archive/refs/tags/v2.0.0.tar.gz
-tar -xzf v2.0.0.tar.gz
-cd tras-2.0.0
-```
-
-**Windows (PowerShell):**
-```powershell
-Invoke-WebRequest -Uri "https://github.com/hmarichal93/tras/archive/refs/tags/v2.0.0.zip" -OutFile "v2.0.0.zip"
-Expand-Archive -Path "v2.0.0.zip" -DestinationPath .
-cd tras-2.0.0
-```
-
-> **Alternative**: Download manually from [Releases](https://github.com/hmarichal93/tras/releases/latest) and extract
-
-##### 3. Install Python Dependencies
-```bash
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -e .
-```
 ### 2. Urudendro
 ```bash
 pip install git+https://github.com/hmarichal93/uruDendro.git
