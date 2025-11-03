@@ -729,7 +729,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.tr("📏 Set Image Scale"),
             self._action_set_scale,
             None,
-            "ruler",
+            "fit",
             self.tr("Step 2: Set physical scale for measurements (mm, cm, μm per pixel)"),
             enabled=False,
         )
@@ -739,7 +739,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.tr("📐 Measure Ring Width"),
             self._action_measure_radial_width,
             None,
-            "line",
+            "color-line",
             self.tr("Step 6: Measure ring widths along a radial line from pith"),
             enabled=False,
         )
