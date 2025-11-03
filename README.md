@@ -32,11 +32,15 @@ TRAS integrates **state-of-the-art computer vision** and **deep learning methods
 ##### 1. Download Anaconda
 > **Windows users**: [Video tutorial for installing Anaconda on Windows](https://youtu.be/4DQGBQMvwZo)
 
-##### 2. Clone Repository
+##### 2. Download TRAS
 ```bash
-git clone -b tras https://github.com/hmarichal93/tras.git
-cd tras
+# Download and extract v2.0.0 release
+wget https://github.com/hmarichal93/tras/archive/refs/tags/v2.0.0.tar.gz
+tar -xzf v2.0.0.tar.gz
+cd tras-2.0.0
 ```
+> **Alternative**: Download manually from [Releases](https://github.com/hmarichal93/tras/releases/latest) and extract
+
 ##### 3. Install
 ```bash
 conda env create -f environment.yml
@@ -56,13 +60,16 @@ brew install geos
 conda install -c conda-forge geos
 ```
 
-##### 2. Clone Repository
+##### 2. Download TRAS
 ```bash
-git clone -b tras https://github.com/hmarichal93/tras.git
-cd tras
+# Download and extract v2.0.0 release
+wget https://github.com/hmarichal93/tras/archive/refs/tags/v2.0.0.tar.gz
+tar -xzf v2.0.0.tar.gz
+cd tras-2.0.0
 ```
+> **Alternative**: Download manually from [Releases](https://github.com/hmarichal93/tras/releases/latest) and extract
 
-#### 3. Install Python Dependencies
+##### 3. Install Python Dependencies
 ```bash
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
@@ -72,17 +79,21 @@ pip install -e .
 ```bash
 pip install git+https://github.com/hmarichal93/uruDendro.git
 ```
-### 2. Compile Devernay Edge Detector (for CS-TRD, Linux/macOS only)
+### 3. Compile Devernay Edge Detector (for CS-TRD, Linux/macOS only)
 ```bash
+# From the tras-2.0.0 directory
 cd tras/tree_ring_methods/cstrd/devernay
 make
+cd ../../../..  # Return to tras-2.0.0 directory
 ```
 > **Note**: CS-TRD is not available on Windows. Windows users should use DeepCS-TRD instead.
 
-### 3. Download DeepCS-TRD Models (Optional)
+### 4. Download DeepCS-TRD Models (Optional)
 ```bash
+# From the tras-2.0.0 directory
 cd tras/tree_ring_methods/deepcstrd
 ./download_models.sh
+cd ../../..  # Return to tras-2.0.0 directory
 ```
 
 ## ✨ Key Features
