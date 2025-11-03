@@ -398,8 +398,13 @@ class RingPropertiesDialog(QtWidgets.QDialog):
                 self.tr(f"Failed to generate PDF:\n{str(e)}\n\nMake sure matplotlib is installed.")
             )
     
-    def _add_header(self, fig):
-        """Add header image to the figure"""
+    def _add_header(self, fig, adjust_layout=False):
+        """Add header image to the figure
+        
+        Args:
+            fig: matplotlib figure
+            adjust_layout: if True, adjust subplots to leave space for header
+        """
         try:
             from PIL import Image as PILImage
             import os
@@ -426,6 +431,13 @@ class RingPropertiesDialog(QtWidgets.QDialog):
                 y_offset = int(fig_height_px - target_height - 10)  # 10px from top
                 
                 fig.figimage(header_img_resized, xo=x_offset, yo=y_offset, alpha=1.0, zorder=10)
+                
+                # Adjust subplot layout to leave space for header
+                if adjust_layout:
+                    # Calculate header height as fraction of figure height
+                    header_height_fraction = (target_height + 20) / fig_height_px
+                    # Adjust top margin to leave space for header
+                    fig.subplots_adjust(top=1.0 - header_height_fraction)
             else:
                 print(f"Warning: Header image not found at {header_path}")
         except Exception as e:
@@ -443,10 +455,11 @@ class RingPropertiesDialog(QtWidgets.QDialog):
         ax.set_ylim(0, 1)
         ax.axis('off')
         
-        # Title
+        # Title with version
+        from tras import __version__
         ax.text(0.5, 0.92, 'Tree Ring Analysis Report', 
                 ha='center', fontsize=20, fontweight='bold', color='#2d5016')
-        ax.text(0.5, 0.88, 'TRAS - Tree Ring Analyzer Suite', 
+        ax.text(0.5, 0.88, f'TRAS - Tree Ring Analyzer Suite v{__version__}', 
                 ha='center', fontsize=11, color='#666666')
         
         # Horizontal line
@@ -584,8 +597,8 @@ class RingPropertiesDialog(QtWidgets.QDialog):
             # Use same page size as cover page (portrait 8.5 x 11)
             fig, ax = plt.subplots(figsize=(8.5, 11))
             
-            # Add header
-            self._add_header(fig)
+            # Add header with layout adjustment
+            self._add_header(fig, adjust_layout=True)
             
             ax.imshow(image)
             ax.set_title('Tree Rings with Detected Boundaries', 
@@ -687,8 +700,8 @@ class RingPropertiesDialog(QtWidgets.QDialog):
         # Create figure with subplots (same page size as cover - portrait)
         fig = plt.figure(figsize=(8.5, 11))
         
-        # Add header
-        self._add_header(fig)
+        # Add header with layout adjustment
+        self._add_header(fig, adjust_layout=True)
         
         gs = GridSpec(2, 2, figure=fig, hspace=0.3, wspace=0.3)
         
