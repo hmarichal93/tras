@@ -11,14 +11,14 @@ here = osp.dirname(osp.abspath(__file__))
 
 def newIcon(icon):
     icons_dir = osp.join(here, "../icons")
-    # Try SVG first, then PNG
-    svg_path = osp.join(icons_dir, f"{icon}.svg")
+    # Try PNG first (preserve existing icons), then SVG (for new icons like tree_ring)
     png_path = osp.join(icons_dir, f"{icon}.png")
+    svg_path = osp.join(icons_dir, f"{icon}.svg")
     
-    if osp.exists(svg_path):
-        return QtGui.QIcon(svg_path)
-    elif osp.exists(png_path):
+    if osp.exists(png_path):
         return QtGui.QIcon(osp.join(":/", icons_dir, f"{icon}.png"))
+    elif osp.exists(svg_path):
+        return QtGui.QIcon(svg_path)
     else:
         # Fallback to PNG path for resource files
         return QtGui.QIcon(osp.join(":/", icons_dir, f"{icon}.png"))
