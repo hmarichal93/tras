@@ -30,6 +30,8 @@ TRAS integrates **state-of-the-art computer vision** and **deep learning methods
 ### 1. Python
 #### Conda
 ##### 1. Download Anaconda
+> **Windows users**: [Video tutorial for installing Anaconda on Windows](https://youtu.be/4DQGBQMvwZo)
+
 ##### 2. Clone Repository
 ```bash
 git clone -b tras https://github.com/hmarichal93/tras.git
