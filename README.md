@@ -8,10 +8,11 @@
 
 **Professional dendrochronology software for automatic tree ring detection and measurement**
 
+[![Release](https://img.shields.io/github/v/release/hmarichal93/tras?color=green&label=Release)](https://github.com/hmarichal93/tras/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/hmarichal93/tras/total?color=blue&label=Downloads)](https://github.com/hmarichal93/tras/releases)
 [![License](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue)](https://www.python.org)
-[![Version](https://img.shields.io/badge/Version-2.0.0-green)](https://github.com/hmarichal93/tras)
-[![arXiv](https://img.shields.io/badge/arXiv-2305.10809-b31b1b.svg)]()
+[![arXiv](https://img.shields.io/badge/arXiv-2305.10809-b31b1b.svg)](https://arxiv.org/abs/2305.10809)
 
 </div>
 
