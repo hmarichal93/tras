@@ -134,6 +134,33 @@ cd tras/tree_ring_methods/deepcstrd
 </tr>
 </table>
 
+### 📄 **Professional PDF Reports**
+
+Generate comprehensive reports with a single click, including:
+- Sample metadata and summary statistics
+- Ring overlay with detected boundaries
+- Multi-panel analysis plots (area, growth rate, radial width)
+- Ready for publication or archival
+
+<p align="center">
+<table>
+<tr>
+<td width="33%" align="center">
+<img src="assets/report_page1.png" alt="Report Page 1" width="100%"/>
+<br/><b>Cover Page</b>
+</td>
+<td width="33%" align="center">
+<img src="assets/report_page2.png" alt="Report Page 2" width="100%"/>
+<br/><b>Ring Overlay</b>
+</td>
+<td width="33%" align="center">
+<img src="assets/report_page3.png" alt="Report Page 3" width="100%"/>
+<br/><b>Analysis Plots</b>
+</td>
+</tr>
+</table>
+</p>
+
 
 ## 🚀 Quick Start
 
