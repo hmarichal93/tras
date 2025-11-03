@@ -676,7 +676,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Tree Ring Detection action
         detectTreeRings = action(
-            self.tr("🎯 Detect Tree Rings"),
+            self.tr("Detect Tree Rings"),
             self._action_detect_rings,
             None,
             "objects",
@@ -686,7 +686,7 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # Preprocess Image action
         preprocessImage = action(
-            self.tr("🖼️ Preprocess Image"),
+            self.tr("Preprocess Image"),
             self._action_preprocess_image,
             None,
             "edit",
@@ -706,7 +706,7 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # Ring Properties action
         ringProperties = action(
-            self.tr("📊 View Ring Properties"),
+            self.tr("View Ring Properties"),
             self._action_ring_properties,
             None,
             "objects",
@@ -716,7 +716,7 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # Metadata action
         metadata = action(
-            self.tr("📝 Sample Metadata"),
+            self.tr("Sample Metadata"),
             self._action_metadata,
             None,
             "edit",
@@ -726,7 +726,7 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # Scale calibration action
         setScale = action(
-            self.tr("📏 Set Image Scale"),
+            self.tr("Set Image Scale"),
             self._action_set_scale,
             None,
             "fit",
@@ -736,7 +736,7 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # Measure ring width along radial line
         measureRadialWidth = action(
-            self.tr("📐 Measure Ring Width"),
+            self.tr("Measure Ring Width"),
             self._action_measure_radial_width,
             None,
             "color-line",
