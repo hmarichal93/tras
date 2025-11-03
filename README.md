@@ -33,12 +33,21 @@ TRAS integrates **state-of-the-art computer vision** and **deep learning methods
 > **Windows users**: [Video tutorial for installing Anaconda on Windows](https://youtu.be/4DQGBQMvwZo)
 
 ##### 2. Download TRAS
+
+**Linux/macOS:**
 ```bash
-# Download and extract v2.0.0 release
 wget https://github.com/hmarichal93/tras/archive/refs/tags/v2.0.0.tar.gz
 tar -xzf v2.0.0.tar.gz
 cd tras-2.0.0
 ```
+
+**Windows (PowerShell):**
+```powershell
+Invoke-WebRequest -Uri "https://github.com/hmarichal93/tras/archive/refs/tags/v2.0.0.zip" -OutFile "v2.0.0.zip"
+Expand-Archive -Path "v2.0.0.zip" -DestinationPath .
+cd tras-2.0.0
+```
+
 > **Alternative**: Download manually from [Releases](https://github.com/hmarichal93/tras/releases/latest) and extract
 
 ##### 3. Install
@@ -61,12 +70,21 @@ conda install -c conda-forge geos
 ```
 
 ##### 2. Download TRAS
+
+**Linux/macOS:**
 ```bash
-# Download and extract v2.0.0 release
 wget https://github.com/hmarichal93/tras/archive/refs/tags/v2.0.0.tar.gz
 tar -xzf v2.0.0.tar.gz
 cd tras-2.0.0
 ```
+
+**Windows (PowerShell):**
+```powershell
+Invoke-WebRequest -Uri "https://github.com/hmarichal93/tras/archive/refs/tags/v2.0.0.zip" -OutFile "v2.0.0.zip"
+Expand-Archive -Path "v2.0.0.zip" -DestinationPath .
+cd tras-2.0.0
+```
+
 > **Alternative**: Download manually from [Releases](https://github.com/hmarichal93/tras/releases/latest) and extract
 
 ##### 3. Install Python Dependencies
@@ -89,11 +107,21 @@ cd ../../../..  # Return to tras-2.0.0 directory
 > **Note**: CS-TRD is not available on Windows. Windows users should use DeepCS-TRD instead.
 
 ### 4. Download DeepCS-TRD Models (Optional)
+
+**Linux/macOS:**
 ```bash
 # From the tras-2.0.0 directory
 cd tras/tree_ring_methods/deepcstrd
 ./download_models.sh
 cd ../../..  # Return to tras-2.0.0 directory
+```
+
+**Windows:**
+```powershell
+# From the tras-2.0.0 directory
+cd tras\tree_ring_methods\deepcstrd
+python -c "import urllib.request; import zipfile; import os; url='https://github.com/hmarichal93/tras/releases/download/models/deepcstrd_models.zip'; urllib.request.urlretrieve(url, 'models.zip'); zipfile.ZipFile('models.zip').extractall('models'); os.remove('models.zip')"
+cd ..\..\..  # Return to tras-2.0.0 directory
 ```
 
 ## ✨ Key Features
