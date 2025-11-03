@@ -11,7 +11,17 @@ here = osp.dirname(osp.abspath(__file__))
 
 def newIcon(icon):
     icons_dir = osp.join(here, "../icons")
-    return QtGui.QIcon(osp.join(":/", icons_dir, f"{icon}.png"))
+    # Try SVG first, then PNG
+    svg_path = osp.join(icons_dir, f"{icon}.svg")
+    png_path = osp.join(icons_dir, f"{icon}.png")
+    
+    if osp.exists(svg_path):
+        return QtGui.QIcon(svg_path)
+    elif osp.exists(png_path):
+        return QtGui.QIcon(osp.join(":/", icons_dir, f"{icon}.png"))
+    else:
+        # Fallback to PNG path for resource files
+        return QtGui.QIcon(osp.join(":/", icons_dir, f"{icon}.png"))
 
 
 def newButton(text, icon=None, slot=None):
