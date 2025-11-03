@@ -811,5 +811,6 @@ class RingPropertiesDialog(QtWidgets.QDialog):
         plt.suptitle('Tree Ring Analysis - Quantitative Measurements', 
                     fontsize=14, fontweight='bold', y=0.98)
         
-        pdf.savefig(fig, bbox_inches='tight')
+        # Save without bbox_inches='tight' to maintain consistent 8.5x11 page size
+        pdf.savefig(fig)
         plt.close()

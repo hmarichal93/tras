@@ -1073,6 +1073,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.imageArray = None  # Clear preprocessed array
         self.labelFile = None
         self.otherData = None
+        self.pith_xy = None  # Clear pith position
+        self.sample_metadata = None  # Clear metadata
+        self.image_scale = None  # Clear scale
+        self.radial_line_measurements = None  # Clear radial measurements
         self.canvas.resetState()
 
     def _action_detect_rings(self) -> None:
@@ -2569,6 +2573,23 @@ class MainWindow(QtWidgets.QMainWindow):
             imageData = self.imageData if self._config["store_data"] else None
             if osp.dirname(filename) and not osp.exists(osp.dirname(filename)):
                 os.makedirs(osp.dirname(filename))
+            
+            # Prepare otherData with pith, metadata, and scale
+            if self.otherData is None:
+                self.otherData = {}
+            
+            # Save pith position if available
+            if self.pith_xy is not None:
+                self.otherData["pith_xy"] = self.pith_xy
+            
+            # Save sample metadata if available
+            if self.sample_metadata is not None:
+                self.otherData["sample_metadata"] = self.sample_metadata
+            
+            # Save image scale if available
+            if self.image_scale is not None:
+                self.otherData["image_scale"] = self.image_scale
+            
             lf.save(
                 filename=filename,
                 shapes=shapes,
@@ -2886,6 +2907,22 @@ class MainWindow(QtWidgets.QMainWindow):
             self._load_shape_dicts(shape_dicts=self.labelFile.shapes)
             if self.labelFile.flags is not None:
                 flags.update(self.labelFile.flags)
+            
+            # Restore pith position if available
+            if "pith_xy" in self.otherData:
+                self.pith_xy = self.otherData["pith_xy"]
+                logger.info(f"Restored pith position: ({self.pith_xy[0]:.2f}, {self.pith_xy[1]:.2f})")
+            
+            # Restore sample metadata if available
+            if "sample_metadata" in self.otherData:
+                self.sample_metadata = self.otherData["sample_metadata"]
+                logger.info(f"Restored sample metadata: {self.sample_metadata.get('sample_code', 'N/A')} ({self.sample_metadata.get('harvested_year', 'N/A')})")
+            
+            # Restore image scale if available
+            if "image_scale" in self.otherData:
+                self.image_scale = self.otherData["image_scale"]
+                logger.info(f"Restored image scale: {self.image_scale['value']:.6f} {self.image_scale['unit']}/pixel")
+        
         self.loadFlags(flags)
         if self._config["keep_prev"] and self.noShapes():
             self.loadShapes(prev_shapes, replace=False)
