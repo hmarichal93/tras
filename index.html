@@ -407,9 +407,12 @@ cd tras-2.0.0</div>
             <h3 style="color: #2d5016; margin-top: 40px; margin-bottom: 20px;"><i class="fas fa-cog"></i> Step 2: Install with Conda</h3>
             <div class="workflow-steps">
                 <div class="workflow-step">
-                    <h4>Create Environment & Install</h4>
-                    <div class="code-block">conda env create -f environment.yml
-conda activate tras
+                    <h4>Create Conda Environment</h4>
+                    <div class="code-block">conda env create -f environment.yml</div>
+                </div>
+                <div class="workflow-step">
+                    <h4>Activate Environment & Install TRAS</h4>
+                    <div class="code-block">conda activate tras
 pip install -e .</div>
                 </div>
             </div>
