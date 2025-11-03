@@ -377,60 +377,69 @@
     <section id="installation" class="experience">
         <div class="container">
             <h2 class="section-title">Installation</h2>
+            <p style="text-align: center; max-width: 700px; margin: 0 auto 40px;">
+                TRAS requires Anaconda/Miniconda for dependency management. 
+                <a href="https://youtu.be/4DQGBQMvwZo" target="_blank" style="color: #4a7c26;">
+                    <i class="fab fa-youtube"></i> Windows installation tutorial
+                </a>
+            </p>
             
-            <h3 style="color: #2d5016; margin-bottom: 20px;">Option 1: Conda (Recommended)</h3>
+            <h3 style="color: #2d5016; margin-bottom: 20px;"><i class="fas fa-download"></i> Step 1: Download TRAS v2.0.0</h3>
             <div class="workflow-steps">
                 <div class="workflow-step">
-                    <h4>Clone Repository</h4>
-                    <div class="code-block">git clone -b tras https://github.com/hmarichal93/tras.git
-cd tras</div>
+                    <h4>Linux / macOS</h4>
+                    <div class="code-block">wget https://github.com/hmarichal93/tras/archive/refs/tags/v2.0.0.tar.gz
+tar -xzf v2.0.0.tar.gz
+cd tras-2.0.0</div>
                 </div>
                 <div class="workflow-step">
-                    <h4>Create Conda Environment</h4>
-                    <div class="code-block">conda env create -f environment.yml
-conda activate tras</div>
-                </div>
-                <div class="workflow-step">
-                    <h4>Install TRAS</h4>
-                    <div class="code-block">pip install -e .</div>
+                    <h4>Windows (PowerShell)</h4>
+                    <div class="code-block">Invoke-WebRequest -Uri "https://github.com/hmarichal93/tras/archive/refs/tags/v2.0.0.zip" -OutFile "v2.0.0.zip"
+Expand-Archive -Path "v2.0.0.zip" -DestinationPath .
+cd tras-2.0.0</div>
                 </div>
             </div>
+            <p style="text-align: center; margin-top: 20px;">
+                <i class="fas fa-info-circle"></i> <strong>Alternative:</strong> 
+                Download manually from <a href="https://github.com/hmarichal93/tras/releases/latest" target="_blank" style="color: #4a7c26;">Releases</a> and extract
+            </p>
 
-            <h3 style="color: #2d5016; margin-top: 40px; margin-bottom: 20px;">Option 2: Virtual Environment</h3>
+            <h3 style="color: #2d5016; margin-top: 40px; margin-bottom: 20px;"><i class="fas fa-cog"></i> Step 2: Install with Conda</h3>
             <div class="workflow-steps">
                 <div class="workflow-step">
-                    <h4>Install System Dependencies</h4>
-                    <div class="code-block"># Ubuntu/Debian
-sudo apt-get install -y libgeos-dev
-
-# macOS
-brew install geos
-
-# Windows
-conda install -c conda-forge geos</div>
-                </div>
-                <div class="workflow-step">
-                    <h4>Clone & Install</h4>
-                    <div class="code-block">git clone -b tras https://github.com/hmarichal93/tras.git
-cd tras
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+                    <h4>Create Environment & Install</h4>
+                    <div class="code-block">conda env create -f environment.yml
+conda activate tras
 pip install -e .</div>
                 </div>
+                <div class="workflow-step">
+                    <h4>Install Urudendro</h4>
+                    <div class="code-block">pip install git+https://github.com/hmarichal93/uruDendro.git</div>
+                </div>
             </div>
 
-            <h3 style="color: #2d5016; margin-top: 40px; margin-bottom: 20px;">Additional Components</h3>
+            <h3 style="color: #2d5016; margin-top: 40px; margin-bottom: 20px;"><i class="fas fa-puzzle-piece"></i> Step 3: Additional Components</h3>
             <div class="workflow-steps">
                 <div class="workflow-step">
                     <h4>Compile CS-TRD (Linux/macOS only)</h4>
-                    <div class="code-block">cd tras/tree_ring_methods/cstrd/devernay
-make</div>
-                    <p style="margin-top: 10px;"><em>Note: CS-TRD is not available on Windows. Windows users should use DeepCS-TRD.</em></p>
+                    <div class="code-block"># From the tras-2.0.0 directory
+cd tras/tree_ring_methods/cstrd/devernay
+make
+cd ../../../..  # Return to tras-2.0.0 directory</div>
+                    <p style="margin-top: 10px;"><em><i class="fas fa-exclamation-triangle"></i> Note: CS-TRD is not available on Windows. Windows users should use DeepCS-TRD.</em></p>
                 </div>
                 <div class="workflow-step">
                     <h4>Download DeepCS-TRD Models (Optional)</h4>
-                    <div class="code-block">cd tras/tree_ring_methods/deepcstrd
-./download_models.sh</div>
+                    <p style="margin-bottom: 10px;"><strong>Linux/macOS:</strong></p>
+                    <div class="code-block"># From the tras-2.0.0 directory
+cd tras/tree_ring_methods/deepcstrd
+./download_models.sh
+cd ../../..  # Return to tras-2.0.0 directory</div>
+                    <p style="margin-top: 20px; margin-bottom: 10px;"><strong>Windows:</strong></p>
+                    <div class="code-block"># From the tras-2.0.0 directory
+cd tras\tree_ring_methods\deepcstrd
+python -c "import urllib.request; import zipfile; import os; url='https://github.com/hmarichal93/tras/releases/download/models/deepcstrd_models.zip'; urllib.request.urlretrieve(url, 'models.zip'); zipfile.ZipFile('models.zip').extractall('models'); os.remove('models.zip')"
+cd ..\..\..  # Return to tras-2.0.0 directory</div>
                 </div>
             </div>
         </div>
