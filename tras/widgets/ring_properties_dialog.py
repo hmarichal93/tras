@@ -24,11 +24,33 @@ class RingPropertiesDialog(QtWidgets.QDialog):
         self.setModal(True)
         self.resize(700, 500)
         
-        # Compute correct cumulative areas from pith outward
-        # Rings are ordered outermost to innermost, so cumsum in reverse
+        # IMPORTANT: Ring polygons are drawn as nested circles, so each polygon area
+        # already includes all inner area (computed via Shoelace formula on boundary).
+        # Rings are ordered outermost to innermost in ring_properties.
+        # 
+        # Example: Ring 3 (outer)=450, Ring 2 (mid)=250, Ring 1 (inner)=100
+        # These are CUMULATIVE areas (total wood up to that boundary), NOT incremental!
+        
         areas = [p['area'] for p in ring_properties]
-        cumulative_areas = np.cumsum(areas[::-1])[::-1].tolist()
+        
+        # The areas ARE the cumulative areas (no need to sum)
+        cumulative_areas = areas  # Already cumulative from Shoelace formula
+        
+        # Compute annual growth areas (incremental area between consecutive rings)
+        # For each ring, the growth area is the difference between its cumulative area and the next inner ring's
+        annual_growth_areas = []
+        for i in range(len(cumulative_areas)):
+            if i < len(cumulative_areas) - 1:
+                # Growth = current boundary area - next inner boundary area
+                # Example: Ring 3 growth = 450 - 250 = 200 (outermost ring donut)
+                growth = cumulative_areas[i] - cumulative_areas[i + 1]
+            else:
+                # Innermost ring = entire pith circle
+                growth = cumulative_areas[i]
+            annual_growth_areas.append(growth)
+        
         self.cumulative_areas = cumulative_areas
+        self.annual_growth_areas = annual_growth_areas
         
         layout = QtWidgets.QVBoxLayout()
         
@@ -701,23 +723,20 @@ class RingPropertiesDialog(QtWidgets.QDialog):
         
         # Prepare data (rings are stored outermost to innermost)
         ring_nums = list(range(1, len(self.ring_properties) + 1))
-        areas = [p['area'] for p in self.ring_properties]
-        perimeters = [p['perimeter'] for p in self.ring_properties]
         
-        # Compute cumulative area from pith (innermost) outward
-        # Rings are ordered outermost to innermost, so we cumsum in reverse
-        import numpy as np
-        cumulative_areas = np.cumsum(areas[::-1])[::-1].tolist()
+        # Use annual growth areas instead of total ring areas
+        annual_growth = self.annual_growth_areas
+        cumulative_areas = self.cumulative_areas
         
-        # Reverse all data to plot from innermost (pith) to outermost (bark)
-        areas = areas[::-1]
+        # Reverse data to plot from innermost (pith) to outermost (bark)
+        annual_growth = annual_growth[::-1]
         cumulative_areas = cumulative_areas[::-1]
         
         if has_scale:
             scale_factor = self.metadata['scale']['value']
             scale_factor_sq = scale_factor ** 2
             unit = self.metadata['scale']['unit']
-            areas_scaled = [a * scale_factor_sq for a in areas]
+            annual_growth_scaled = [a * scale_factor_sq for a in annual_growth]
             cumulative_areas_scaled = [ca * scale_factor_sq for ca in cumulative_areas]
         
         # Determine x-axis (ring number or year)
@@ -747,16 +766,16 @@ class RingPropertiesDialog(QtWidgets.QDialog):
             x_values = list(range(len(self.ring_properties), 0, -1))
             x_label = 'Ring Number (Innermost to Outermost)'
         
-        # Plot 1: Area vs Ring/Year
+        # Plot 1: Annual Growth Area vs Ring/Year
         ax1 = fig.add_subplot(gs[0, 0])
         if has_scale:
-            ax1.plot(x_values, areas_scaled, 'o-', color='#8b4513', linewidth=2, markersize=4)
-            ax1.set_ylabel(f'Ring Area ({unit}²)', fontsize=10, fontweight='bold')
-            ax1.set_title('Ring Area Over Time', fontsize=12, fontweight='bold')
+            ax1.plot(x_values, annual_growth_scaled, 'o-', color='#8b4513', linewidth=2, markersize=4)
+            ax1.set_ylabel(f'Annual Growth Area ({unit}²)', fontsize=10, fontweight='bold')
+            ax1.set_title('Annual Growth Area Over Time', fontsize=12, fontweight='bold')
         else:
-            ax1.plot(x_values, areas, 'o-', color='#8b4513', linewidth=2, markersize=4)
-            ax1.set_ylabel('Ring Area (px²)', fontsize=10, fontweight='bold')
-            ax1.set_title('Ring Area', fontsize=12, fontweight='bold')
+            ax1.plot(x_values, annual_growth, 'o-', color='#8b4513', linewidth=2, markersize=4)
+            ax1.set_ylabel('Annual Growth Area (px²)', fontsize=10, fontweight='bold')
+            ax1.set_title('Annual Growth Area', fontsize=12, fontweight='bold')
         ax1.set_xlabel(x_label, fontsize=10, fontweight='bold')
         ax1.grid(True, alpha=0.3)
         
@@ -801,33 +820,33 @@ class RingPropertiesDialog(QtWidgets.QDialog):
                 ax3.set_xlabel(x_label, fontsize=10, fontweight='bold')
                 ax3.grid(True, alpha=0.3)
         else:
-            # Show area distribution histogram
-            ax3.hist(areas_scaled if has_scale else areas, bins=min(20, len(areas)), 
+            # Show annual growth area distribution histogram
+            ax3.hist(annual_growth_scaled if has_scale else annual_growth, bins=min(20, len(annual_growth)), 
                     color='#8b4513', alpha=0.7, edgecolor='black')
             if has_scale:
-                ax3.set_xlabel(f'Ring Area ({unit}²)', fontsize=10, fontweight='bold')
+                ax3.set_xlabel(f'Annual Growth Area ({unit}²)', fontsize=10, fontweight='bold')
             else:
-                ax3.set_xlabel('Ring Area (px²)', fontsize=10, fontweight='bold')
+                ax3.set_xlabel('Annual Growth Area (px²)', fontsize=10, fontweight='bold')
             ax3.set_ylabel('Frequency', fontsize=10, fontweight='bold')
-            ax3.set_title('Ring Area Distribution', fontsize=12, fontweight='bold')
+            ax3.set_title('Annual Growth Area Distribution', fontsize=12, fontweight='bold')
             ax3.grid(True, alpha=0.3, axis='y')
         
-        # Plot 4: Growth Rate (year-over-year area change) or Perimeter
+        # Plot 4: Growth Rate (year-over-year change in annual growth area)
         ax4 = fig.add_subplot(gs[1, 1])
-        if len(areas) > 1:
-            # Calculate growth rate (area difference between consecutive rings)
-            growth_rates = [areas[i] - areas[i-1] for i in range(1, len(areas))]
+        if len(annual_growth) > 1:
+            # Calculate growth rate (change in annual growth area between consecutive rings)
+            growth_rates = [annual_growth[i] - annual_growth[i-1] for i in range(1, len(annual_growth))]
             growth_x = x_values[1:]  # Skip first ring
             
             if has_scale:
                 growth_rates_scaled = [gr * scale_factor_sq for gr in growth_rates]
                 ax4.bar(growth_x, growth_rates_scaled, color='#228b22', alpha=0.7, edgecolor='black')
-                ax4.set_ylabel(f'Area Change ({unit}²)', fontsize=10, fontweight='bold')
-                ax4.set_title('Ring-to-Ring Area Change', fontsize=12, fontweight='bold')
+                ax4.set_ylabel(f'Growth Change ({unit}²)', fontsize=10, fontweight='bold')
+                ax4.set_title('Year-to-Year Growth Change', fontsize=12, fontweight='bold')
             else:
                 ax4.bar(growth_x, growth_rates, color='#228b22', alpha=0.7, edgecolor='black')
-                ax4.set_ylabel('Area Change (px²)', fontsize=10, fontweight='bold')
-                ax4.set_title('Ring-to-Ring Area Change', fontsize=12, fontweight='bold')
+                ax4.set_ylabel('Growth Change (px²)', fontsize=10, fontweight='bold')
+                ax4.set_title('Year-to-Year Growth Change', fontsize=12, fontweight='bold')
             ax4.set_xlabel(x_label, fontsize=10, fontweight='bold')
             ax4.axhline(y=0, color='red', linestyle='--', linewidth=1, alpha=0.5)
             ax4.grid(True, alpha=0.3, axis='y')
