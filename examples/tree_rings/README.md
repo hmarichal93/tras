@@ -344,7 +344,10 @@ For processing multiple images programmatically, use the TRAS Python API:
 
 ```python
 from tras.utils.cstrd_helper import detect_rings_cstrd
-from tras.utils.deepcstrd_helper import detect_rings_deepcstrd
+from tras.utils.deepcstrd_helper import (
+    detect_rings_deepcstrd,
+    detect_rings_deepcstrd_batch,
+)
 from tras.utils.apd_helper import detect_pith_apd
 import cv2
 
@@ -357,13 +360,26 @@ cx, cy = detect_pith_apd(image)
 
 # Detect rings with DeepCS-TRD
 rings = detect_rings_deepcstrd(
-    image, 
+    image,
     center_xy=(cx, cy),
     model_id="generic",
     tile_size=0
 )
 
 print(f"Detected {len(rings)} rings")
+
+# Process a batch of images sharing the same model configuration
+images = [image, image]
+centers = [(cx, cy), (cx, cy)]
+batch_results = detect_rings_deepcstrd_batch(
+    images,
+    centers,
+    model_id="generic",
+    tile_size=0,
+    batch_size=2,
+)
+for idx, rings in enumerate(batch_results):
+    print(f"Image {idx}: {len(rings)} rings")
 ```
 
 ## 📞 Support

@@ -1,5 +1,5 @@
 import numpy as np
-from typing import List, Tuple
+from typing import List, Sequence, Tuple
 import sys
 from pathlib import Path
 
@@ -12,7 +12,7 @@ sys.path.insert(0, str(_cstrd_path))
 from deep_cstrd.deep_tree_ring_detection import DeepTreeRingDetection
 
 def detect_rings_deepcstrd(
-    image: np.ndarray, 
+    image: np.ndarray,
     center_xy: Tuple[float, float],
     model_id: str = "generic",
     tile_size: int = 0,
@@ -21,7 +21,8 @@ def detect_rings_deepcstrd(
     total_rotations: int = 5,
     prediction_map_threshold: float = 0.5,
     width: int = 0,
-    height: int = 0
+    height: int = 0,
+    batch_size: int = 1,
 ) -> List[np.ndarray]:
     """
     Run DeepCS-TRD on the given image and return a list of ring polylines (Nx2 arrays).
@@ -37,6 +38,9 @@ def detect_rings_deepcstrd(
         prediction_map_threshold: Threshold for binary prediction map
         width: Resize width (0 = no resize) (default: 0)
         height: Resize height (0 = no resize) (default: 0)
+        batch_size: Number of tiles/images to process simultaneously inside the
+            neural network forward pass. Increasing this value can improve GPU
+            utilization when tiling is enabled. (default: 1)
     
     Returns:
         List of ring polylines, each as Nx2 array of (x, y) points
@@ -100,7 +104,8 @@ def detect_rings_deepcstrd(
         debug_image_input_path=None,
         debug_output_dir=temp_dir,
         tile_size=tile_size,
-        prediction_map_threshold=prediction_map_threshold
+        prediction_map_threshold=prediction_map_threshold,
+        batch_size=batch_size
     )
     
     # Extract rings from result
@@ -123,6 +128,72 @@ def detect_rings_deepcstrd(
                         rings.append(pts)
     
     return rings
+
+
+def detect_rings_deepcstrd_batch(
+    images: Sequence[np.ndarray],
+    centers_xy: Sequence[Tuple[float, float]],
+    *,
+    model_id: str = "generic",
+    tile_size: int = 0,
+    alpha: int = 45,
+    nr: int = 360,
+    total_rotations: int = 5,
+    prediction_map_threshold: float = 0.5,
+    width: int = 0,
+    height: int = 0,
+    batch_size: int = 1,
+) -> List[List[np.ndarray]]:
+    """Run DeepCS-TRD on multiple images.
+
+    Args:
+        images: Sequence of RGB images.
+        centers_xy: Sequence of (x, y) tuples with the pith location for each
+            image. Must match ``images`` in length and order.
+        model_id: Model identifier shared across the batch. (default: "generic")
+        tile_size: Tile size for processing (0 for no tiling). (default: 0)
+        alpha: Alpha parameter for angular sampling. (default: 45)
+        nr: Number of radial samples. (default: 360)
+        total_rotations: Number of rotations for test-time augmentation.
+            (default: 5)
+        prediction_map_threshold: Threshold for the binary prediction map.
+            (default: 0.5)
+        width: Resize width for preprocessing. (default: 0)
+        height: Resize height for preprocessing. (default: 0)
+        batch_size: Number of tiles/images processed together inside the neural
+            network forward pass. Passed directly to
+            :func:`detect_rings_deepcstrd`. (default: 1)
+
+    Returns:
+        A list with one entry per image. Each entry contains the list of rings
+        detected for that image. When an image produces no detections, the
+        corresponding entry is an empty list.
+
+    Raises:
+        ValueError: If ``images`` and ``centers_xy`` have different lengths.
+    """
+
+    if len(images) != len(centers_xy):
+        raise ValueError("images and centers_xy must have the same length")
+
+    results: List[List[np.ndarray]] = []
+    for image, center_xy in zip(images, centers_xy):
+        rings = detect_rings_deepcstrd(
+            image,
+            center_xy=center_xy,
+            model_id=model_id,
+            tile_size=tile_size,
+            alpha=alpha,
+            nr=nr,
+            total_rotations=total_rotations,
+            prediction_map_threshold=prediction_map_threshold,
+            width=width,
+            height=height,
+            batch_size=batch_size,
+        )
+        results.append(rings)
+
+    return results
 
 def _get_model_path(model_id: str, tile_size: int = 0) -> str:
     """Get path to DeepCS-TRD model weights."""
