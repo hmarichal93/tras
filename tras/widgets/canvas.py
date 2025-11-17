@@ -439,7 +439,8 @@ class Canvas(QtWidgets.QWidget):
     def mousePressEvent(self, ev):
         pos: QPointF = self.transformPos(ev.localPos())
 
-        is_shift_pressed = ev.modifiers() & Qt.ShiftModifier
+        is_shift_pressed = bool(ev.modifiers() & Qt.ShiftModifier)
+        is_alt_pressed = bool(ev.modifiers() & Qt.AltModifier)
 
         if ev.button() == Qt.LeftButton:
             if self.drawing():
@@ -483,11 +484,12 @@ class Canvas(QtWidgets.QWidget):
                         self.drawingPolygon.emit(True)
                         self.update()
             elif self.editing():
-                if self.selectedEdge() and ev.modifiers() == Qt.AltModifier:
+                alt_only = is_alt_pressed and not is_shift_pressed
+                alt_and_shift = is_alt_pressed and is_shift_pressed
+
+                if self.selectedEdge() and alt_only:
                     self.addPointToEdge()
-                elif self.selectedVertex() and ev.modifiers() == (
-                    Qt.AltModifier | Qt.ShiftModifier
-                ):
+                elif self.selectedVertex() and alt_and_shift:
                     self.removeSelectedPoint()
 
                 group_mode = int(ev.modifiers()) == Qt.ControlModifier

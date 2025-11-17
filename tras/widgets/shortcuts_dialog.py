@@ -53,16 +53,21 @@ class ShortcutsDialog(QtWidgets.QDialog):
                 ("view_ring_properties", "View Ring Properties"),
             ],
             "Drawing & Editing": [
-                ("create_polygon", "Create Polygon"),
+                ("create_polygon", "Create Ring"),
                 ("create_rectangle", "Create Rectangle"),
                 ("edit_polygon", "Edit Mode"),
                 ("edit_label", "Edit Label"),
-                ("delete_polygon", "Delete Polygon"),
-                ("duplicate_polygon", "Duplicate Polygon"),
-                ("copy_polygon", "Copy Polygon"),
-                ("paste_polygon", "Paste Polygon"),
+                ("delete_polygon", "Delete Ring"),
+                ("duplicate_polygon", "Duplicate Ring"),
+                ("copy_polygon", "Copy Ring"),
+                ("paste_polygon", "Paste Ring"),
                 ("undo", "Undo"),
                 ("remove_selected_point", "Remove Selected Point"),
+                (
+                    "manual_add_point_edge",
+                    "Add Point to Existing Ring",
+                    "Alt + Click edge while in Edit mode",
+                ),
             ],
             "View & Zoom": [
                 ("zoom_in", "Zoom In"),
@@ -93,8 +98,12 @@ class ShortcutsDialog(QtWidgets.QDialog):
             
             # Populate table
             valid_shortcuts = []
-            for key, description in shortcuts_list:
-                shortcut_value = self.shortcuts_config.get(key)
+            for shortcut_entry in shortcuts_list:
+                if len(shortcut_entry) == 2:
+                    key, description = shortcut_entry
+                    shortcut_value = self.shortcuts_config.get(key)
+                else:
+                    key, description, shortcut_value = shortcut_entry
                 if shortcut_value:
                     valid_shortcuts.append((description, shortcut_value))
             
@@ -154,4 +163,3 @@ class ShortcutsDialog(QtWidgets.QDialog):
         formatted = formatted.replace("Alt", "Alt")
         formatted = formatted.replace("Meta", "Meta")
         return formatted
-
