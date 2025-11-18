@@ -3,8 +3,12 @@ from __future__ import annotations
 import platform
 from typing import Optional
 
+import io
+
+import numpy as np
+from PIL import Image, ImageDraw
 from loguru import logger
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QApplication
 
 from tras.utils.apd_helper import detect_pith_apd
@@ -463,11 +467,7 @@ class TreeRingDialog(QtWidgets.QDialog):
             self.cx.setValue(x)
             self.cy.setValue(y)
             
-            QtWidgets.QMessageBox.information(
-                self,
-                self.tr("APD Success"),
-                self.tr(f"Pith detected at ({x:.1f}, {y:.1f})")
-            )
+            self._show_pith_preview(x, y)
         except Exception as e:
             QApplication.restoreOverrideCursor()
             import traceback
@@ -490,7 +490,60 @@ class TreeRingDialog(QtWidgets.QDialog):
     def get_pith_xy(self):
         """Return pith coordinates used for detection, or None"""
         return getattr(self, "detected_pith_xy", None)
-    
+
+    def _show_pith_preview(self, x: float, y: float) -> None:
+        if self.image_np is None:
+            QtWidgets.QMessageBox.information(
+                self,
+                self.tr("APD Success"),
+                self.tr(f"Pith detected at ({x:.1f}, {y:.1f})"),
+            )
+            return
+
+        image_arr = self.image_np
+        if image_arr.ndim == 2:
+            image_arr = np.stack([image_arr] * 3, axis=-1)
+        elif image_arr.shape[2] == 4:
+            image_arr = image_arr[:, :, :3]
+        image_arr = np.clip(image_arr, 0, 255).astype(np.uint8)
+
+        image_pil = Image.fromarray(image_arr)
+        draw = ImageDraw.Draw(image_pil)
+        radius = max(5, int(min(image_pil.size) * 0.02))
+        bbox = (x - radius, y - radius, x + radius, y + radius)
+        draw.ellipse(bbox, outline="red", width=max(2, radius // 3))
+        draw.line((x - radius * 1.5, y, x + radius * 1.5, y), fill="red", width=2)
+        draw.line((x, y - radius * 1.5, x, y + radius * 1.5), fill="red", width=2)
+
+        buffer = io.BytesIO()
+        image_pil.save(buffer, format="PNG")
+        pixmap = QtGui.QPixmap()
+        pixmap.loadFromData(buffer.getvalue())
+
+        preview = QtWidgets.QDialog(self)
+        preview.setWindowTitle(self.tr("APD Preview"))
+        layout = QtWidgets.QVBoxLayout(preview)
+        layout.addWidget(
+            QtWidgets.QLabel(
+                self.tr(f"Pith detected at ({x:.1f}, {y:.1f}). Review and press OK.")
+            )
+        )
+        label = QtWidgets.QLabel()
+        label.setAlignment(QtCore.Qt.AlignCenter)
+        label.setPixmap(
+            pixmap.scaled(
+                600,
+                600,
+                QtCore.Qt.KeepAspectRatio,
+                QtCore.Qt.SmoothTransformation,
+            )
+        )
+        layout.addWidget(label)
+        button = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok)
+        button.accepted.connect(preview.accept)
+        layout.addWidget(button)
+        preview.exec_()
+
     def _populate_model_list(self):
         """Populate the model dropdown with available models."""
         from pathlib import Path
