@@ -62,12 +62,9 @@ conda env create -f environment.yml
 conda activate tras
 pip install -e . 
 ```
+> This installs TRAS and all required dependencies, including **uruDendro**, so no extra `pip install` commands are needed.
 
-### 2. Urudendro
-```bash
-pip install git+https://github.com/hmarichal93/uruDendro.git
-```
-### 3. Compile Devernay Edge Detector (for CS-TRD, Linux/macOS only)
+### 2. Compile Devernay Edge Detector (for CS-TRD, Linux/macOS only)
 ```bash
 # From the tras-2.0.0 directory
 cd tras/tree_ring_methods/cstrd/devernay
@@ -76,7 +73,7 @@ cd ../../../..  # Return to tras-2.0.0 directory
 ```
 > **Note**: CS-TRD is not available on Windows. Windows users should use DeepCS-TRD instead.
 
-### 4. Download DeepCS-TRD Models (Optional)
+### 3. Download DeepCS-TRD Models (Optional)
 
 **Linux/macOS:**
 ```bash

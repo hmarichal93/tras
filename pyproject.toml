@@ -51,13 +51,15 @@ dependencies = [
   "scikit-learn>=1.0.0",
   "opencv-contrib-python-headless>=4.5.0",
   "python-dateutil>=2.8.0",
-  # Note: urudendro requires git-lfs to be installed first
-  # Install manually: pip install "urudendro @ git+https://github.com/hmarichal93/uruDendro.git@main"
+  "urudendro @ git+https://github.com/hmarichal93/uruDendro.git@main",
 ]
 
 [tool.hatch.metadata.hooks.fancy-pypi-readme]
 content-type = "text/markdown"
 fragments = [{ path = "README.md" }]
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [dependency-groups]
 dev = [

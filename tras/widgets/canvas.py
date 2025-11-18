@@ -527,9 +527,10 @@ class Canvas(QtWidgets.QWidget):
 
         if self.movingShape and self.hShape:
             index = self.shapes.index(self.hShape)
-            if self.shapesBackups[-1][index].points != self.shapes[index].points:
-                self.storeShapes()
-                self.shapeMoved.emit()
+            if self.shapesBackups and index < len(self.shapesBackups[-1]):
+                if self.shapesBackups[-1][index].points != self.shapes[index].points:
+                    self.storeShapes()
+                    self.shapeMoved.emit()
 
             self.movingShape = False
         self._update_status()
