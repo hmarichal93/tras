@@ -237,6 +237,14 @@ class MainWindow(QtWidgets.QMainWindow):
             "open",
             self.tr("Step 1: Load wood cross-section image or label file"),
         )
+        loadAnnotations = action(
+            self.tr("Load &Annotations"),
+            self.loadAnnotationsFile,
+            shortcuts["load_annotations"],
+            "labels",
+            self.tr("Load a JSON annotation file onto the image currently in the canvas"),
+            enabled=False,
+        )
         opendir = action(
             self.tr("Open Dir"),
             self.openDirDialog,
@@ -330,11 +338,11 @@ class MainWindow(QtWidgets.QMainWindow):
         toggle_keep_prev_mode.setChecked(self._config["keep_prev"])
 
         createMode = action(
-            self.tr("Draw Ring Manually"),
+            self.tr("Draw Closed Ring (Polygon)"),
             lambda: self.toggleDrawMode(False, createMode="polygon"),
             shortcuts["create_polygon"],
             "objects",
-            self.tr("Manually draw a tree ring by clicking points"),
+            self.tr("Manually draw a closed tree ring polygon"),
             enabled=False,
         )
         createRectangleMode = action(
@@ -370,11 +378,11 @@ class MainWindow(QtWidgets.QMainWindow):
             enabled=False,
         )
         createLineStripMode = action(
-            self.tr("Create LineStrip"),
+            self.tr("Draw Open Ring (LineStrip)"),
             lambda: self.toggleDrawMode(False, createMode="linestrip"),
             shortcuts["create_linestrip"],
             "objects",
-            self.tr("Start drawing linestrip. Ctrl+LeftClick ends creation."),
+            self.tr("Draw an open ring (line strip). Ctrl+LeftClick ends creation."),
             enabled=False,
         )
         editMode = action(
@@ -633,6 +641,7 @@ class MainWindow(QtWidgets.QMainWindow):
             changeOutputDir=changeOutputDir,
             save=save,
             saveAs=saveAs,
+            loadAnnotations=loadAnnotations,
             open=open_,
             close=close,
             deleteFile=deleteFile,
@@ -676,10 +685,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.draw_actions: list[tuple[str, QtWidgets.QAction]] = [
             ("polygon", createMode),
-            ("rectangle", createRectangleMode),
-            ("circle", createCircleMode),
-            ("point", createPointMode),
-            ("line", createLineMode),
             ("linestrip", createLineStripMode),
         ]
 
@@ -765,11 +770,8 @@ class MainWindow(QtWidgets.QMainWindow):
         )
         self.on_load_active_actions = (
             close,
+            loadAnnotations,
             createMode,
-            createRectangleMode,
-            createCircleMode,
-            createLineMode,
-            createPointMode,
             createLineStripMode,
             editMode,
             brightnessContrast,
@@ -784,10 +786,6 @@ class MainWindow(QtWidgets.QMainWindow):
         # menu shown at right click
         self.context_menu_actions = (
             createMode,
-            createRectangleMode,
-            createCircleMode,
-            createLineMode,
-            createPointMode,
             createLineStripMode,
             editMode,
             edit,
@@ -831,6 +829,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.menus.file,
             (
                 open_,
+                loadAnnotations,
                 openNextImg,
                 openPrevImg,
                 opendir,
@@ -908,6 +907,7 @@ class MainWindow(QtWidgets.QMainWindow):
             deleteFile,
             None,
             createMode,
+            createLineStripMode,
             editMode,
             clearAllRings,
             duplicate,
@@ -1206,7 +1206,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 # Calculate year using datetime: innermost gets oldest year, outermost gets harvested year
                 ring_date = harvested_date - relativedelta(years=(n_rings - 1 - i))
                 year = ring_date.year
-                shape = Shape(label=f"ring_{year}", shape_type="polygon")
+                shape = Shape(label=str(year), shape_type="polygon")
                 for x, y in ring:
                     shape.addPoint(QtCore.QPointF(float(x), float(y)))
                 shape.close()
@@ -1214,7 +1214,7 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             logger.info(f"Labeling rings with numeric labels (no metadata set)")
             for i, ring in enumerate(rings, start=1):
-                shape = Shape(label=f"ring_{i}", shape_type="polygon")
+                shape = Shape(label=str(i), shape_type="polygon")
                 for x, y in ring:
                     shape.addPoint(QtCore.QPointF(float(x), float(y)))
                 shape.close()
@@ -1299,7 +1299,9 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         
         # Count ring polygons
-        ring_shapes = [s for s in self.canvas.shapes if s.label and s.label.startswith("ring_")]
+        ring_shapes = [
+            s for s in self.canvas.shapes if getattr(s, "shape_type", "") == "polygon"
+        ]
         
         if not ring_shapes:
             QtWidgets.QMessageBox.information(
@@ -1321,7 +1323,9 @@ class MainWindow(QtWidgets.QMainWindow):
         if reply == QtWidgets.QMessageBox.Yes:
             # Remove all ring shapes
             self.canvas.storeShapes()  # Save to undo stack
-            remaining_shapes = [s for s in self.canvas.shapes if not (s.label and s.label.startswith("ring_"))]
+            remaining_shapes = [
+                s for s in self.canvas.shapes if getattr(s, "shape_type", "") != "polygon"
+            ]
             self.loadShapes(remaining_shapes, replace=True)
             self.setDirty()
             logger.info(f"Cleared {len(ring_shapes)} ring polygons")
@@ -1363,7 +1367,9 @@ class MainWindow(QtWidgets.QMainWindow):
         )
         
         # If there are existing rings, ask if user wants to relabel them with years
-        ring_shapes = [s for s in self.canvas.shapes if s.label and s.label.startswith("ring_")]
+        ring_shapes = [
+            s for s in self.canvas.shapes if getattr(s, "shape_type", "") == "polygon"
+        ]
         if ring_shapes:
             reply = QtWidgets.QMessageBox.question(
                 self,
@@ -1384,20 +1390,26 @@ class MainWindow(QtWidgets.QMainWindow):
         if not self.sample_metadata or 'harvested_year' not in self.sample_metadata:
             return
         
-        # Get all ring shapes and sort by label (ring_1, ring_2, ...)
-        ring_shapes = [s for s in self.canvas.shapes if s.label and s.label.startswith("ring_")]
+        # Get all polygon shapes (each polygon is treated as a ring)
+        ring_shapes = [
+            s for s in self.canvas.shapes if getattr(s, "shape_type", "") == "polygon"
+        ]
+        if not ring_shapes:
+            return
         
-        def extract_ring_number(shape):
-            try:
-                # Handle both "ring_123" and "ring_2020" formats
-                parts = shape.label.split('_')
-                if len(parts) >= 2:
-                    return int(parts[1])
-                return 0
-            except (IndexError, ValueError):
-                return 0
+        def polygon_area(shape: Shape) -> float:
+            points = [(p.x(), p.y()) for p in shape.points]
+            if len(points) < 3:
+                return 0.0
+            area = 0.0
+            for j in range(len(points)):
+                x1, y1 = points[j]
+                x2, y2 = points[(j + 1) % len(points)]
+                area += x1 * y2 - x2 * y1
+            return abs(area) / 2.0
         
-        ring_shapes.sort(key=extract_ring_number)
+        # Smallest area ≈ innermost ring
+        ring_shapes.sort(key=polygon_area)
         
         # Relabel: Sorted rings go from innermost to outermost (ring_1 to ring_N)
         # Innermost (ring_1) gets oldest year, outermost (ring_N) gets harvested_year
@@ -1415,9 +1427,8 @@ class MainWindow(QtWidgets.QMainWindow):
             # innermost (i=0) gets oldest year, outermost (i=n-1) gets harvested year
             ring_date = harvested_date - relativedelta(years=(n_rings - 1 - i))
             new_year = ring_date.year
-            new_label = f"ring_{new_year}"
-            logger.info(f"Relabeling {shape.label} → {new_label}")
-            shape.label = new_label
+            logger.info(f"Relabeling {shape.label} → {new_year}")
+            shape.label = str(new_year)
         
         # Update label list
         self.loadShapes(self.canvas.shapes, replace=True)
@@ -1446,34 +1457,59 @@ class MainWindow(QtWidgets.QMainWindow):
         dlg = ScaleDialog(parent=self, current_scale=current_scale, current_unit=current_unit)
         result = dlg.exec_()
         
-        if result == 2:  # Draw line mode
+        if result == 2:  # Draw line mode via button
             # User wants to draw a line
             self._enter_scale_line_mode()
             return
         elif result != QtWidgets.QDialog.Accepted:
             return
-        
+
+        method = dlg.get_method()
+        if method == 'draw':
+            self._enter_scale_line_mode()
+            return
+
         # Direct input mode
-        if dlg.get_method() == 'direct':
+        if method == 'direct':
             scale_value = dlg.get_scale_value()
             unit = dlg.get_unit()
-            
-            self.image_scale = {
-                'value': scale_value,
-                'unit': unit
+        elif method == 'dpi':
+            dpi_value = dlg.get_dpi_value()
+            unit = dlg.get_dpi_unit()
+            if dpi_value <= 0:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    self.tr("Invalid DPI"),
+                    self.tr("DPI must be greater than zero."),
+                )
+                return
+            unit_to_inch = {
+                "mm": 25.4,
+                "cm": 2.54,
+                "μm": 25400.0,
             }
-            
-            logger.info(f"Scale set (direct input): {scale_value:.6f} {unit}/pixel")
-            
-            # Store in otherData
-            if self.otherData is None:
-                self.otherData = {}
-            self.otherData["image_scale"] = self.image_scale
-            
-            self.setDirty()
-            self.show_status_message(
-                self.tr(f"Scale set: {scale_value:.6f} {unit}/pixel")
+            unit_per_inch = unit_to_inch.get(unit, 25.4)
+            scale_value = unit_per_inch / dpi_value
+            logger.info(
+                f"Scale set from DPI: {dpi_value} dpi => {scale_value:.6f} {unit}/pixel"
             )
+        else:
+            return
+
+        self.image_scale = {
+            "value": scale_value,
+            "unit": unit,
+        }
+
+        # Store in otherData
+        if self.otherData is None:
+            self.otherData = {}
+        self.otherData["image_scale"] = self.image_scale
+
+        self.setDirty()
+        self.show_status_message(
+            self.tr(f"Scale set: {scale_value:.6f} {unit}/pixel")
+        )
     
     def _enter_scale_line_mode(self):
         """Enter mode for drawing a calibration line"""
@@ -1542,7 +1578,7 @@ class MainWindow(QtWidgets.QMainWindow):
         from tras.widgets import RadialWidthDialog
         
         # Check if we have rings
-        ring_shapes = [s for s in self.canvas.shapes if s.label and s.label.startswith("ring_")]
+        ring_shapes = [s for s in self.canvas.shapes if s.label]
         
         if not ring_shapes:
             QtWidgets.QMessageBox.information(
@@ -1705,6 +1741,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self._draw_radial_measurement_line(pith_xy, direction_xy)
             
             self.setDirty()
+
+            self._rename_open_rings_with_years(pith_xy)
             
             logger.info(f"✓ Measured {len(measurements)} rings along radial line")
             
@@ -1915,109 +1953,121 @@ class MainWindow(QtWidgets.QMainWindow):
     
     def _action_ring_properties(self) -> None:
         """Compute and display ring properties (area, perimeter, etc.)"""
-        if not self.canvas.shapes:
+        if not self.canvas.shapes and not self.radial_line_measurements:
             QtWidgets.QMessageBox.information(
                 self,
-                self.tr("No Shapes"),
-                self.tr("There are no shapes to analyze.")
+                self.tr("No Data"),
+                self.tr("There are no ring polygons or radial measurements to analyze.")
             )
             return
         
         # Filter ring shapes and sort by label (ring_1, ring_2, ...)
-        ring_shapes = [s for s in self.canvas.shapes if s.label and s.label.startswith("ring_")]
+        ring_shapes = [
+            s for s in self.canvas.shapes if getattr(s, "shape_type", "") == "polygon"
+        ]
+        use_polygon_metrics = len(ring_shapes) > 0
+        measurements_dict = (self.radial_line_measurements or {}).get("measurements", {})
         
-        if not ring_shapes:
+        ring_properties: list[dict] = []
+        radial_measurements: list[dict] = []
+        
+        def _polygon_area(shape: Shape) -> float:
+            points = [(p.x(), p.y()) for p in shape.points]
+            if len(points) < 3:
+                return 0.0
+            area = 0.0
+            for j in range(len(points)):
+                x1, y1 = points[j]
+                x2, y2 = points[(j + 1) % len(points)]
+                area += x1 * y2 - x2 * y1
+            return abs(area) / 2.0
+        
+        if use_polygon_metrics:
+            # Automatically re-label rings before computing properties
+            # (in case user added/removed rings manually)
+            logger.info("Auto-relabeling rings before computing properties...")
+            self._relabel_rings_with_years()
+            ring_shapes.sort(key=_polygon_area)
+            logger.info(f"Computing properties for {len(ring_shapes)} rings...")
+            
+            cumulative_area = 0.0
+            for shape in ring_shapes:
+                points = [(p.x(), p.y()) for p in shape.points]
+                if len(points) < 3:
+                    logger.warning(f"Skipping {shape.label}: too few points ({len(points)})")
+                    continue
+                
+                area = 0.0
+                n = len(points)
+                for j in range(n):
+                    x1, y1 = points[j]
+                    x2, y2 = points[(j + 1) % n]
+                    area += x1 * y2 - x2 * y1
+                area = abs(area) / 2.0
+                
+                perimeter = 0.0
+                for j in range(n):
+                    x1, y1 = points[j]
+                    x2, y2 = points[(j + 1) % n]
+                    perimeter += ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
+                
+                cumulative_area += area
+                props = {
+                    "label": shape.label,
+                    "area": area,
+                    "cumulative_area": cumulative_area,
+                    "perimeter": perimeter,
+                }
+                
+                if shape.label in measurements_dict:
+                    props["radial_width_px"] = measurements_dict[shape.label]["radial_width"]
+                else:
+                    props["radial_width_px"] = None
+                
+                ring_properties.append(props)
+            
+            if not ring_properties:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    self.tr("No Valid Rings"),
+                    self.tr("No rings have enough points for analysis.")
+                )
+                return
+        if measurements_dict:
+            sorted_meas = sorted(
+                measurements_dict.items(),
+                key=lambda item: item[1].get("distance_from_pith", 0.0),
+            )
+            for label, data in sorted_meas:
+                radial_measurements.append(
+                    {
+                        "label": label,
+                        "radial_width_px": data.get("radial_width"),
+                        "distance_from_pith": data.get("distance_from_pith"),
+                    }
+                )
+        elif not use_polygon_metrics:
             QtWidgets.QMessageBox.information(
                 self,
-                self.tr("No Rings"),
-                self.tr("There are no ring polygons to analyze.\n\n"
-                       "Please detect rings first using Tools > Tree Ring Detection.")
+                self.tr("No Measurements"),
+                self.tr(
+                    "No ring polygons are available and no radial measurements have been performed.\n\n"
+                    "Use Tools > Measure Ring Width to compute radial widths first."
+                ),
             )
             return
         
-        # Automatically re-label rings before computing properties
-        # (in case user added/removed rings manually)
-        logger.info("Auto-relabeling rings before computing properties...")
-        self._relabel_rings_with_years()
-        
-        # Sort rings by label number
-        # If using years: sort descending (2020, 2019, 2018... = outermost to innermost)
-        # If using numbers: sort ascending (ring_1, ring_2, ring_3... = outermost to innermost)
-        def extract_ring_number(shape):
-            try:
-                return int(shape.label.split('_')[1])
-            except (IndexError, ValueError):
-                return 0
-        
-        # Determine if we're using year labels (numbers > 1000) or sequential labels
-        first_num = extract_ring_number(ring_shapes[0]) if ring_shapes else 0
-        using_years = first_num > 1000
-        
-        # Sort appropriately
-        ring_shapes.sort(key=extract_ring_number, reverse=using_years)
-        
-        logger.info(f"Computing properties for {len(ring_shapes)} rings...")
-        
-        # Compute properties for each ring
-        ring_properties = []
-        cumulative_area = 0.0
-        
-        for i, shape in enumerate(ring_shapes):
-            # Get polygon points
-            points = [(p.x(), p.y()) for p in shape.points]
-            
-            if len(points) < 3:
-                logger.warning(f"Skipping {shape.label}: too few points ({len(points)})")
-                continue
-            
-            # Compute area using Shoelace formula
-            area = 0.0
-            n = len(points)
-            for j in range(n):
-                x1, y1 = points[j]
-                x2, y2 = points[(j + 1) % n]
-                area += x1 * y2 - x2 * y1
-            area = abs(area) / 2.0
-            
-            # Compute perimeter
-            perimeter = 0.0
-            for j in range(n):
-                x1, y1 = points[j]
-                x2, y2 = points[(j + 1) % n]
-                perimeter += ((x2 - x1)**2 + (y2 - y1)**2)**0.5
-            
-            cumulative_area += area
-            
-            # Build properties dict (no centroid width)
-            props = {
-                'label': shape.label,
-                'area': area,
-                'cumulative_area': cumulative_area,
-                'perimeter': perimeter
-            }
-            
-            # Add radial width if available
-            if self.radial_line_measurements:
-                measurements = self.radial_line_measurements.get('measurements', {})
-                if shape.label in measurements:
-                    radial_data = measurements[shape.label]
-                    props['radial_width_px'] = radial_data['radial_width']
-                else:
-                    props['radial_width_px'] = None
-            else:
-                props['radial_width_px'] = None
-            
-            ring_properties.append(props)
-        
-        if not ring_properties:
-            QtWidgets.QMessageBox.warning(
+        if not ring_properties and not radial_measurements:
+            QtWidgets.QMessageBox.information(
                 self,
-                self.tr("No Valid Rings"),
-                self.tr("No rings have enough points for analysis.")
+                self.tr("No Data"),
+                self.tr("There are no ring polygons or radial measurements to analyze."),
             )
             return
         
-        logger.info(f"✓ Computed properties for {len(ring_properties)} rings")
+        logger.info(
+            f"✓ Prepared {len(ring_properties)} closed rings and {len(radial_measurements)} open rings for analysis"
+        )
         
         # Prepare metadata including scale and sample info
         metadata = {}
@@ -2027,8 +2077,49 @@ class MainWindow(QtWidgets.QMainWindow):
             metadata['scale'] = self.image_scale
         
         # Show dialog with results
-        dlg = RingPropertiesDialog(ring_properties, parent=self, metadata=metadata if metadata else None)
+        dlg = RingPropertiesDialog(
+            ring_properties,
+            radial_measurements,
+            parent=self,
+            metadata=metadata if metadata else None,
+        )
         dlg.exec_()
+
+    def _rename_open_rings_with_years(self, pith_xy: tuple[float, float] | None) -> None:
+        """Rename open-ring (linestrip) shapes based on harvested year, closest to pith = youngest."""
+        if not self.sample_metadata or "harvested_year" not in self.sample_metadata:
+            return
+        if pith_xy is None:
+            return
+
+        open_rings = [
+            s for s in self.canvas.shapes if getattr(s, "shape_type", "") == "linestrip"
+        ]
+        if not open_rings:
+            return
+
+        px, py = pith_xy
+
+        def distance_to_pith(shape: Shape) -> float:
+            if not shape.points:
+                return float("inf")
+            return min(
+                math.hypot(point.x() - px, point.y() - py)
+                for point in shape.points
+            )
+
+        open_rings.sort(key=distance_to_pith)
+
+        harvested_year = self.sample_metadata["harvested_year"]
+        total = len(open_rings)
+        for idx, shape in enumerate(open_rings):
+            year = harvested_year - (total - 1 - idx)
+            old_label = shape.label
+            shape.label = str(year)
+            logger.info(f"Renamed open ring {old_label!r} → {shape.label!r}")
+
+        self.loadShapes(self.canvas.shapes, replace=True)
+        self.setDirty()
     
     def _action_preprocess_image(self) -> None:
         """Preprocess the current image (resize, crop, remove background)"""
@@ -2921,21 +3012,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self._load_shape_dicts(shape_dicts=self.labelFile.shapes)
             if self.labelFile.flags is not None:
                 flags.update(self.labelFile.flags)
-            
-            # Restore pith position if available
-            if "pith_xy" in self.otherData:
-                self.pith_xy = self.otherData["pith_xy"]
-                logger.info(f"Restored pith position: ({self.pith_xy[0]:.2f}, {self.pith_xy[1]:.2f})")
-            
-            # Restore sample metadata if available
-            if "sample_metadata" in self.otherData:
-                self.sample_metadata = self.otherData["sample_metadata"]
-                logger.info(f"Restored sample metadata: {self.sample_metadata.get('sample_code', 'N/A')} ({self.sample_metadata.get('harvested_year', 'N/A')})")
-            
-            # Restore image scale if available
-            if "image_scale" in self.otherData:
-                self.image_scale = self.otherData["image_scale"]
-                logger.info(f"Restored image scale: {self.image_scale['value']:.6f} {self.image_scale['unit']}/pixel")
+            self._restore_additional_data_from_other_data()
         
         self.loadFlags(flags)
         if self._config["keep_prev"] and self.noShapes():
@@ -2964,6 +3041,100 @@ class MainWindow(QtWidgets.QMainWindow):
         self.canvas.setFocus()
         self.show_status_message(self.tr("Loaded %s") % osp.basename(filename))
         return True
+
+    def loadAnnotationsFile(self, _value=False):
+        if self.image.isNull():
+            self.errorMessage(
+                self.tr("No image loaded"),
+                self.tr("Load an image before importing annotations."),
+            )
+            return
+
+        if self.dirty and not self.mayContinue():
+            return
+
+        default_dir = self.output_dir
+        if default_dir is None and self.filename:
+            default_dir = osp.dirname(self.filename)
+        if default_dir is None:
+            default_dir = self.currentPath()
+
+        caption = self.tr("%s - Choose Label File") % __appname__
+        filters = self.tr("Label files (*%s)") % LabelFile.suffix
+        filename, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self,
+            caption,
+            default_dir,
+            filters,
+        )
+        if not filename:
+            return
+
+        self._load_annotations_from_label_file(filename)
+
+    def _load_annotations_from_label_file(self, filename: str) -> None:
+        try:
+            label_file = LabelFile(filename, enforce_image_data=False)
+        except LabelFileError as e:
+            self.errorMessage(
+                self.tr("Error opening file"),
+                self.tr(
+                    "<p><b>%s</b></p><p>Make sure <i>%s</i> is a valid label file."
+                )
+                % (e, filename),
+            )
+            self.show_status_message(self.tr("Error reading %s") % filename)
+            return
+
+        self.labelFile = label_file
+        self.otherData = self.labelFile.otherData
+
+        flags = {k: False for k in self._config["flags"] or []}
+        self._load_shape_dicts(shape_dicts=self.labelFile.shapes)
+        if self.labelFile.flags is not None:
+            flags.update(self.labelFile.flags)
+
+        self._restore_additional_data_from_other_data()
+        self.loadFlags(flags)
+        self.setClean()
+        self.show_status_message(
+            self.tr("Loaded annotations from %s") % osp.basename(filename)
+        )
+
+    def _restore_additional_data_from_other_data(self) -> None:
+        self.pith_xy = None
+        self.sample_metadata = None
+        self.image_scale = None
+
+        if not self.otherData:
+            return
+
+        if "pith_xy" in self.otherData:
+            self.pith_xy = self.otherData["pith_xy"]
+            logger.info(
+                f"Restored pith position: ({self.pith_xy[0]:.2f}, {self.pith_xy[1]:.2f})"
+            )
+
+        if "sample_metadata" in self.otherData:
+            self.sample_metadata = self.otherData["sample_metadata"]
+            logger.info(
+                f"Restored sample metadata: {self.sample_metadata.get('sample_code', 'N/A')} "
+                f"({self.sample_metadata.get('harvested_year', 'N/A')})"
+            )
+
+        if "image_scale" in self.otherData:
+            self.image_scale = self.otherData["image_scale"]
+            logger.info(
+                f"Restored image scale: {self.image_scale['value']:.6f} "
+                f"{self.image_scale['unit']}/pixel"
+            )
+        
+        if "radial_line_measurements" in self.otherData:
+            self.radial_line_measurements = self.otherData["radial_line_measurements"]
+            measurements = self.radial_line_measurements.get("measurements", {})
+            logger.info(
+                f"Restored radial measurements for {len(measurements)} rings"
+            )
 
     def resizeEvent(self, event):
         if (

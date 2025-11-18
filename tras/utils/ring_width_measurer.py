@@ -43,7 +43,7 @@ def compute_ring_widths_along_line(rings, pith_xy, direction_xy):
     intersections = []  # List of (distance_from_pith, ring_label, intersection_point)
     
     for shape in rings:
-        if not shape.label or not shape.label.startswith("ring_"):
+        if not shape.label:
             continue
         
         # Convert ring points to polygon
@@ -129,4 +129,3 @@ def extract_ring_number(label):
         return 0
     except (IndexError, ValueError):
         return 0
-

@@ -32,7 +32,7 @@ class ScaleDialog(QtWidgets.QDialog):
         # Method selection
         method_group = QtWidgets.QGroupBox(self.tr("Calibration Method"))
         method_layout = QtWidgets.QVBoxLayout()
-        
+
         self.method_buttons = QtWidgets.QButtonGroup()
         
         # Method 1: Draw line
@@ -61,7 +61,20 @@ class ScaleDialog(QtWidgets.QDialog):
         )
         direct_hint.setStyleSheet("color: gray; font-size: 10px;")
         method_layout.addWidget(direct_hint)
-        
+
+        # Method 3: Enter DPI
+        self.dpi_radio = QtWidgets.QRadioButton(
+            self.tr("🖨️  Enter image DPI (pixels per inch)")
+        )
+        self.method_buttons.addButton(self.dpi_radio, 3)
+        method_layout.addWidget(self.dpi_radio)
+
+        dpi_hint = QtWidgets.QLabel(
+            self.tr("   → Converts DPI to physical units (mm/cm/μm per pixel)")
+        )
+        dpi_hint.setStyleSheet("color: gray; font-size: 10px;")
+        method_layout.addWidget(dpi_hint)
+
         method_group.setLayout(method_layout)
         layout.addWidget(method_group)
         
@@ -86,9 +99,29 @@ class ScaleDialog(QtWidgets.QDialog):
         
         direct_layout.addRow(self.tr("Scale value:"), unit_layout)
         direct_layout.addRow(self.tr("Unit:"), self.unit_combo)
-        
+
         self.direct_input_widget.setLayout(direct_layout)
         layout.addWidget(self.direct_input_widget)
+
+        # DPI input fields
+        self.dpi_input_widget = QtWidgets.QWidget()
+        dpi_layout = QtWidgets.QFormLayout()
+
+        self.dpi_input = QtWidgets.QDoubleSpinBox()
+        self.dpi_input.setDecimals(2)
+        self.dpi_input.setRange(1.0, 100000.0)
+        self.dpi_input.setValue(300.0)
+        self.dpi_input.setSingleStep(10.0)
+
+        self.dpi_unit_combo = QtWidgets.QComboBox()
+        self.dpi_unit_combo.addItems(["mm", "cm", "μm"])
+        self.dpi_unit_combo.setCurrentText(current_unit)
+
+        dpi_layout.addRow(self.tr("DPI (pixels/inch):"), self.dpi_input)
+        dpi_layout.addRow(self.tr("Convert to unit:"), self.dpi_unit_combo)
+
+        self.dpi_input_widget.setLayout(dpi_layout)
+        layout.addWidget(self.dpi_input_widget)
         
         # Current scale display
         if current_scale:
@@ -122,18 +155,25 @@ class ScaleDialog(QtWidgets.QDialog):
         # Connect radio buttons to update UI
         self.draw_line_radio.toggled.connect(self._update_ui)
         self.direct_input_radio.toggled.connect(self._update_ui)
-        
+        self.dpi_radio.toggled.connect(self._update_ui)
+
         self._update_ui()
-    
+
     def _update_ui(self):
         """Update UI based on selected method"""
         is_direct = self.direct_input_radio.isChecked()
+        is_dpi = self.dpi_radio.isChecked()
         self.direct_input_widget.setVisible(is_direct)
-    
+        self.dpi_input_widget.setVisible(is_dpi)
+
     def get_method(self):
-        """Get selected calibration method: 'draw' or 'direct'"""
-        return 'draw' if self.draw_line_radio.isChecked() else 'direct'
-    
+        """Get selected calibration method"""
+        if self.draw_line_radio.isChecked():
+            return "draw"
+        if self.direct_input_radio.isChecked():
+            return "direct"
+        return "dpi"
+
     def get_scale_value(self):
         """Get the scale value (only valid for direct input)"""
         return self.scale_input.value()
@@ -141,6 +181,12 @@ class ScaleDialog(QtWidgets.QDialog):
     def get_unit(self):
         """Get the selected unit"""
         return self.unit_combo.currentText()
+
+    def get_dpi_value(self):
+        return self.dpi_input.value()
+
+    def get_dpi_unit(self):
+        return self.dpi_unit_combo.currentText()
 
 
 class LineCalibrationDialog(QtWidgets.QDialog):
@@ -224,4 +270,3 @@ class LineCalibrationDialog(QtWidgets.QDialog):
         if line_length_pixels > 0:
             return self.get_physical_length() / line_length_pixels
         return None
-

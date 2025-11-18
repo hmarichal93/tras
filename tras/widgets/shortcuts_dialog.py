@@ -53,8 +53,8 @@ class ShortcutsDialog(QtWidgets.QDialog):
                 ("view_ring_properties", "View Ring Properties"),
             ],
             "Drawing & Editing": [
-                ("create_polygon", "Create Ring"),
-                ("create_rectangle", "Create Rectangle"),
+                ("create_polygon", "Draw Closed Ring (Polygon)"),
+                ("create_linestrip", "Draw Open Ring (LineStrip)"),
                 ("edit_polygon", "Edit Mode"),
                 ("edit_label", "Edit Label"),
                 ("delete_polygon", "Delete Ring"),

@@ -129,10 +129,11 @@ class LabelFile:
     shapes: list[ShapeDict]
     suffix = ".json"
 
-    def __init__(self, filename=None):
+    def __init__(self, filename=None, *, enforce_image_data: bool = True):
         self.shapes = []
         self.imagePath = None
         self.imageData = None
+        self._enforce_image_data = enforce_image_data
         if filename is not None:
             self.load(filename)
         self.filename = filename
@@ -159,6 +160,7 @@ class LabelFile:
             return f.read()
 
     def load(self, filename):
+        enforce_image_data = getattr(self, "_enforce_image_data", True)
         keys = [
             "version",
             "imageData",
@@ -172,19 +174,33 @@ class LabelFile:
             with open(filename, "r") as f:
                 data = json.load(f)
 
+            imageHeight = data.get("imageHeight")
+            imageWidth = data.get("imageWidth")
             if data["imageData"] is not None:
                 imageData = base64.b64decode(data["imageData"])
+                imageHeight, imageWidth = self._check_image_height_and_width(
+                    base64.b64encode(imageData).decode("utf-8"),
+                    imageHeight,
+                    imageWidth,
+                )
             else:
                 # relative path from label file to relative path from cwd
                 imagePath = osp.join(osp.dirname(filename), data["imagePath"])
-                imageData = self.load_image_file(imagePath)
+                if enforce_image_data:
+                    imageData = self.load_image_file(imagePath)
+                    if imageData is None:
+                        raise LabelFileError(
+                            f"Failed opening image file referenced in label: {imagePath}"
+                        )
+                    imageHeight, imageWidth = self._check_image_height_and_width(
+                        base64.b64encode(imageData).decode("utf-8"),
+                        imageHeight,
+                        imageWidth,
+                    )
+                else:
+                    imageData = None
             flags = data.get("flags") or {}
             imagePath = data["imagePath"]
-            self._check_image_height_and_width(
-                base64.b64encode(imageData).decode("utf-8"),
-                data.get("imageHeight"),
-                data.get("imageWidth"),
-            )
             shapes: list[ShapeDict] = [
                 _load_shape_json_obj(shape_json_obj=s) for s in data["shapes"]
             ]

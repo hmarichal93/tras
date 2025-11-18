@@ -1,6 +1,6 @@
 """
-Ring Properties Dialog - Display and export tree ring measurements
-Only supports radial width (transect-based) - no centroid width
+Ring Properties Dialog - Display and export tree ring measurements.
+Supports closed rings (polygons) and open rings (radial-width measurements).
 """
 import csv
 from pathlib import Path
@@ -13,851 +13,975 @@ import numpy as np
 
 
 class RingPropertiesDialog(QtWidgets.QDialog):
-    """Dialog to display ring properties (area, perimeter, radial width)"""
-    
-    def __init__(self, ring_properties, parent=None, metadata=None):
+    """Dialog to display ring properties (area, perimeter, radial width)."""
+
+    def __init__(
+        self,
+        ring_properties,
+        radial_measurements,
+        parent=None,
+        metadata=None,
+    ):
         super().__init__(parent)
-        self.ring_properties = ring_properties
+        self.ring_properties = ring_properties or []
+        self.radial_measurements = radial_measurements or []
         self.metadata = metadata or {}
         self.parent_window = parent  # Store reference to main window
+
         self.setWindowTitle(self.tr("Tree Ring Properties"))
         self.setModal(True)
-        self.resize(700, 500)
-        
-        # IMPORTANT: Ring polygons are drawn as nested circles, so each polygon area
-        # already includes all inner area (computed via Shoelace formula on boundary).
-        # Rings are ordered outermost to innermost in ring_properties.
-        # 
-        # Example: Ring 3 (outer)=450, Ring 2 (mid)=250, Ring 1 (inner)=100
-        # These are CUMULATIVE areas (total wood up to that boundary), NOT incremental!
-        
-        areas = [p['area'] for p in ring_properties]
-        
-        # The areas ARE the cumulative areas (no need to sum)
-        cumulative_areas = areas  # Already cumulative from Shoelace formula
-        
-        # Compute annual growth areas (incremental area between consecutive rings)
-        # For each ring, the growth area is the difference between its cumulative area and the next inner ring's
-        annual_growth_areas = []
-        for i in range(len(cumulative_areas)):
-            if i < len(cumulative_areas) - 1:
-                # Growth = current boundary area - next inner boundary area
-                # Example: Ring 3 growth = 450 - 250 = 200 (outermost ring donut)
-                growth = cumulative_areas[i] - cumulative_areas[i + 1]
-            else:
-                # Innermost ring = entire pith circle
-                growth = cumulative_areas[i]
-            annual_growth_areas.append(growth)
-        
-        self.cumulative_areas = cumulative_areas
-        self.annual_growth_areas = annual_growth_areas
-        
+        self.resize(760, 540)
+
+        self.has_polygon_data = bool(self.ring_properties)
+        self.has_radial_data = bool(self.radial_measurements)
+
+        self.cumulative_areas, self.annual_growth_areas = self._compute_polygon_metrics()
+
         layout = QtWidgets.QVBoxLayout()
-        
-        # Info label
-        info_label = QtWidgets.QLabel(
-            self.tr(f"Analyzed {len(ring_properties)} rings")
-        )
+
+        info_parts = []
+        if self.has_polygon_data:
+            info_parts.append(self.tr(f"Closed rings: {len(self.ring_properties)}"))
+        if self.has_radial_data:
+            info_parts.append(self.tr(f"Open rings: {len(self.radial_measurements)}"))
+        if not info_parts:
+            info_parts.append(self.tr("No ring data available"))
+        info_label = QtWidgets.QLabel(" | ".join(info_parts))
         info_label.setStyleSheet("font-weight: bold; padding: 5px;")
         layout.addWidget(info_label)
-        
-        # Check if scale information is available
-        has_scale = self.metadata and 'scale' in self.metadata
-        
-        # Check if radial width measurements are available
-        has_radial = any(p.get('radial_width_px') is not None for p in ring_properties)
-        
-        # Table widget
-        self.table = QtWidgets.QTableWidget()
-        
-        # Set columns based on what's available
-        if has_scale:
-            unit = self.metadata['scale']['unit']
-            if has_radial:
-                # Scale + radial width
-                self.table.setColumnCount(8)
-                self.table.setHorizontalHeaderLabels([
-                    self.tr("Ring"),
-                    self.tr(f"Area ({unit}²)"),
-                    self.tr(f"Cumul. Area ({unit}²)"),
-                    self.tr(f"Perimeter ({unit})"),
-                    self.tr(f"Radial Width ({unit})"),
-                    self.tr("Area (px²)"),
-                    self.tr("Cumul. Area (px²)"),
-                    self.tr("Perimeter (px)")
-                ])
-            else:
-                # Scale only
-                self.table.setColumnCount(7)
-                self.table.setHorizontalHeaderLabels([
-                    self.tr("Ring"),
-                    self.tr(f"Area ({unit}²)"),
-                    self.tr(f"Cumul. Area ({unit}²)"),
-                    self.tr(f"Perimeter ({unit})"),
-                    self.tr("Area (px²)"),
-                    self.tr("Cumul. Area (px²)"),
-                    self.tr("Perimeter (px)")
-                ])
+
+        sections: list[tuple[str, QtWidgets.QWidget]] = []
+        if self.has_polygon_data:
+            sections.append((self.tr("Closed Rings"), self._build_polygon_section()))
+        if self.has_radial_data:
+            sections.append((self.tr("Open Rings"), self._build_radial_section()))
+
+        if len(sections) > 1:
+            tabs = QtWidgets.QTabWidget()
+            for title, widget in sections:
+                tabs.addTab(widget, title)
+            layout.addWidget(tabs)
+        elif sections:
+            layout.addWidget(sections[0][1])
         else:
-            if has_radial:
-                # Pixels + radial width
-                self.table.setColumnCount(5)
-                self.table.setHorizontalHeaderLabels([
-                    self.tr("Ring"),
+            placeholder = QtWidgets.QLabel(
+                self.tr("No ring polygons or radial measurements available.")
+            )
+            placeholder.setAlignment(Qt.AlignCenter)
+            layout.addWidget(placeholder)
+
+        export_layout = QtWidgets.QHBoxLayout()
+        export_layout.addStretch(1)
+
+        export_csv_btn = QtWidgets.QPushButton(self.tr("📄 Export CSV"))
+        export_csv_btn.clicked.connect(self._export_csv)
+        export_layout.addWidget(export_csv_btn)
+
+        export_pdf_btn = QtWidgets.QPushButton(self.tr("📘 Generate PDF Report"))
+        export_pdf_btn.clicked.connect(self._export_pdf)
+        export_layout.addWidget(export_pdf_btn)
+
+        layout.addLayout(export_layout)
+
+        close_btn = QtWidgets.QPushButton(self.tr("Close"))
+        close_btn.clicked.connect(self.accept)
+        layout.addWidget(close_btn, alignment=Qt.AlignRight)
+
+        self.setLayout(layout)
+
+    def _compute_polygon_metrics(self):
+        if not self.has_polygon_data:
+            return [], []
+
+        cumulative_areas = [p.get("cumulative_area", 0.0) for p in self.ring_properties]
+        annual_growth_areas = []
+        for i, cumulative in enumerate(cumulative_areas):
+            if i == 0:
+                growth = cumulative
+            else:
+                growth = cumulative - cumulative_areas[i - 1]
+            annual_growth_areas.append(max(growth, 0.0))
+
+        return cumulative_areas, annual_growth_areas
+
+    def _build_polygon_section(self):
+        widget = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(widget)
+
+        has_scale = self.metadata and "scale" in self.metadata
+        unit = self.metadata["scale"]["unit"] if has_scale else None
+        scale_value = self.metadata["scale"]["value"] if has_scale else None
+        has_radial_column = any(
+            props.get("radial_width_px") is not None for props in self.ring_properties
+        )
+
+        table = QtWidgets.QTableWidget()
+        if has_scale:
+            headers = [
+                self.tr("Ring"),
+                self.tr(f"Area ({unit}²)"),
+                self.tr(f"Cumul. Area ({unit}²)"),
+                self.tr(f"Perimeter ({unit})"),
+            ]
+            if has_radial_column:
+                headers.append(self.tr(f"Radial Width ({unit})"))
+            headers.extend(
+                [
                     self.tr("Area (px²)"),
                     self.tr("Cumul. Area (px²)"),
                     self.tr("Perimeter (px)"),
-                    self.tr("Radial Width (px)")
-                ])
-            else:
-                # Pixels only
-                self.table.setColumnCount(4)
-                self.table.setHorizontalHeaderLabels([
-                    self.tr("Ring"),
-                    self.tr("Area (px²)"),
-                    self.tr("Cumul. Area (px²)"),
-                    self.tr("Perimeter (px)")
-                ])
-        
-        self.table.horizontalHeader().setStretchLastSection(True)
-        self.table.setAlternatingRowColors(True)
-        self.table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
-        self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
-        
-        # Populate table
-        self.table.setRowCount(len(ring_properties))
-        for row, props in enumerate(ring_properties):
+                ]
+            )
+        else:
+            headers = [
+                self.tr("Ring"),
+                self.tr("Area (px²)"),
+                self.tr("Cumul. Area (px²)"),
+                self.tr("Perimeter (px)"),
+            ]
+            if has_radial_column:
+                headers.append(self.tr("Radial Width (px)"))
+
+        table.setColumnCount(len(headers))
+        table.setHorizontalHeaderLabels(headers)
+        table.horizontalHeader().setStretchLastSection(True)
+        table.setAlternatingRowColors(True)
+        table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        table.setRowCount(len(self.ring_properties))
+
+        for row, props in enumerate(self.ring_properties):
             col = 0
-            
-            # Get correct cumulative area for this row
-            cumul_area_px = self.cumulative_areas[row]
-            
-            # Ring label
-            self.table.setItem(row, col, QtWidgets.QTableWidgetItem(props['label']))
+            table.setItem(row, col, QtWidgets.QTableWidgetItem(props["label"]))
             col += 1
-            
-            if has_scale:
-                scale_value = self.metadata['scale']['value']
-                
-                # Physical measurements
-                area_physical = props['area'] * (scale_value ** 2)
+
+            cumul_area_px = self.cumulative_areas[row]
+            if has_scale and scale_value is not None:
+                area_physical = props["area"] * (scale_value ** 2)
                 cumul_physical = cumul_area_px * (scale_value ** 2)
-                perim_physical = props['perimeter'] * scale_value
-                
-                self.table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{area_physical:.4f}"))
+                perim_physical = props["perimeter"] * scale_value
+
+                table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{area_physical:.4f}"))
                 col += 1
-                self.table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{cumul_physical:.4f}"))
+                table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{cumul_physical:.4f}"))
                 col += 1
-                self.table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{perim_physical:.4f}"))
+                table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{perim_physical:.4f}"))
                 col += 1
-                
-                # Radial width (physical) if available
-                if has_radial:
-                    radial_px = props.get('radial_width_px')
+
+                if has_radial_column:
+                    radial_px = props.get("radial_width_px")
                     if radial_px is not None:
                         radial_physical = radial_px * scale_value
-                        self.table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{radial_physical:.4f}"))
+                        table.setItem(
+                            row, col, QtWidgets.QTableWidgetItem(f"{radial_physical:.4f}")
+                        )
                     else:
-                        self.table.setItem(row, col, QtWidgets.QTableWidgetItem("N/A"))
+                        table.setItem(row, col, QtWidgets.QTableWidgetItem("N/A"))
                     col += 1
-            
-            # Pixel measurements
-            self.table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{props['area']:.2f}"))
-            col += 1
-            self.table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{cumul_area_px:.2f}"))
-            col += 1
-            self.table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{props['perimeter']:.2f}"))
-            col += 1
-            
-            # Radial width (pixels) if available and no scale
-            if has_radial and not has_scale:
-                radial_px = props.get('radial_width_px')
-                if radial_px is not None:
-                    self.table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{radial_px:.2f}"))
-                else:
-                    self.table.setItem(row, col, QtWidgets.QTableWidgetItem("N/A"))
-        
-        layout.addWidget(self.table)
-        
-        # Summary statistics
-        total_area = sum(p['area'] for p in ring_properties)
-        avg_area = total_area / len(ring_properties)
-        total_perim = sum(p['perimeter'] for p in ring_properties)
-        avg_perim = total_perim / len(ring_properties)
-        
-        if has_scale:
-            scale_value = self.metadata['scale']['value']
-            unit = self.metadata['scale']['unit']
+
+                table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{props['area']:.2f}"))
+                col += 1
+                table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{cumul_area_px:.2f}"))
+                col += 1
+                table.setItem(
+                    row,
+                    col,
+                    QtWidgets.QTableWidgetItem(f"{props['perimeter']:.2f}"),
+                )
+                col += 1
+            else:
+                table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{props['area']:.2f}"))
+                col += 1
+                table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{cumul_area_px:.2f}"))
+                col += 1
+                table.setItem(
+                    row,
+                    col,
+                    QtWidgets.QTableWidgetItem(f"{props['perimeter']:.2f}"),
+                )
+                col += 1
+
+                if has_radial_column:
+                    radial_px = props.get("radial_width_px")
+                    if radial_px is not None:
+                        table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{radial_px:.2f}"))
+                    else:
+                        table.setItem(row, col, QtWidgets.QTableWidgetItem("N/A"))
+
+        layout.addWidget(table)
+
+        total_area = sum(p["area"] for p in self.ring_properties)
+        avg_area = total_area / len(self.ring_properties) if self.ring_properties else 0.0
+        total_perim = sum(p["perimeter"] for p in self.ring_properties)
+        avg_perim = total_perim / len(self.ring_properties) if self.ring_properties else 0.0
+
+        if has_scale and scale_value is not None:
             total_area_physical = total_area * (scale_value ** 2)
             avg_area_physical = avg_area * (scale_value ** 2)
             total_perim_physical = total_perim * scale_value
             avg_perim_physical = avg_perim * scale_value
-            
             summary_text = (
-                f"<b>Summary Statistics:</b><br>"
-                f"Total Rings: {len(ring_properties)}<br>"
-                f"Total Area: {total_area_physical:.4f} {unit}² ({total_area:.2f} px²)<br>"
-                f"Average Area: {avg_area_physical:.4f} {unit}² ({avg_area:.2f} px²)<br>"
-                f"Total Perimeter: {total_perim_physical:.4f} {unit} ({total_perim:.2f} px)<br>"
-                f"Average Perimeter: {avg_perim_physical:.4f} {unit} ({avg_perim:.2f} px)"
+                f"<b>{self.tr('Closed-ring Summary')}:</b><br>"
+                f"{self.tr('Total Area')}: {total_area_physical:.4f} {unit}² "
+                f"({total_area:.2f} px²)<br>"
+                f"{self.tr('Average Area')}: {avg_area_physical:.4f} {unit}² "
+                f"({avg_area:.2f} px²)<br>"
+                f"{self.tr('Total Perimeter')}: {total_perim_physical:.4f} {unit} "
+                f"({total_perim:.2f} px)<br>"
+                f"{self.tr('Average Perimeter')}: {avg_perim_physical:.4f} {unit} "
+                f"({avg_perim:.2f} px)"
             )
         else:
             summary_text = (
-                f"<b>Summary Statistics:</b><br>"
-                f"Total Rings: {len(ring_properties)}<br>"
-                f"Total Area: {total_area:.2f} px²<br>"
-                f"Average Area: {avg_area:.2f} px²<br>"
-                f"Total Perimeter: {total_perim:.2f} px<br>"
-                f"Average Perimeter: {avg_perim:.2f} px"
+                f"<b>{self.tr('Closed-ring Summary')}:</b><br>"
+                f"{self.tr('Total Area')}: {total_area:.2f} px²<br>"
+                f"{self.tr('Average Area')}: {avg_area:.2f} px²<br>"
+                f"{self.tr('Total Perimeter')}: {total_perim:.2f} px<br>"
+                f"{self.tr('Average Perimeter')}: {avg_perim:.2f} px"
             )
-        
+
         summary_label = QtWidgets.QLabel(summary_text)
         summary_label.setStyleSheet("padding: 10px; background-color: #f0f0f0; border-radius: 5px;")
         layout.addWidget(summary_label)
-        
-        # Export buttons row
-        export_layout = QtWidgets.QHBoxLayout()
-        
-        export_csv_btn = QtWidgets.QPushButton(self.tr("📊 Export to CSV"))
-        export_csv_btn.clicked.connect(self._export_csv)
-        export_layout.addWidget(export_csv_btn)
-        
-        export_pdf_btn = QtWidgets.QPushButton(self.tr("📄 Generate PDF Report"))
-        export_pdf_btn.clicked.connect(self._export_pdf)
-        export_layout.addWidget(export_pdf_btn)
-        
-        layout.addLayout(export_layout)
-        
-        # Close button
-        close_btn = QtWidgets.QPushButton(self.tr("Close"))
-        close_btn.clicked.connect(self.accept)
-        layout.addWidget(close_btn)
-        
-        self.setLayout(layout)
-    
+        return widget
+
+    def _build_radial_section(self):
+        widget = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(widget)
+
+        has_scale = self.metadata and "scale" in self.metadata
+        unit = self.metadata["scale"]["unit"] if has_scale else None
+        scale_value = self.metadata["scale"]["value"] if has_scale else None
+
+        headers = [self.tr("Ring")]
+        if has_scale:
+            headers.append(self.tr(f"Radial Width ({unit})"))
+        headers.append(self.tr("Radial Width (px)"))
+        headers.append(self.tr("Distance from Pith (px)"))
+
+        table = QtWidgets.QTableWidget()
+        table.setColumnCount(len(headers))
+        table.setHorizontalHeaderLabels(headers)
+        table.horizontalHeader().setStretchLastSection(True)
+        table.setAlternatingRowColors(True)
+        table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        table.setRowCount(len(self.radial_measurements))
+
+        for row, entry in enumerate(self.radial_measurements):
+            col = 0
+            table.setItem(row, col, QtWidgets.QTableWidgetItem(entry["label"]))
+            col += 1
+
+            radial_px = entry.get("radial_width_px")
+            if has_scale and scale_value is not None:
+                if radial_px is not None:
+                    table.setItem(
+                        row,
+                        col,
+                        QtWidgets.QTableWidgetItem(f"{radial_px * scale_value:.4f}"),
+                    )
+                else:
+                    table.setItem(row, col, QtWidgets.QTableWidgetItem("N/A"))
+                col += 1
+
+            if radial_px is not None:
+                table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{radial_px:.2f}"))
+            else:
+                table.setItem(row, col, QtWidgets.QTableWidgetItem("N/A"))
+            col += 1
+
+            dist_px = entry.get("distance_from_pith")
+            if dist_px is not None:
+                table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{dist_px:.2f}"))
+            else:
+                table.setItem(row, col, QtWidgets.QTableWidgetItem("—"))
+
+        layout.addWidget(table)
+
+        radial_values = [
+            entry["radial_width_px"]
+            for entry in self.radial_measurements
+            if entry.get("radial_width_px") is not None
+        ]
+        avg_radial_px = sum(radial_values) / len(radial_values) if radial_values else 0.0
+
+        if has_scale and scale_value is not None:
+            summary_text = (
+                f"<b>{self.tr('Open-ring Summary')}:</b><br>"
+                f"{self.tr('Measured Rings')}: {len(self.radial_measurements)}<br>"
+                f"{self.tr('Average Radial Width')}: {avg_radial_px * scale_value:.4f} {unit} "
+                f"({avg_radial_px:.2f} px)"
+            )
+        else:
+            summary_text = (
+                f"<b>{self.tr('Open-ring Summary')}:</b><br>"
+                f"{self.tr('Measured Rings')}: {len(self.radial_measurements)}<br>"
+                f"{self.tr('Average Radial Width')}: {avg_radial_px:.2f} px"
+            )
+
+        summary_label = QtWidgets.QLabel(summary_text)
+        summary_label.setStyleSheet("padding: 10px; background-color: #f6f6f6; border-radius: 5px;")
+        layout.addWidget(summary_label)
+        return widget
+
     def _export_csv(self):
-        """Export ring properties to CSV file"""
-        # Get default filename from sample code
+        """Export ring properties to CSV file."""
         default_filename = "ring_properties.csv"
-        if self.metadata.get('sample_code'):
-            sample_code = self.metadata['sample_code']
-            safe_code = "".join(c for c in sample_code if c.isalnum() or c in ('-', '_'))
+        if self.metadata.get("sample_code"):
+            sample_code = self.metadata["sample_code"]
+            safe_code = "".join(c for c in sample_code if c.isalnum() or c in ("-", "_"))
             default_filename = f"{safe_code}.csv"
-        
+
         filename, _ = QtWidgets.QFileDialog.getSaveFileName(
-            self, self.tr("Export Ring Properties"), default_filename, 
-            self.tr("CSV Files (*.csv)")
+            self,
+            self.tr("Export Ring Properties"),
+            default_filename,
+            self.tr("CSV Files (*.csv)"),
         )
-        
         if not filename:
             return
-        
+
+        has_scale = self.metadata and "scale" in self.metadata
+        scale_value = self.metadata["scale"]["value"] if has_scale else None
+        unit = self.metadata["scale"]["unit"] if has_scale else None
+
         try:
-            has_scale = self.metadata and 'scale' in self.metadata
-            has_radial = any(p.get('radial_width_px') is not None for p in self.ring_properties)
-            
-            with open(filename, 'w', newline='', encoding='utf-8') as f:
+            with open(filename, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
-                
-                # Write metadata header
                 if self.metadata:
-                    writer.writerow(['# Metadata'])
-                    if 'harvested_year' in self.metadata:
-                        writer.writerow(['# Harvested Year', self.metadata['harvested_year']])
-                    if 'sample_code' in self.metadata:
-                        writer.writerow(['# Sample Code', self.metadata['sample_code']])
-                    if 'observation' in self.metadata:
-                        writer.writerow(['# Observation', self.metadata['observation']])
+                    writer.writerow(["# Metadata"])
+                    if "harvested_year" in self.metadata:
+                        writer.writerow(["# Harvested Year", self.metadata["harvested_year"]])
+                    if "sample_code" in self.metadata:
+                        writer.writerow(["# Sample Code", self.metadata["sample_code"]])
+                    if "observation" in self.metadata:
+                        writer.writerow(["# Observation", self.metadata["observation"]])
                     writer.writerow([])
-                
-                # Write scale information
-                if has_scale:
-                    scale_value = self.metadata['scale']['value']
-                    unit = self.metadata['scale']['unit']
-                    writer.writerow(['# Scale', f'{scale_value:.6f} {unit}/pixel'])
+
+                if has_scale and scale_value is not None:
+                    writer.writerow(["# Scale", f"{scale_value:.6f} {unit}/pixel"])
                     writer.writerow([])
-                
-                # Write column headers
-                if has_scale:
-                    unit = self.metadata['scale']['unit']
-                    if has_radial:
-                        writer.writerow(['Ring', f'Area ({unit}²)', f'Cumulative Area ({unit}²)', 
-                                       f'Perimeter ({unit})', f'Radial Width ({unit})',
-                                       'Area (px²)', 'Cumulative Area (px²)', 'Perimeter (px)'])
+
+                if self.has_polygon_data:
+                    writer.writerow(["# Closed Rings"])
+                    polygon_has_radial = any(
+                        props.get("radial_width_px") is not None for props in self.ring_properties
+                    )
+                    if has_scale and scale_value is not None:
+                        headers = [
+                            "Ring",
+                            f"Area ({unit}²)",
+                            f"Cumulative Area ({unit}²)",
+                            f"Perimeter ({unit})",
+                        ]
+                        if polygon_has_radial:
+                            headers.append(f"Radial Width ({unit})")
+                        headers.extend(
+                            ["Area (px²)", "Cumulative Area (px²)", "Perimeter (px)"]
+                        )
                     else:
-                        writer.writerow(['Ring', f'Area ({unit}²)', f'Cumulative Area ({unit}²)', 
-                                       f'Perimeter ({unit})', 'Area (px²)', 'Cumulative Area (px²)', 
-                                       'Perimeter (px)'])
-                else:
-                    if has_radial:
-                        writer.writerow(['Ring', 'Area (px²)', 'Cumulative Area (px²)', 
-                                       'Perimeter (px)', 'Radial Width (px)'])
-                    else:
-                        writer.writerow(['Ring', 'Area (px²)', 'Cumulative Area (px²)', 
-                                       'Perimeter (px)'])
-                
-                # Write data rows
-                for idx, props in enumerate(self.ring_properties):
-                    # Get correct cumulative area for this row
-                    cumul_area_px = self.cumulative_areas[idx]
-                    
-                    if has_scale:
-                        scale_value = self.metadata['scale']['value']
-                        area_physical = props['area'] * (scale_value ** 2)
-                        cumul_physical = cumul_area_px * (scale_value ** 2)
-                        perim_physical = props['perimeter'] * scale_value
-                        
-                        if has_radial:
-                            radial_px = props.get('radial_width_px')
-                            radial_physical = radial_px * scale_value if radial_px is not None else None
-                            writer.writerow([
-                                props['label'],
-                                f"{area_physical:.4f}", f"{cumul_physical:.4f}",
-                                f"{perim_physical:.4f}",
-                                f"{radial_physical:.4f}" if radial_physical is not None else 'N/A',
-                                f"{props['area']:.2f}", f"{cumul_area_px:.2f}",
-                                f"{props['perimeter']:.2f}"
-                            ])
+                        headers = ["Ring", "Area (px²)", "Cumulative Area (px²)", "Perimeter (px)"]
+                        if polygon_has_radial:
+                            headers.append("Radial Width (px)")
+                    writer.writerow(headers)
+
+                    for idx, props in enumerate(self.ring_properties):
+                        cumul_area_px = self.cumulative_areas[idx]
+                        row = [props["label"]]
+                        if has_scale and scale_value is not None:
+                            area_physical = props["area"] * (scale_value ** 2)
+                            cumul_physical = cumul_area_px * (scale_value ** 2)
+                            perim_physical = props["perimeter"] * scale_value
+                            row.extend(
+                                [
+                                    f"{area_physical:.4f}",
+                                    f"{cumul_physical:.4f}",
+                                    f"{perim_physical:.4f}",
+                                ]
+                            )
+                            if polygon_has_radial:
+                                radial_px = props.get("radial_width_px")
+                                row.append(
+                                    f"{radial_px * scale_value:.4f}" if radial_px is not None else "N/A"
+                                )
+                            row.extend(
+                                [
+                                    f"{props['area']:.2f}",
+                                    f"{cumul_area_px:.2f}",
+                                    f"{props['perimeter']:.2f}",
+                                ]
+                            )
                         else:
-                            writer.writerow([
-                                props['label'],
-                                f"{area_physical:.4f}", f"{cumul_physical:.4f}",
-                                f"{perim_physical:.4f}",
-                                f"{props['area']:.2f}", f"{cumul_area_px:.2f}",
-                                f"{props['perimeter']:.2f}"
-                            ])
+                            row.extend(
+                                [
+                                    f"{props['area']:.2f}",
+                                    f"{cumul_area_px:.2f}",
+                                    f"{props['perimeter']:.2f}",
+                                ]
+                            )
+                            if polygon_has_radial:
+                                radial_px = props.get("radial_width_px")
+                                row.append(f"{radial_px:.2f}" if radial_px is not None else "N/A")
+                        writer.writerow(row)
+                    writer.writerow([])
+
+                if self.has_radial_data:
+                    writer.writerow(["# Open Rings (Radial Widths)"])
+                    if has_scale and scale_value is not None:
+                        writer.writerow(
+                            ["Ring", f"Radial Width ({unit})", "Radial Width (px)", "Distance (px)"]
+                        )
                     else:
-                        if has_radial:
-                            radial_px = props.get('radial_width_px')
-                            writer.writerow([
-                                props['label'],
-                                f"{props['area']:.2f}",
-                                f"{cumul_area_px:.2f}",
-                                f"{props['perimeter']:.2f}",
-                                f"{radial_px:.2f}" if radial_px is not None else 'N/A'
-                            ])
+                        writer.writerow(["Ring", "Radial Width (px)", "Distance (px)"])
+                    for entry in self.radial_measurements:
+                        radial_px = entry.get("radial_width_px")
+                        distance = entry.get("distance_from_pith")
+                        if has_scale and scale_value is not None:
+                            radial_unit = (
+                                f"{radial_px * scale_value:.4f}" if radial_px is not None else "N/A"
+                            )
+                            row = [
+                                entry["label"],
+                                radial_unit,
+                                f"{radial_px:.2f}" if radial_px is not None else "N/A",
+                                f"{distance:.2f}" if distance is not None else "—",
+                            ]
                         else:
-                            writer.writerow([
-                                props['label'],
-                                f"{props['area']:.2f}",
-                                f"{cumul_area_px:.2f}",
-                                f"{props['perimeter']:.2f}"
-                            ])
-            
+                            row = [
+                                entry["label"],
+                                f"{radial_px:.2f}" if radial_px is not None else "N/A",
+                                f"{distance:.2f}" if distance is not None else "—",
+                            ]
+                        writer.writerow(row)
+
             QtWidgets.QMessageBox.information(
-                self, self.tr("Export Successful"),
-                self.tr(f"Ring properties exported to:\n{filename}")
+                self,
+                self.tr("Export Successful"),
+                self.tr(f"Ring properties exported to:\n{filename}"),
             )
-        
         except Exception as e:
             QtWidgets.QMessageBox.critical(
-                self, self.tr("Export Failed"),
-                self.tr(f"Failed to export CSV:\n{str(e)}")
+                self,
+                self.tr("Export Failed"),
+                self.tr(f"Failed to export CSV:\n{str(e)}"),
             )
-    
+
     def _export_pdf(self):
-        """Generate PDF report with ring overlays and analysis plots"""
-        # Get default filename from sample code
+        """Generate PDF report with ring overlays and analysis plots."""
         default_filename = "tree_ring_report.pdf"
-        if self.metadata.get('sample_code'):
-            sample_code = self.metadata['sample_code']
-            safe_code = "".join(c for c in sample_code if c.isalnum() or c in ('-', '_'))
+        if self.metadata.get("sample_code"):
+            sample_code = self.metadata["sample_code"]
+            safe_code = "".join(c for c in sample_code if c.isalnum() or c in ("-", "_"))
             default_filename = f"{safe_code}_report.pdf"
-        
+
         filename, _ = QtWidgets.QFileDialog.getSaveFileName(
-            self, self.tr("Save PDF Report"), default_filename, 
-            self.tr("PDF Files (*.pdf)")
+            self,
+            self.tr("Save PDF Report"),
+            default_filename,
+            self.tr("PDF Files (*.pdf)"),
         )
-        
         if not filename:
             return
-        
+
         try:
-            # Set wait cursor
             QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
-            
-            # Import matplotlib here (lazy import)
             import matplotlib
-            matplotlib.use('Agg')  # Use non-interactive backend
+
+            matplotlib.use("Agg")
             import matplotlib.pyplot as plt
             from matplotlib.backends.backend_pdf import PdfPages
-            import matplotlib.patches as patches
-            from matplotlib.gridspec import GridSpec
-            
-            # Create PDF
+
             with PdfPages(filename) as pdf:
-                # Page 1: Cover page with metadata and summary
                 self._create_cover_page(pdf)
-                
-                # Page 2: Image with ring overlays
-                self._create_ring_overlay_page(pdf)
-                
-                # Page 3: Analysis plots
-                self._create_analysis_plots(pdf)
-                
-                # Add metadata to PDF
-                d = pdf.infodict()
-                d['Title'] = 'Tree Ring Analysis Report'
-                d['Author'] = 'TRAS - Tree Ring Analyzer Suite'
-                d['Subject'] = f"Sample: {self.metadata.get('sample_code', 'Unknown')}"
-                d['Keywords'] = 'Dendrochronology, Tree Rings, Wood Analysis'
-                d['CreationDate'] = datetime.now()
-            
+                if self.has_polygon_data or self.has_radial_data:
+                    self._create_ring_overlay_page(pdf)
+                    self._create_ring_overlay_page(pdf, show_labels=False)
+                if self.has_polygon_data:
+                    self._create_analysis_plots(pdf)
+                if self.has_radial_data:
+                    self._create_radial_plot_page(pdf)
+
+                pdf_metadata = pdf.infodict()
+                pdf_metadata["Title"] = "Tree Ring Analysis Report"
+                pdf_metadata["Author"] = "TRAS - Tree Ring Analyzer Suite"
+                pdf_metadata["Subject"] = f"Sample: {self.metadata.get('sample_code', 'Unknown')}"
+                pdf_metadata["Keywords"] = "Dendrochronology, Tree Rings, Wood Analysis"
+                pdf_metadata["CreationDate"] = datetime.now()
+
             QApplication.restoreOverrideCursor()
-            
             QtWidgets.QMessageBox.information(
-                self, self.tr("PDF Generated"),
-                self.tr(f"PDF report successfully generated:\n{filename}")
+                self,
+                self.tr("PDF Generated"),
+                self.tr(f"PDF report successfully generated:\n{filename}"),
             )
-        
         except Exception as e:
             QApplication.restoreOverrideCursor()
-            import traceback
-            error_details = traceback.format_exc()
-            print(f"PDF Export Error: {error_details}")
             QtWidgets.QMessageBox.critical(
-                self, self.tr("PDF Generation Error"),
-                self.tr(f"Failed to generate PDF:\n{str(e)}\n\nMake sure matplotlib is installed.")
+                self,
+                self.tr("PDF Generation Error"),
+                self.tr(f"Failed to generate PDF:\n{str(e)}\n\nMake sure matplotlib is installed."),
             )
-    
-    def _add_header(self, fig, adjust_layout=False):
-        """Add header image to the figure
-        
-        Args:
-            fig: matplotlib figure
-            adjust_layout: if True, adjust subplots to leave space for header
-        """
-        try:
-            from PIL import Image as PILImage
-            import os
-            
-            # Get the project root directory (where assets folder is)
-            current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            project_root = os.path.dirname(current_dir)
-            header_path = os.path.join(project_root, 'assets', 'header.png')
-            
-            if os.path.exists(header_path):
-                header_img = PILImage.open(header_path)
-                # Add header at the top of the figure using figimage
-                fig_height_px = fig.get_figheight() * fig.dpi
-                fig_width_px = fig.get_figwidth() * fig.dpi
-                
-                # Resize header to fit width (leave some margin)
-                target_width = int(fig_width_px * 0.9)
-                aspect_ratio = header_img.height / header_img.width
-                target_height = int(target_width * aspect_ratio)
-                header_img_resized = header_img.resize((target_width, target_height), PILImage.Resampling.LANCZOS)
-                
-                # Position at top center
-                x_offset = int((fig_width_px - target_width) / 2)
-                y_offset = int(fig_height_px - target_height - 10)  # 10px from top
-                
-                fig.figimage(header_img_resized, xo=x_offset, yo=y_offset, alpha=1.0, zorder=10)
-                
-                # Adjust subplot layout to leave space for header
-                if adjust_layout:
-                    # Calculate header height as fraction of figure height
-                    header_height_fraction = (target_height + 20) / fig_height_px
-                    # Adjust top margin to leave space for header
-                    fig.subplots_adjust(top=1.0 - header_height_fraction)
-            else:
-                print(f"Warning: Header image not found at {header_path}")
-        except Exception as e:
-            print(f"Warning: Could not add header: {e}")
-    
+
     def _create_cover_page(self, pdf):
-        """Create cover page with metadata and summary statistics"""
+        """Create cover page with metadata and summary statistics."""
         import matplotlib.pyplot as plt
-        
+
         fig, ax = plt.subplots(figsize=(8.5, 11))
-        
-        # Add header
         self._add_header(fig)
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 1)
-        ax.axis('off')
-        
-        # Title with version
+        ax.axis("off")
+
         from tras import __version__
-        ax.text(0.5, 0.92, 'Tree Ring Analysis Report', 
-                ha='center', fontsize=20, fontweight='bold', color='#2d5016')
-        ax.text(0.5, 0.88, f'TRAS - Tree Ring Analyzer Suite v{__version__}', 
-                ha='center', fontsize=11, color='#666666')
-        
-        # Horizontal line
-        ax.plot([0.1, 0.9], [0.85, 0.85], 'k-', linewidth=1.5, color='#8b4513')
-        
-        # Metadata - ultra compact
+
+        ax.text(
+            0.5,
+            0.92,
+            "Tree Ring Analysis Report",
+            ha="center",
+            fontsize=20,
+            fontweight="bold",
+            color="#2d5016",
+        )
+        ax.text(
+            0.5,
+            0.88,
+            f"TRAS - Tree Ring Analyzer Suite v{__version__}",
+            ha="center",
+            fontsize=11,
+            color="#666666",
+        )
+        ax.plot([0.1, 0.9], [0.85, 0.85], "k-", linewidth=1.5, color="#8b4513")
+
         y = 0.80
         if self.metadata:
-            ax.text(0.1, y, 'Sample', fontsize=11, fontweight='bold', color='#2d5016')
+            ax.text(0.1, y, "Sample", fontsize=11, fontweight="bold", color="#2d5016")
             y -= 0.03
-            
             items = []
-            if 'sample_code' in self.metadata:
+            if "sample_code" in self.metadata:
                 items.append(f"{self.metadata['sample_code']}")
-            if 'harvested_year' in self.metadata:
+            if "harvested_year" in self.metadata:
                 items.append(f"{self.metadata['harvested_year']}")
-            if 'scale' in self.metadata:
-                scale_value = self.metadata['scale']['value']
-                unit = self.metadata['scale']['unit']
+            if "scale" in self.metadata:
+                scale_value = self.metadata["scale"]["value"]
+                unit = self.metadata["scale"]["unit"]
                 items.append(f"{scale_value:.4f} {unit}/px")
             if items:
                 ax.text(0.1, y, " • ".join(items), fontsize=9)
                 y -= 0.025
-            
-            if 'observation' in self.metadata:
+            if "observation" in self.metadata:
                 import textwrap
-                obs_text = self.metadata['observation']
-                # Wrap observations to multiple lines (max 80 chars per line)
+
+                obs_text = self.metadata["observation"]
                 wrapped_lines = textwrap.wrap(obs_text, width=80)
-                # Display up to 5 lines
                 for line in wrapped_lines[:5]:
-                    ax.text(0.1, y, line, fontsize=8, style='italic', color='#555')
+                    ax.text(0.1, y, line, fontsize=8, style="italic", color="#555")
                     y -= 0.02
                 if len(wrapped_lines) > 5:
-                    ax.text(0.1, y, '...', fontsize=8, style='italic', color='#555')
+                    ax.text(0.1, y, "...", fontsize=8, style="italic", color="#555")
                     y -= 0.02
-        
+
         y -= 0.02
-        
-        # Summary - compact
-        ax.text(0.1, y, 'Statistics', fontsize=11, fontweight='bold', color='#2d5016')
+        ax.text(0.1, y, "Statistics", fontsize=11, fontweight="bold", color="#2d5016")
         y -= 0.03
-        
-        total_rings = len(self.ring_properties)
-        has_scale = self.metadata and 'scale' in self.metadata
-        
-        ax.text(0.1, y, f"Rings: {total_rings}", fontsize=9)
+        ax.text(0.1, y, f"Closed rings: {len(self.ring_properties)}", fontsize=9)
         y -= 0.025
-        
-        if has_scale:
-            unit = self.metadata['scale']['unit']
-            scale_factor = self.metadata['scale']['value']
-            total_area = sum(p['area'] for p in self.ring_properties) * (scale_factor ** 2)
-            ax.text(0.1, y, f"Total area: {total_area:.1f} {unit}²", fontsize=9)
-        else:
-            total_area = sum(p['area'] for p in self.ring_properties)
-            ax.text(0.1, y, f"Total area: {total_area:.0f} px²", fontsize=9)
-        
-        # Footer
-        ax.text(0.5, 0.05, f"{datetime.now().strftime('%Y-%m-%d')}", 
-                ha='center', fontsize=8, color='#999')
-        ax.text(0.5, 0.02, 'github.com/hmarichal93/tras', 
-                ha='center', fontsize=7, color='#ccc')
-        
+        ax.text(0.1, y, f"Open rings: {len(self.radial_measurements)}", fontsize=9)
+        y -= 0.025
+
+        if self.has_polygon_data:
+            has_scale = self.metadata and "scale" in self.metadata
+            if has_scale:
+                scale_value = self.metadata["scale"]["value"]
+                unit = self.metadata["scale"]["unit"]
+                total_area = sum(p["area"] for p in self.ring_properties) * (scale_value ** 2)
+                ax.text(0.1, y, f"Total area: {total_area:.1f} {unit}²", fontsize=9)
+            else:
+                total_area = sum(p["area"] for p in self.ring_properties)
+                ax.text(0.1, y, f"Total area: {total_area:.0f} px²", fontsize=9)
+            y -= 0.02
+        elif self.has_radial_data:
+            radial_values = [
+                entry["radial_width_px"]
+                for entry in self.radial_measurements
+                if entry.get("radial_width_px") is not None
+            ]
+            avg_radial = sum(radial_values) / len(radial_values) if radial_values else 0.0
+            if self.metadata and "scale" in self.metadata:
+                unit = self.metadata["scale"]["unit"]
+                scale_value = self.metadata["scale"]["value"]
+                ax.text(
+                    0.1,
+                    y,
+                    f"Avg. radial width: {avg_radial * scale_value:.3f} {unit} ({avg_radial:.2f} px)",
+                    fontsize=9,
+                )
+            else:
+                ax.text(0.1, y, f"Avg. radial width: {avg_radial:.2f} px", fontsize=9)
+            y -= 0.02
+
+        ax.text(
+            0.5,
+            0.05,
+            f"{datetime.now().strftime('%Y-%m-%d')}",
+            ha="center",
+            fontsize=8,
+            color="#999",
+        )
+        ax.text(
+            0.5,
+            0.02,
+            "github.com/hmarichal93/tras",
+            ha="center",
+            fontsize=7,
+            color="#ccc",
+        )
         pdf.savefig(fig)
         plt.close()
-    
-    def _create_ring_overlay_page(self, pdf):
-        """Create page with image and ring overlays"""
+
+    def _create_ring_overlay_page(self, pdf, show_labels: bool = True):
+        """Create page with image and ring overlays."""
         import matplotlib.pyplot as plt
-        import matplotlib.patches as patches
-        import io
+        from PyQt5.QtCore import QBuffer, QIODevice
         from PIL import Image as PILImage
-        import os
-        
+        import io
+
         if not self.parent_window:
-            print("Warning: No parent window available for ring overlay")
             return
-        
+
+        image = None
         try:
-            # Get image from parent - CRITICAL: Use imageArray if available (preprocessed/resized image)
-            # Ring coordinates are in the space of the displayed image
-            image = None
-            
-            # Try 1: Use imageArray if available (preprocessed/resized image)
-            if hasattr(self.parent_window, 'imageArray') and self.parent_window.imageArray is not None:
-                try:
-                    image = self.parent_window.imageArray.copy()
-                    print(f"Got image from imageArray (preprocessed): {image.shape}")
-                except Exception as e:
-                    print(f"Failed to load from imageArray: {e}")
-                    image = None
-            
-            # Try 2: Get from QImage via PIL (current displayed image)
-            if image is None and hasattr(self.parent_window, 'image') and self.parent_window.image:
-                try:
-                    from PyQt5.QtCore import QBuffer, QIODevice
-                    # Convert QImage to PIL Image for proper color handling
-                    buffer = QBuffer()
-                    buffer.open(QIODevice.WriteOnly)
-                    self.parent_window.image.save(buffer, "PNG")
-                    pil_img = PILImage.open(io.BytesIO(buffer.data())).convert('RGB')
-                    image = np.array(pil_img)
-                    print(f"Got image from QImage via PIL: {image.shape}")
-                except Exception as e:
-                    print(f"Failed to load from QImage: {e}")
-                    image = None
-            
-            # Try 3: Get from imageData (base64) - last resort
-            if image is None and hasattr(self.parent_window, 'imageData') and self.parent_window.imageData is not None:
-                try:
-                    from tras.utils import img_b64_to_arr
-                    image = img_b64_to_arr(self.parent_window.imageData)
-                    print(f"Got image from imageData: {image.shape}, dtype={image.dtype}")
-                except Exception as e:
-                    print(f"Failed to load from imageData: {e}")
-                    image = None
-            
-            if image is None:
-                raise ValueError("Could not load image from any source")
-            
-            # Ensure RGB format for proper display
-            if image.ndim == 2:
-                # Grayscale to RGB
-                image = np.stack([image]*3, axis=-1)
-            elif image.ndim == 3:
-                if image.shape[2] == 4:
-                    # RGBA to RGB
-                    image = image[:, :, :3]
-                elif image.shape[2] == 3:
-                    # Already RGB, but ensure it's not BGR
-                    # If coming from OpenCV, it might be BGR
-                    pass  # PIL already gives RGB
-            
-            # Use same page size as cover page (portrait 8.5 x 11)
-            fig, ax = plt.subplots(figsize=(8.5, 11))
-            
-            ax.imshow(image)
-            ax.set_title('Tree Rings with Detected Boundaries', 
-                        fontsize=16, fontweight='bold', pad=20)
-            
-            # Set explicit axis limits to image bounds (prevents auto-zoom from radial line)
-            img_height, img_width = image.shape[:2]
-            ax.set_xlim(0, img_width)
-            ax.set_ylim(img_height, 0)  # Inverted for image coordinates
-            ax.axis('off')
-            
-            # Get ring shapes from parent
-            if hasattr(self.parent_window, 'labelList'):
-                # Get all ring shapes (filter out radial measurement lines)
-                ring_count = 0
-                for item_idx in range(len(self.parent_window.labelList)):
-                    item = self.parent_window.labelList[item_idx]
-                    shape = item.shape()
-                    
-                    # Only draw polygon shapes (rings), not lines (radial measurement)
-                    if shape and hasattr(shape, 'points') and shape.points:
-                        # Skip non-polygon shapes (like radial measurement lines)
-                        if hasattr(shape, 'shape_type') and shape.shape_type != 'polygon':
-                            continue
-                        # Also skip shapes that don't look like rings
-                        if not (hasattr(shape, 'label') and 'ring' in shape.label.lower()):
-                            continue
-                        # Draw ring boundary
-                        # Convert QPointF objects to numpy array of coordinates
-                        points = np.array([[p.x(), p.y()] for p in shape.points])
-                        # Close the polygon by adding the first point at the end
-                        points_closed = np.vstack([points, points[0:1]])
-                        ax.plot(points_closed[:, 0], points_closed[:, 1], 
-                               'g-', linewidth=2, alpha=0.7)
-                        
-                        # Add ring label at a position along the ring perimeter
-                        # Use different angles for different rings to avoid overlap
-                        angle_deg = (ring_count * 25) % 360  # Spread labels around
+            if getattr(self.parent_window, "imageArray", None) is not None:
+                image = self.parent_window.imageArray.copy()
+            elif getattr(self.parent_window, "image", None):
+                buffer = QBuffer()
+                buffer.open(QIODevice.WriteOnly)
+                self.parent_window.image.save(buffer, "PNG")
+                pil_img = PILImage.open(io.BytesIO(buffer.data())).convert("RGB")
+                image = np.array(pil_img)
+            elif getattr(self.parent_window, "imageData", None) is not None:
+                from tras.utils import img_b64_to_arr
+
+                image = img_b64_to_arr(self.parent_window.imageData)
+        except Exception as e:
+            print(f"Failed to load base image for overlay: {e}")
+
+        if image is None:
+            return
+
+        if image.ndim == 2:
+            image = np.stack([image] * 3, axis=-1)
+        elif image.ndim == 3 and image.shape[2] == 4:
+            image = image[:, :, :3]
+
+        fig, ax = plt.subplots(figsize=(8.5, 11))
+        title = "Tree Rings with Detected Boundaries" if show_labels else "Tree Rings (Overlay)"
+        ax.imshow(image)
+        ax.set_title(title, fontsize=16, fontweight="bold", pad=20)
+        img_height, img_width = image.shape[:2]
+        ax.set_xlim(0, img_width)
+        ax.set_ylim(img_height, 0)
+        ax.axis("off")
+
+        if hasattr(self.parent_window, "labelList"):
+            ring_count = 0
+            for idx in range(len(self.parent_window.labelList)):
+                item = self.parent_window.labelList[idx]
+                shape = item.shape()
+                if (
+                    shape
+                    and getattr(shape, "points", None)
+                    and getattr(shape, "shape_type", "") == "polygon"
+                ):
+                    points = np.array([[p.x(), p.y()] for p in shape.points])
+                    points_closed = np.vstack([points, points[0:1]])
+                    ax.plot(points_closed[:, 0], points_closed[:, 1], "g-", linewidth=2, alpha=0.7)
+                    if show_labels:
+                        angle_deg = (ring_count * 25) % 360
                         angle_idx = int(len(points) * angle_deg / 360)
                         label_x = points[angle_idx, 0]
                         label_y = points[angle_idx, 1]
-                        ax.text(label_x, label_y, shape.label, 
-                               ha='center', va='center', 
-                               fontsize=7, fontweight='bold',
-                               color='white',
-                               bbox=dict(boxstyle='round,pad=0.2', 
-                                       facecolor='green', alpha=0.8))
-                        ring_count += 1
-                
-                # Now draw the radial measurement line (if exists)
-                for item_idx in range(len(self.parent_window.labelList)):
-                    item = self.parent_window.labelList[item_idx]
-                    shape = item.shape()
-                    
-                    # Look for line shapes (radial measurement)
-                    if shape and hasattr(shape, 'points') and shape.points:
-                        if hasattr(shape, 'shape_type') and shape.shape_type in ['line', 'linestrip']:
-                            # Draw radial measurement line
-                            points = np.array([[p.x(), p.y()] for p in shape.points])
-                            ax.plot(points[:, 0], points[:, 1], 
-                                   'r-', linewidth=3, alpha=0.8, linestyle='--',
-                                   label='Radial measurement')
-                            # Add arrow at the end
-                            if len(points) >= 2:
-                                dx = points[-1, 0] - points[-2, 0]
-                                dy = points[-1, 1] - points[-2, 1]
-                                ax.arrow(points[-2, 0], points[-2, 1], dx, dy,
-                                       head_width=20, head_length=30, 
-                                       fc='red', ec='red', alpha=0.8, linewidth=2)
-            
-            plt.tight_layout()
-            pdf.savefig(fig, bbox_inches='tight', dpi=150)
-            plt.close()
-        
-        except Exception as e:
-            import traceback
-            print(f"Error creating ring overlay: {e}")
-            print(traceback.format_exc())
-            # Create a placeholder page
-            fig, ax = plt.subplots(figsize=(11, 8.5))
-            ax.text(0.5, 0.5, f'Ring overlay image not available\nError: {str(e)}', 
-                   ha='center', va='center', fontsize=14)
-            ax.axis('off')
-            pdf.savefig(fig)
-            plt.close()
-    
-    def _create_analysis_plots(self, pdf):
-        """Create analysis plots page"""
-        import matplotlib.pyplot as plt
-        from matplotlib.gridspec import GridSpec
-        
-        has_scale = self.metadata and 'scale' in self.metadata
-        has_radial = any(p.get('radial_width_px') is not None for p in self.ring_properties)
-        has_years = 'harvested_year' in self.metadata and all(
-            p['label'].replace('ring_', '').isdigit() or p['label'].isdigit() 
-            for p in self.ring_properties
-        )
-        
-        # Create figure with subplots (same page size as cover - portrait)
-        fig = plt.figure(figsize=(8.5, 11))
-        
-        gs = GridSpec(2, 2, figure=fig, hspace=0.3, wspace=0.3)
-        
-        # Prepare data (rings are stored outermost to innermost)
-        ring_nums = list(range(1, len(self.ring_properties) + 1))
-        
-        # Use annual growth areas instead of total ring areas
-        annual_growth = self.annual_growth_areas
-        cumulative_areas = self.cumulative_areas
-        
-        # Reverse data to plot from innermost (pith) to outermost (bark)
-        annual_growth = annual_growth[::-1]
-        cumulative_areas = cumulative_areas[::-1]
-        
-        if has_scale:
-            scale_factor = self.metadata['scale']['value']
-            scale_factor_sq = scale_factor ** 2
-            unit = self.metadata['scale']['unit']
-            annual_growth_scaled = [a * scale_factor_sq for a in annual_growth]
-            cumulative_areas_scaled = [ca * scale_factor_sq for ca in cumulative_areas]
-        
-        # Determine x-axis (ring number or year)
-        if has_years:
-            try:
-                harvested_year = int(self.metadata['harvested_year'])
-                # Extract year from label (already reversed order)
-                x_values = []
-                for i in range(len(self.ring_properties)):
-                    # Original index (outermost to innermost)
-                    orig_idx = len(self.ring_properties) - 1 - i
-                    label = self.ring_properties[orig_idx]['label'].replace('ring_', '')
-                    if label.isdigit():
-                        # Label contains year directly
-                        x_values.append(int(label))
-                    else:
-                        # Calculate year: innermost ring (i=0) is oldest
-                        # Outermost ring (i=N-1) is harvested_year
-                        year = harvested_year - (len(self.ring_properties) - 1 - i)
-                        x_values.append(year)
-                x_label = 'Year'
-            except Exception as e:
-                print(f"Error parsing years: {e}, using ring numbers")
-                x_values = list(range(len(self.ring_properties), 0, -1))
-                x_label = 'Ring Number'
-        else:
-            x_values = list(range(len(self.ring_properties), 0, -1))
-            x_label = 'Ring Number (Innermost to Outermost)'
-        
-        # Plot 1: Annual Growth Area vs Ring/Year
-        ax1 = fig.add_subplot(gs[0, 0])
-        if has_scale:
-            ax1.plot(x_values, annual_growth_scaled, 'o-', color='#8b4513', linewidth=2, markersize=4)
-            ax1.set_ylabel(f'Annual Growth Area ({unit}²)', fontsize=10, fontweight='bold')
-            ax1.set_title('Annual Growth Area Over Time', fontsize=12, fontweight='bold')
-        else:
-            ax1.plot(x_values, annual_growth, 'o-', color='#8b4513', linewidth=2, markersize=4)
-            ax1.set_ylabel('Annual Growth Area (px²)', fontsize=10, fontweight='bold')
-            ax1.set_title('Annual Growth Area', fontsize=12, fontweight='bold')
-        ax1.set_xlabel(x_label, fontsize=10, fontweight='bold')
-        ax1.grid(True, alpha=0.3)
-        
-        # Plot 2: Cumulative Area
-        ax2 = fig.add_subplot(gs[0, 1])
-        if has_scale:
-            ax2.plot(x_values, cumulative_areas_scaled, 'o-', color='#2d5016', linewidth=2, markersize=4)
-            ax2.fill_between(x_values, cumulative_areas_scaled, alpha=0.3, color='#2d5016')
-            ax2.set_ylabel(f'Cumulative Area ({unit}²)', fontsize=10, fontweight='bold')
-            ax2.set_title('Cumulative Ring Area', fontsize=12, fontweight='bold')
-        else:
-            ax2.plot(x_values, cumulative_areas, 'o-', color='#2d5016', linewidth=2, markersize=4)
-            ax2.fill_between(x_values, cumulative_areas, alpha=0.3, color='#2d5016')
-            ax2.set_ylabel('Cumulative Area (px²)', fontsize=10, fontweight='bold')
-            ax2.set_title('Cumulative Ring Area', fontsize=12, fontweight='bold')
-        ax2.set_xlabel(x_label, fontsize=10, fontweight='bold')
-        ax2.grid(True, alpha=0.3)
-        
-        # Plot 3: Individual Ring Width (if available) or Area Distribution
-        ax3 = fig.add_subplot(gs[1, 0])
-        if has_radial:
-            radial_widths = []
-            radial_x_values = []
-            # Iterate in reversed order to match the plot direction (innermost to outermost)
-            for i, p in enumerate(reversed(self.ring_properties)):
-                if p.get('radial_width_px') is not None:
-                    if has_scale:
-                        radial_widths.append(p['radial_width_px'] * scale_factor)
-                    else:
-                        radial_widths.append(p['radial_width_px'])
-                    radial_x_values.append(x_values[i])
-            
-            if radial_widths:
-                # Plot individual ring widths (varies based on growth conditions)
-                ax3.plot(radial_x_values, radial_widths, 'o-', color='#ff8c00', linewidth=2, markersize=4)
-                if has_scale:
-                    ax3.set_ylabel(f'Ring Width ({unit})', fontsize=10, fontweight='bold')
-                    ax3.set_title('Individual Ring Width Over Time', fontsize=12, fontweight='bold')
-                else:
-                    ax3.set_ylabel('Ring Width (px)', fontsize=10, fontweight='bold')
-                    ax3.set_title('Individual Ring Width', fontsize=12, fontweight='bold')
-                ax3.set_xlabel(x_label, fontsize=10, fontweight='bold')
-                ax3.grid(True, alpha=0.3)
-        else:
-            # Show annual growth area distribution histogram
-            ax3.hist(annual_growth_scaled if has_scale else annual_growth, bins=min(20, len(annual_growth)), 
-                    color='#8b4513', alpha=0.7, edgecolor='black')
-            if has_scale:
-                ax3.set_xlabel(f'Annual Growth Area ({unit}²)', fontsize=10, fontweight='bold')
-            else:
-                ax3.set_xlabel('Annual Growth Area (px²)', fontsize=10, fontweight='bold')
-            ax3.set_ylabel('Frequency', fontsize=10, fontweight='bold')
-            ax3.set_title('Annual Growth Area Distribution', fontsize=12, fontweight='bold')
-            ax3.grid(True, alpha=0.3, axis='y')
-        
-        # Plot 4: Growth Rate (year-over-year change in annual growth area)
-        ax4 = fig.add_subplot(gs[1, 1])
-        if len(annual_growth) > 1:
-            # Calculate growth rate (change in annual growth area between consecutive rings)
-            growth_rates = [annual_growth[i] - annual_growth[i-1] for i in range(1, len(annual_growth))]
-            growth_x = x_values[1:]  # Skip first ring
-            
-            if has_scale:
-                growth_rates_scaled = [gr * scale_factor_sq for gr in growth_rates]
-                ax4.bar(growth_x, growth_rates_scaled, color='#228b22', alpha=0.7, edgecolor='black')
-                ax4.set_ylabel(f'Growth Change ({unit}²)', fontsize=10, fontweight='bold')
-                ax4.set_title('Year-to-Year Growth Change', fontsize=12, fontweight='bold')
-            else:
-                ax4.bar(growth_x, growth_rates, color='#228b22', alpha=0.7, edgecolor='black')
-                ax4.set_ylabel('Growth Change (px²)', fontsize=10, fontweight='bold')
-                ax4.set_title('Year-to-Year Growth Change', fontsize=12, fontweight='bold')
-            ax4.set_xlabel(x_label, fontsize=10, fontweight='bold')
-            ax4.axhline(y=0, color='red', linestyle='--', linewidth=1, alpha=0.5)
-            ax4.grid(True, alpha=0.3, axis='y')
-        else:
-            ax4.text(0.5, 0.5, 'Insufficient data\nfor growth rate analysis', 
-                    ha='center', va='center', fontsize=12)
-            ax4.axis('off')
-        
-        plt.suptitle('Tree Ring Analysis - Quantitative Measurements', 
-                    fontsize=14, fontweight='bold', y=0.98)
-        
-        # Save without bbox_inches='tight' to maintain consistent 8.5x11 page size
+                        ax.text(
+                            label_x,
+                            label_y,
+                            shape.label,
+                            ha="center",
+                            va="center",
+                            fontsize=7,
+                            fontweight="bold",
+                            color="white",
+                            bbox=dict(boxstyle="round,pad=0.2", facecolor="green", alpha=0.8),
+                        )
+                    ring_count += 1
+
+            for idx in range(len(self.parent_window.labelList)):
+                item = self.parent_window.labelList[idx]
+                shape = item.shape()
+                if (
+                    shape
+                    and getattr(shape, "points", None)
+                    and getattr(shape, "shape_type", "") == "linestrip"
+                ):
+                    points = np.array([[p.x(), p.y()] for p in shape.points])
+                    ax.plot(
+                        points[:, 0],
+                        points[:, 1],
+                        color="#ff8c00",
+                        linewidth=2,
+                        alpha=0.9,
+                        linestyle="-",
+                        label="Open ring",
+                    )
+                    if show_labels:
+                        midpoint_idx = len(points) // 2
+                        label_x = points[midpoint_idx, 0]
+                        label_y = points[midpoint_idx, 1]
+                        ax.text(
+                            label_x,
+                            label_y,
+                            shape.label,
+                            ha="center",
+                            va="center",
+                            fontsize=7,
+                            fontweight="bold",
+                            color="black",
+                            bbox=dict(boxstyle="round,pad=0.2", facecolor="#ffcc80", alpha=0.9),
+                        )
+
+            for idx in range(len(self.parent_window.labelList)):
+                item = self.parent_window.labelList[idx]
+                shape = item.shape()
+                if (
+                    shape
+                    and getattr(shape, "points", None)
+                    and getattr(shape, "shape_type", "") == "line"
+                    and getattr(shape, "label", "") == "radial_measurement_line"
+                ):
+                    points = np.array([[p.x(), p.y()] for p in shape.points])
+                    ax.plot(
+                        points[:, 0],
+                        points[:, 1],
+                        "r--",
+                        linewidth=3,
+                        alpha=0.8,
+                        label="Radial measurement",
+                    )
+                    if len(points) >= 2:
+                        dx = points[-1, 0] - points[-2, 0]
+                        dy = points[-1, 1] - points[-2, 1]
+                        ax.arrow(
+                            points[-2, 0],
+                            points[-2, 1],
+                            dx,
+                            dy,
+                            head_width=20,
+                            head_length=30,
+                            fc="red",
+                            ec="red",
+                            alpha=0.8,
+                            linewidth=2,
+                        )
+
+        plt.tight_layout()
         pdf.savefig(fig)
         plt.close()
+
+    def _create_analysis_plots(self, pdf):
+        """Create analysis plots page for closed rings."""
+        import matplotlib.pyplot as plt
+        from matplotlib.gridspec import GridSpec
+
+        if not self.has_polygon_data:
+            return
+
+        fig = plt.figure(figsize=(8.5, 11))
+        gs = GridSpec(2, 2, figure=fig, hspace=0.3, wspace=0.3)
+
+        ring_count = len(self.ring_properties)
+        if ring_count == 0:
+            return
+
+        has_scale = self.metadata and "scale" in self.metadata
+        scale_value = self.metadata["scale"]["value"] if has_scale else None
+        unit = self.metadata["scale"]["unit"] if has_scale else None
+
+        annual_growth = self.annual_growth_areas
+        cumulative_areas = self.cumulative_areas
+
+        if self.metadata and "harvested_year" in self.metadata:
+            harvested_year = int(self.metadata["harvested_year"])
+            x_values = list(range(harvested_year - ring_count + 1, harvested_year + 1))
+            x_label = "Year"
+        else:
+            x_values = list(range(1, ring_count + 1))
+            x_label = "Ring Index (inner → outer)"
+
+        ax1 = fig.add_subplot(gs[0, 0])
+        if has_scale and scale_value is not None:
+            annual_growth_scaled = [a * (scale_value ** 2) for a in annual_growth]
+            ax1.plot(x_values, annual_growth_scaled, "o-", color="#8b4513", linewidth=2, markersize=4)
+            ax1.set_ylabel(f"Annual Growth Area ({unit}²)", fontsize=10, fontweight="bold")
+        else:
+            ax1.plot(x_values, annual_growth, "o-", color="#8b4513", linewidth=2, markersize=4)
+            ax1.set_ylabel("Annual Growth Area (px²)", fontsize=10, fontweight="bold")
+        ax1.set_xlabel(x_label, fontsize=10, fontweight="bold")
+        ax1.set_title("Annual Growth Area", fontsize=12, fontweight="bold")
+        ax1.grid(True, alpha=0.3)
+
+        ax2 = fig.add_subplot(gs[0, 1])
+        if has_scale and scale_value is not None:
+            cumulative_scaled = [c * (scale_value ** 2) for c in cumulative_areas]
+            ax2.plot(x_values, cumulative_scaled, "o-", color="#2d5016", linewidth=2, markersize=4)
+            ax2.set_ylabel(f"Cumulative Area ({unit}²)", fontsize=10, fontweight="bold")
+            fill_values = cumulative_scaled
+        else:
+            ax2.plot(x_values, cumulative_areas, "o-", color="#2d5016", linewidth=2, markersize=4)
+            ax2.set_ylabel("Cumulative Area (px²)", fontsize=10, fontweight="bold")
+            fill_values = cumulative_areas
+        ax2.fill_between(x_values, fill_values, alpha=0.3, color="#2d5016")
+        ax2.set_xlabel(x_label, fontsize=10, fontweight="bold")
+        ax2.set_title("Cumulative Ring Area", fontsize=12, fontweight="bold")
+        ax2.grid(True, alpha=0.3)
+
+        ax3 = fig.add_subplot(gs[1, 0])
+        polygon_has_radial = any(
+            props.get("radial_width_px") is not None for props in self.ring_properties
+        )
+        if polygon_has_radial:
+            radial_widths = []
+            radial_x = []
+            for idx, props in enumerate(self.ring_properties):
+                value = props.get("radial_width_px")
+                if value is not None:
+                    radial_x.append(x_values[idx])
+                    if has_scale and scale_value is not None:
+                        radial_widths.append(value * scale_value)
+                    else:
+                        radial_widths.append(value)
+            if radial_widths:
+                ax3.plot(radial_x, radial_widths, "o-", color="#ff8c00", linewidth=2, markersize=4)
+                label = f"Ring Width ({unit})" if has_scale and scale_value is not None else "Ring Width (px)"
+                ax3.set_ylabel(label, fontsize=10, fontweight="bold")
+                ax3.set_title("Ring Width Over Time", fontsize=12, fontweight="bold")
+                ax3.set_xlabel(x_label, fontsize=10, fontweight="bold")
+                ax3.grid(True, alpha=0.3)
+        else:
+            ax3.hist(
+                annual_growth if not has_scale else [a * (scale_value ** 2) for a in annual_growth],
+                bins=min(20, len(annual_growth)),
+                color="#8b4513",
+                alpha=0.7,
+                edgecolor="black",
+            )
+            label = f"Annual Growth Area ({unit}²)" if has_scale and scale_value is not None else "Annual Growth Area (px²)"
+            ax3.set_xlabel(label, fontsize=10, fontweight="bold")
+            ax3.set_ylabel("Frequency", fontsize=10, fontweight="bold")
+            ax3.set_title("Annual Growth Area Distribution", fontsize=12, fontweight="bold")
+            ax3.grid(True, alpha=0.3, axis="y")
+
+        ax4 = fig.add_subplot(gs[1, 1])
+        if len(annual_growth) > 1:
+            growth_rates = [annual_growth[i] - annual_growth[i - 1] for i in range(1, len(annual_growth))]
+            growth_x = x_values[1:]
+            if has_scale and scale_value is not None:
+                growth_scaled = [g * (scale_value ** 2) for g in growth_rates]
+                ax4.bar(growth_x, growth_scaled, color="#228b22", alpha=0.7, edgecolor="black")
+                ax4.set_ylabel(f"Growth Change ({unit}²)", fontsize=10, fontweight="bold")
+            else:
+                ax4.bar(growth_x, growth_rates, color="#228b22", alpha=0.7, edgecolor="black")
+                ax4.set_ylabel("Growth Change (px²)", fontsize=10, fontweight="bold")
+            ax4.axhline(y=0, color="red", linestyle="--", linewidth=1, alpha=0.5)
+            ax4.set_xlabel(x_label, fontsize=10, fontweight="bold")
+            ax4.set_title("Year-to-Year Growth Change", fontsize=12, fontweight="bold")
+            ax4.grid(True, alpha=0.3, axis="y")
+        else:
+            ax4.text(
+                0.5,
+                0.5,
+                "Insufficient data\nfor growth rate analysis",
+                ha="center",
+                va="center",
+                fontsize=12,
+            )
+            ax4.axis("off")
+
+        plt.suptitle("Tree Ring Analysis - Quantitative Measurements", fontsize=14, fontweight="bold", y=0.98)
+        pdf.savefig(fig)
+        plt.close()
+
+    def _create_radial_plot_page(self, pdf):
+        """Create page summarizing radial width measurements."""
+        import matplotlib.pyplot as plt
+
+        fig, ax = plt.subplots(figsize=(8.5, 11))
+        ax.set_title("Radial Width Measurements", fontsize=16, fontweight="bold", pad=20)
+
+        radial_entries = [
+            entry for entry in self.radial_measurements if entry.get("radial_width_px") is not None
+        ]
+        if not radial_entries:
+            ax.text(0.5, 0.5, "No radial width measurements available", ha="center", va="center", fontsize=14)
+            ax.axis("off")
+            pdf.savefig(fig)
+            plt.close()
+            return
+
+        x_vals = list(range(1, len(radial_entries) + 1))
+        labels = [entry["label"] for entry in radial_entries]
+        widths_px = [entry["radial_width_px"] for entry in radial_entries]
+        has_scale = self.metadata and "scale" in self.metadata
+        scale_value = self.metadata["scale"]["value"] if has_scale else None
+        unit = self.metadata["scale"]["unit"] if has_scale else None
+
+        if has_scale and scale_value is not None:
+            widths_plot = [w * scale_value for w in widths_px]
+            ax.set_ylabel(f"Radial Width ({unit})", fontsize=12, fontweight="bold")
+        else:
+            widths_plot = widths_px
+            ax.set_ylabel("Radial Width (px)", fontsize=12, fontweight="bold")
+
+        ax.plot(x_vals, widths_plot, "o-", color="#ff8c00", linewidth=2, markersize=5)
+        ax.grid(True, alpha=0.3)
+        ax.set_xlabel("Measurement order (pith → bark)", fontsize=12, fontweight="bold")
+        ax.set_xticks(x_vals)
+        ax.set_xticklabels(labels, rotation=45, ha="right", fontsize=8)
+
+        if has_scale and scale_value is not None:
+            ax2 = ax.twinx()
+            ax2.plot(x_vals, widths_px, "s--", color="#888", linewidth=1, markersize=4, alpha=0.6)
+            ax2.set_ylabel("Radial Width (px)", fontsize=10)
+
+        avg_width_px = sum(widths_px) / len(widths_px)
+        if has_scale and scale_value is not None:
+            avg_text = f"Average width: {avg_width_px * scale_value:.4f} {unit} ({avg_width_px:.2f} px)"
+        else:
+            avg_text = f"Average width: {avg_width_px:.2f} px"
+        ax.text(0.02, 0.95, avg_text, transform=ax.transAxes, fontsize=11, bbox=dict(facecolor="white", alpha=0.6))
+
+        plt.tight_layout(rect=[0, 0.05, 1, 0.95])
+        pdf.savefig(fig)
+        plt.close()
+
+    def _add_header(self, fig):
+        import matplotlib.pyplot as plt
+
+        ax_header = fig.add_axes([0, 0.9, 1, 0.1])
+        ax_header.axis("off")
+        ax_header.text(
+            0.02,
+            0.5,
+            "TRAS - Tree Ring Analyzer Suite",
+            fontsize=14,
+            fontweight="bold",
+            color="#2d5016",
+            va="center",
+        )
+        logo_path = Path(__file__).resolve().parents[1] / "assets" / "tras-logo.png"
+        if logo_path.exists():
+            import matplotlib.image as mpimg
+
+            logo = mpimg.imread(str(logo_path))
+            ax_logo = fig.add_axes([0.8, 0.9, 0.18, 0.08])
+            ax_logo.imshow(logo)
+            ax_logo.axis("off")

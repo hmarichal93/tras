@@ -110,6 +110,7 @@ shortcuts:
 
   open_next: [D, Ctrl+Shift+D]
   open_prev: [A, Ctrl+Shift+A]
+  load_annotations: Ctrl+Shift+O
 
   zoom_in: [Ctrl++, Ctrl+=]
   zoom_out: Ctrl+-
@@ -122,7 +123,7 @@ shortcuts:
   create_circle: null
   create_line: null
   create_point: null
-  create_linestrip: null
+  create_linestrip: Ctrl+Shift+N
   edit_polygon: Ctrl+J
   delete_polygon: Delete
   duplicate_polygon: Ctrl+D
