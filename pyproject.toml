@@ -7,7 +7,7 @@ name = "tras"
 description = "TRAS - Tree Ring Analyzer Suite - Specialized tool for dendrochronology"
 license = { text = "GPL-3.0-only" }
 requires-python = ">=3.9"
-version = "2.0.0"
+version = "2.0.1"
 authors = [
   { name = "Henry Marichal", email = "hmarichal93@gmail.com" },
   { name = "Original LabelMe", email = "www.kentaro.wada@gmail.com" }

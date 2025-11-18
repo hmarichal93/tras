@@ -93,14 +93,22 @@ class RingPropertiesDialog(QtWidgets.QDialog):
         if not self.has_polygon_data:
             return [], []
 
-        cumulative_areas = [p.get("cumulative_area", 0.0) for p in self.ring_properties]
         annual_growth_areas = []
-        for i, cumulative in enumerate(cumulative_areas):
-            if i == 0:
-                growth = cumulative
+        cumulative_areas = []
+        prev_cumulative = 0.0
+        for props in self.ring_properties:
+            cumulative_value = props.get("cumulative_area")
+            if cumulative_value is None:
+                area_value = props.get("area", 0.0) or 0.0
+                cumulative_value = prev_cumulative + float(area_value)
             else:
-                growth = cumulative - cumulative_areas[i - 1]
-            annual_growth_areas.append(max(growth, 0.0))
+                cumulative_value = float(cumulative_value)
+            cumulative_value = max(cumulative_value, 0.0)
+
+            growth_value = max(cumulative_value - prev_cumulative, 0.0)
+            annual_growth_areas.append(growth_value)
+            cumulative_areas.append(cumulative_value)
+            prev_cumulative = cumulative_value
 
         return cumulative_areas, annual_growth_areas
 
@@ -156,8 +164,9 @@ class RingPropertiesDialog(QtWidgets.QDialog):
             col += 1
 
             cumul_area_px = self.cumulative_areas[row]
+            annual_area_px = self.annual_growth_areas[row]
             if has_scale and scale_value is not None:
-                area_physical = props["area"] * (scale_value ** 2)
+                area_physical = annual_area_px * (scale_value ** 2)
                 cumul_physical = cumul_area_px * (scale_value ** 2)
                 perim_physical = props["perimeter"] * scale_value
 
@@ -179,7 +188,7 @@ class RingPropertiesDialog(QtWidgets.QDialog):
                         table.setItem(row, col, QtWidgets.QTableWidgetItem("N/A"))
                     col += 1
 
-                table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{props['area']:.2f}"))
+                table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{annual_area_px:.2f}"))
                 col += 1
                 table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{cumul_area_px:.2f}"))
                 col += 1
@@ -190,7 +199,7 @@ class RingPropertiesDialog(QtWidgets.QDialog):
                 )
                 col += 1
             else:
-                table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{props['area']:.2f}"))
+                table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{annual_area_px:.2f}"))
                 col += 1
                 table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{cumul_area_px:.2f}"))
                 col += 1
@@ -210,8 +219,10 @@ class RingPropertiesDialog(QtWidgets.QDialog):
 
         layout.addWidget(table)
 
-        total_area = sum(p["area"] for p in self.ring_properties)
-        avg_area = total_area / len(self.ring_properties) if self.ring_properties else 0.0
+        total_area = sum(self.annual_growth_areas)
+        avg_area = (
+            total_area / len(self.annual_growth_areas) if self.annual_growth_areas else 0.0
+        )
         total_perim = sum(p["perimeter"] for p in self.ring_properties)
         avg_perim = total_perim / len(self.ring_properties) if self.ring_properties else 0.0
 
@@ -388,9 +399,10 @@ class RingPropertiesDialog(QtWidgets.QDialog):
 
                     for idx, props in enumerate(self.ring_properties):
                         cumul_area_px = self.cumulative_areas[idx]
+                        annual_area_px = self.annual_growth_areas[idx]
                         row = [props["label"]]
                         if has_scale and scale_value is not None:
-                            area_physical = props["area"] * (scale_value ** 2)
+                            area_physical = annual_area_px * (scale_value ** 2)
                             cumul_physical = cumul_area_px * (scale_value ** 2)
                             perim_physical = props["perimeter"] * scale_value
                             row.extend(
@@ -407,7 +419,7 @@ class RingPropertiesDialog(QtWidgets.QDialog):
                                 )
                             row.extend(
                                 [
-                                    f"{props['area']:.2f}",
+                                    f"{annual_area_px:.2f}",
                                     f"{cumul_area_px:.2f}",
                                     f"{props['perimeter']:.2f}",
                                 ]
@@ -415,7 +427,7 @@ class RingPropertiesDialog(QtWidgets.QDialog):
                         else:
                             row.extend(
                                 [
-                                    f"{props['area']:.2f}",
+                                    f"{annual_area_px:.2f}",
                                     f"{cumul_area_px:.2f}",
                                     f"{props['perimeter']:.2f}",
                                 ]
@@ -533,11 +545,23 @@ class RingPropertiesDialog(QtWidgets.QDialog):
         ax.set_ylim(0, 1)
         ax.axis("off")
 
+        header_path = Path(__file__).resolve().parents[2] / "assets" / "header.png"
+        if header_path.exists():
+            try:
+                header_img = plt.imread(str(header_path))
+                ax.imshow(header_img, extent=[0.05, 0.95, 0.88, 0.99], aspect="auto", zorder=0)
+            except Exception:
+                pass
+
         from tras import __version__
+
+        title_y = 0.84
+        subtitle_y = title_y - 0.035
+        divider_y = subtitle_y - 0.03
 
         ax.text(
             0.5,
-            0.92,
+            title_y,
             "Tree Ring Analysis Report",
             ha="center",
             fontsize=20,
@@ -546,15 +570,15 @@ class RingPropertiesDialog(QtWidgets.QDialog):
         )
         ax.text(
             0.5,
-            0.88,
+            subtitle_y,
             f"TRAS - Tree Ring Analyzer Suite v{__version__}",
             ha="center",
             fontsize=11,
             color="#666666",
         )
-        ax.plot([0.1, 0.9], [0.85, 0.85], "k-", linewidth=1.5, color="#8b4513")
+        ax.plot([0.1, 0.9], [divider_y, divider_y], "k-", linewidth=1.5, color="#8b4513")
 
-        y = 0.80
+        y = divider_y - 0.05
         if self.metadata:
             ax.text(0.1, y, "Sample", fontsize=11, fontweight="bold", color="#2d5016")
             y -= 0.03
@@ -595,10 +619,10 @@ class RingPropertiesDialog(QtWidgets.QDialog):
             if has_scale:
                 scale_value = self.metadata["scale"]["value"]
                 unit = self.metadata["scale"]["unit"]
-                total_area = sum(p["area"] for p in self.ring_properties) * (scale_value ** 2)
+                total_area = sum(self.annual_growth_areas) * (scale_value ** 2)
                 ax.text(0.1, y, f"Total area: {total_area:.1f} {unit}²", fontsize=9)
             else:
-                total_area = sum(p["area"] for p in self.ring_properties)
+                total_area = sum(self.annual_growth_areas)
                 ax.text(0.1, y, f"Total area: {total_area:.0f} px²", fontsize=9)
             y -= 0.02
         elif self.has_radial_data:

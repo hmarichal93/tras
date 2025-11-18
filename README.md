@@ -36,16 +36,16 @@ TRAS integrates **state-of-the-art computer vision** and **deep learning methods
 
 **Linux/macOS:**
 ```bash
-wget https://github.com/hmarichal93/tras/archive/refs/tags/v2.0.0.tar.gz
-tar -xzf v2.0.0.tar.gz
-cd tras-2.0.0
+wget https://github.com/hmarichal93/tras/archive/refs/tags/v2.0.1.tar.gz
+tar -xzf v2.0.1.tar.gz
+cd tras-2.0.1
 ```
 
 **Windows (PowerShell):**
 ```powershell
-Invoke-WebRequest -Uri "https://github.com/hmarichal93/tras/archive/refs/tags/v2.0.0.zip" -OutFile "v2.0.0.zip"
-Expand-Archive -Path "v2.0.0.zip" -DestinationPath .
-cd tras-2.0.0
+Invoke-WebRequest -Uri "https://github.com/hmarichal93/tras/archive/refs/tags/v2.0.1.zip" -OutFile "v2.0.1.zip"
+Expand-Archive -Path "v2.0.1.zip" -DestinationPath .
+cd tras-2.0.1
 ```
 
 > **Alternative**: Download manually from [Releases](https://github.com/hmarichal93/tras/releases/latest) and extract
@@ -53,7 +53,7 @@ cd tras-2.0.0
 > **🪟 Important for Windows Users:**
 > After downloading and extracting TRAS:
 > 1. Open **Anaconda Prompt** (not regular Command Prompt - search for "Anaconda Prompt" in the Start menu)
-> 2. Navigate to the extracted directory: `cd path\to\tras-2.0.0`
+> 2. Navigate to the extracted directory: `cd path\to\tras-2.0.1`
 > 3. Then follow the installation commands below
 
 ##### 3. Install
@@ -66,10 +66,10 @@ pip install -e .
 
 ### 2. Compile Devernay Edge Detector (for CS-TRD, Linux/macOS only)
 ```bash
-# From the tras-2.0.0 directory
+# From the tras-2.0.1 directory
 cd tras/tree_ring_methods/cstrd/devernay
 make
-cd ../../../..  # Return to tras-2.0.0 directory
+cd ../../../..  # Return to tras-2.0.1 directory
 ```
 > **Note**: CS-TRD is not available on Windows. Windows users should use DeepCS-TRD instead.
 
@@ -77,18 +77,18 @@ cd ../../../..  # Return to tras-2.0.0 directory
 
 **Linux/macOS:**
 ```bash
-# From the tras-2.0.0 directory
+# From the tras-2.0.1 directory
 cd tras/tree_ring_methods/deepcstrd
 ./download_models.sh
-cd ../../..  # Return to tras-2.0.0 directory
+cd ../../..  # Return to tras-2.0.1 directory
 ```
 
 **Windows:**
 ```powershell
-# From the tras-2.0.0 directory
+# From the tras-2.0.1 directory
 cd tras\tree_ring_methods\deepcstrd
 python -c "import urllib.request; import zipfile; import os; url='https://github.com/hmarichal93/tras/releases/download/models/deepcstrd_models.zip'; urllib.request.urlretrieve(url, 'models.zip'); zipfile.ZipFile('models.zip').extractall('models'); os.remove('models.zip')"
-cd ..\..\..  # Return to tras-2.0.0 directory
+cd ..\..\..  # Return to tras-2.0.1 directory
 ```
 
 ## ✨ Key Features
@@ -300,7 +300,7 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 
 <div align="center">
 
-**TRAS v2.0.0** - Tree Ring Analyzer Suite
+**TRAS v2.0.1** - Tree Ring Analyzer Suite
 
 *Advancing dendrochronology research through intelligent automation*
 
