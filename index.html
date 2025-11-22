@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="TRAS - Tree Ring Analyzer Suite v2.0.1 - Professional dendrochronology software with automatic tree ring detection and measurement">
+    <meta name="description" content="TRAS - Tree Ring Analyzer Suite v2.0.2 - Professional dendrochronology software with automatic tree ring detection and measurement">
     <meta name="author" content="Henry Marichal">
     <meta name="keywords" content="dendrochronology, tree rings, computer vision, deep learning, PyTorch, wood analysis">
     
-    <title>TRAS - Tree Ring Analyzer Suite v2.0.1</title>
+    <title>TRAS - Tree Ring Analyzer Suite v2.0.2</title>
     
     <link rel="stylesheet" href="styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -232,7 +232,7 @@
                     <h1 style="font-size: 3rem; margin: 0; line-height: 1;">TRAS</h1>
                     <p style="font-size: 1.2rem; margin: 5px 0 10px 0; opacity: 0.95;">Tree Ring Analyzer Suite</p>
                     <div class="version-badge" style="margin-top: 0; display: inline-block;">
-                        <i class="fas fa-tag"></i> Version 2.0.1
+                        <i class="fas fa-tag"></i> Version 2.0.2
                     </div>
                 </div>
             </div>
@@ -240,7 +240,7 @@
                 Professional dendrochronology software integrating state-of-the-art computer vision and deep learning methods for automatic tree ring detection and measurement
             </p>
             <div class="badges">
-                <a href="https://github.com/hmarichal93/tras/releases/tag/v2.0.1" target="_blank">
+                <a href="https://github.com/hmarichal93/tras/releases/tag/v2.0.2" target="_blank">
                     <img src="https://img.shields.io/github/v/release/hmarichal93/tras?color=green&label=Release" alt="Release">
                 </a>
                 <a href="https://github.com/hmarichal93/tras/releases" target="_blank">
@@ -251,10 +251,10 @@
                 <img src="https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey" alt="Platform">
             </div>
             <div style="margin-top: 30px; display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
-                <a href="https://github.com/hmarichal93/tras/releases/tag/v2.0.1" target="_blank" class="btn btn-primary" style="background: white; color: #2d5016; font-weight: 600; font-size: 1.1rem; padding: 12px 28px; box-shadow: 0 4px 12px rgba(255, 255, 255, 0.3);">
-                    <i class="fas fa-download"></i> Download v2.0.1
+                <a href="https://github.com/hmarichal93/tras/archive/refs/tags/v2.0.2.zip" target="_blank" class="btn btn-primary" style="background: white; color: #2d5016; font-weight: 600; font-size: 1.1rem; padding: 12px 28px; box-shadow: 0 4px 12px rgba(255, 255, 255, 0.3);">
+                    <i class="fas fa-download"></i> Download v2.0.2
                 </a>
-                <a href="https://github.com/hmarichal93/tras/tree/streamlit2labelme" target="_blank" class="btn btn-secondary" style="border-color: white; color: white;">
+                <a href="https://github.com/hmarichal93/tras/tree/main" target="_blank" class="btn btn-secondary" style="border-color: white; color: white;">
                     <i class="fab fa-github"></i> View on GitHub
                 </a>
                 <a href="https://github.com/hmarichal93/tras/blob/main/README.md" target="_blank" class="btn btn-secondary" style="border-color: white; color: white;">
@@ -384,26 +384,13 @@
                 </a>
             </p>
             
-            <h3 style="color: #2d5016; margin-bottom: 20px;"><i class="fas fa-download"></i> Step 1: Download TRAS v2.0.1</h3>
+            <h3 style="color: #2d5016; margin-bottom: 20px;"><i class="fas fa-download"></i> Step 1: Download TRAS v2.0.2</h3>
             <div class="workflow-steps">
                 <div class="workflow-step">
-                    <h4>Linux / macOS</h4>
-                    <div class="code-block">wget https://github.com/hmarichal93/tras/archive/refs/tags/v2.0.1.tar.gz
-tar -xzf v2.0.1.tar.gz
-cd tras-2.0.1</div>
+                    <h4>Download manually from <a href="https://github.com/hmarichal93/tras/archive/refs/tags/v2.0.2.zip" target="_blank" style="color: #4a7c26;">Releases</a> and extract
+                    </h4>
                 </div>
-                <div class="workflow-step">
-                    <h4>Windows (PowerShell)</h4>
-                    <div class="code-block">Invoke-WebRequest -Uri "https://github.com/hmarichal93/tras/archive/refs/tags/v2.0.1.zip" -OutFile "v2.0.1.zip"
-Expand-Archive -Path "v2.0.1.zip" -DestinationPath .
-cd tras-2.0.1</div>
-                </div>
-            </div>
-            <p style="text-align: center; margin-top: 20px;">
-                <i class="fas fa-info-circle"></i> <strong>Alternative:</strong> 
-                Download manually from <a href="https://github.com/hmarichal93/tras/releases/latest" target="_blank" style="color: #4a7c26;">Releases</a> and extract
-            </p>
-
+                
             <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 20px; margin: 30px auto; max-width: 800px; border-radius: 8px;">
                 <h4 style="margin-top: 0; color: #856404;"><i class="fab fa-windows"></i> Important Note for Windows Users</h4>
                 <p style="margin: 0; color: #856404;">
@@ -430,31 +417,19 @@ cd tras-2.0.1</div>
                     <h4>Install TRAS</h4>
                     <div class="code-block"> pip install -e .</div>
                 </div>
+                <div class="workflow-step">
+                    <h4>Download models</h4>
+                    <div class="code-block"> python tools/download_release_assets.py</div>
+                </div>
             </div>
 
             <h3 style="color: #2d5016; margin-top: 40px; margin-bottom: 20px;"><i class="fas fa-puzzle-piece"></i> Step 3: Additional Components (Optional)</h3>
             <div class="workflow-steps">
                 <div class="workflow-step">
                     <h4>Compile CS-TRD (Linux/macOS only)</h4>
-                    <div class="code-block"># From the tras-2.0.1 directory
-cd tras/tree_ring_methods/cstrd/devernay
-make
-cd ../../../..  # Return to tras-2.0.1 directory</div>
-                    <p style="margin-top: 10px;"><em><i class="fas fa-exclamation-triangle"></i> Note: CS-TRD is not available on Windows. Windows users should use DeepCS-TRD.</em></p>
-                </div>
-                <div class="workflow-step">
-                    <h4>Download DeepCS-TRD Models (Optional)</h4>
-                    <p style="margin-bottom: 10px;"><strong>Linux/macOS:</strong></p>
-                    <div class="code-block"># From the tras-2.0.1 directory
-cd tras/tree_ring_methods/deepcstrd
-./download_models.sh
-cd ../../..  # Return to tras-2.0.1 directory</div>
-                    <p style="margin-top: 20px; margin-bottom: 10px;"><strong>Windows:</strong></p>
-                    <div class="code-block"># From the tras-2.0.1 directory
-cd tras\tree_ring_methods\deepcstrd
-python -c "import urllib.request; import zipfile; import os; url='https://github.com/hmarichal93/tras/releases/download/models/deepcstrd_models.zip'; urllib.request.urlretrieve(url, 'models.zip'); zipfile.ZipFile('models.zip').extractall('models'); os.remove('models.zip')"
-cd ..\..\..  # Return to tras-2.0.1 directory</div>
-                </div>
+                    <div class="code-block"># From the tras-2.0.2 directory
+cd tras/tree_ring_methods/cstrd/devernay && make clean && make &&
+cd ../../..  # Return to tras-2.0.2 directory</div>
             </div>
         </div>
     </section>
@@ -597,7 +572,7 @@ cd ..\..\..  # Return to tras-2.0.1 directory</div>
     <footer class="footer">
         <div class="container">
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-                <p>&copy; 2025 Henry Marichal. TRAS v2.0.1</p>
+                <p>&copy; 2025 Henry Marichal. TRAS v2.0.2</p>
                 <div style="display: flex; gap: 20px;">
                     <a href="https://github.com/hmarichal93/tras" target="_blank" style="color: inherit;">
                         <i class="fab fa-github"></i> GitHub
