@@ -7,8 +7,8 @@ from typing import List
 from abc import ABC, abstractmethod
 from shapely.geometry import Polygon, Point
 
-from urudendro.io import load_json, write_json, load_image
-from urudendro.drawing import Color, Drawing
+from tras.tree_ring_methods.urudendro.io import load_json, write_json, load_image
+from tras.tree_ring_methods.urudendro.drawing import Color, Drawing
 
 class UserInterface(ABC):
     @abstractmethod

@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import cv2
-from urudendro.image import write_image
+from tras.tree_ring_methods.urudendro.image import write_image
 
 def save_batch_with_labels_as_subplots(batch,  predictions,title, output_path="batch_predictions_with_labels.png",
                                        threshold=0.5, batch_size=2):

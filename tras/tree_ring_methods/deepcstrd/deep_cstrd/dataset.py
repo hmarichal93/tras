@@ -1,5 +1,5 @@
-from urudendro.labelme import load_ring_shapes
-from urudendro.image import load_image, write_image
+from tras.tree_ring_methods.urudendro.labelme import load_ring_shapes
+from tras.tree_ring_methods.urudendro.image import load_image, write_image
 
 import numpy as np
 import cv2

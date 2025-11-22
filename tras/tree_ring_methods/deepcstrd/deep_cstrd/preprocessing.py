@@ -1,7 +1,7 @@
 from cross_section_tree_ring_detection.preprocessing import NONE, convert_center_coordinate_to_output_coordinate
 
 def resize(im_in, height_output, width_output, cy, cx):
-    from urudendro.image import resize_image_using_pil_lib
+    from tras.tree_ring_methods.urudendro.image import resize_image_using_pil_lib
 
     img = resize_image_using_pil_lib(im_in, height_output, width_output)
     h_i, w_i = im_in.shape[:2]

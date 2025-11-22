@@ -73,24 +73,6 @@ cd ../../../..  # Return to tras-2.0.1 directory
 ```
 > **Note**: CS-TRD is not available on Windows. Windows users should use DeepCS-TRD instead.
 
-### 3. Download DeepCS-TRD Models (Optional)
-
-**Linux/macOS:**
-```bash
-# From the tras-2.0.1 directory
-cd tras/tree_ring_methods/deepcstrd
-./download_models.sh
-cd ../../..  # Return to tras-2.0.1 directory
-```
-
-**Windows:**
-```powershell
-# From the tras-2.0.1 directory
-cd tras\tree_ring_methods\deepcstrd
-python -c "import urllib.request; import zipfile; import os; url='https://github.com/hmarichal93/tras/releases/download/models/deepcstrd_models.zip'; urllib.request.urlretrieve(url, 'models.zip'); zipfile.ZipFile('models.zip').extractall('models'); os.remove('models.zip')"
-cd ..\..\..  # Return to tras-2.0.1 directory
-```
-
 ## ✨ Key Features
 
 <table>

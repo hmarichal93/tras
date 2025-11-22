@@ -7,8 +7,8 @@ import segmentation_models_pytorch as smp
 
 from shapely.geometry import LineString
 from pathlib import Path
-from urudendro.image import load_image, write_image
-from urudendro.drawing import Drawing, Color
+from tras.tree_ring_methods.urudendro.image import load_image, write_image
+from tras.tree_ring_methods.urudendro.drawing import Drawing, Color
 
 from deep_cstrd.dataset import create_tiles_with_labels, from_tiles_to_image, overlay_images, padding_image
 
@@ -113,7 +113,7 @@ class RingSegmentationModel:
 
         contours, hierarchy = cv2.findContours(skeleton.astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
         if debug:
-            from urudendro.drawing import Drawing, Color
+            from tras.tree_ring_methods.urudendro.drawing import Drawing, Color
             from shapely.geometry import LineString
 
             img = np.zeros((skeleton.shape[0], skeleton.shape[1], 3), dtype=np.uint8)

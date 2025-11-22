@@ -6,8 +6,8 @@ from torchvision import transforms
 from PIL import Image
 Image.MAX_IMAGE_PIXELS = None
 
-from urudendro._model_weights import ensure_u2net_weights
-from urudendro.u2net import U2NET
+from tras.tree_ring_methods.urudendro._model_weights import ensure_u2net_weights
+from tras.tree_ring_methods.urudendro.u2net import U2NET
 
 
 # Función para cargar el modelo preentrenado
