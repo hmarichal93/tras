@@ -61,7 +61,6 @@ cd tras-2.0.1
 conda env create -f environment.yml
 conda activate tras
 pip install -e . 
-
 python tools/download_release_assets.py 
 ```
 
