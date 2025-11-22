@@ -47,6 +47,10 @@ from tras.widgets import ShortcutsDialog
 
 from . import utils
 
+import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
+
 # FIXME
 # - [medium] Set max zoom value to something big enough for FitWidth/Window
 
