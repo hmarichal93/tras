@@ -632,7 +632,7 @@ class MainWindow(QtWidgets.QMainWindow):
     <a href="https://github.com/hmarichal93/tras/blob/main/README.md">Documentation</a>
 </p>
 <p><i>Based on LabelMe by Kentaro Wada</i></p>
-<p><i>Adapted for tree ring analysis by the TRAS Team</i></p>
+<p><i>Adapted for tree ring analysis by hmarichal93</i></p>
 """,
                 ),
             ),
@@ -1341,8 +1341,16 @@ class MainWindow(QtWidgets.QMainWindow):
             )
             return
         
-        # Show metadata dialog
-        dlg = MetadataDialog(existing_metadata=self.sample_metadata, parent=self)
+        # Show metadata dialog with default sample code derived from filename
+        default_sample_code = ""
+        if self.filename:
+            default_sample_code = osp.splitext(osp.basename(self.filename))[0]
+
+        dlg = MetadataDialog(
+            existing_metadata=self.sample_metadata,
+            parent=self,
+            default_sample_code=default_sample_code,
+        )
         if dlg.exec_() != QtWidgets.QDialog.Accepted:
             return
         
@@ -1990,7 +1998,7 @@ class MainWindow(QtWidgets.QMainWindow):
             ring_shapes.sort(key=_polygon_area)
             logger.info(f"Computing properties for {len(ring_shapes)} rings...")
             
-            cumulative_area = 0.0
+            prev_outer_area = 0.0
             for shape in ring_shapes:
                 points = [(p.x(), p.y()) for p in shape.points]
                 if len(points) < 3:
@@ -2011,13 +2019,15 @@ class MainWindow(QtWidgets.QMainWindow):
                     x2, y2 = points[(j + 1) % n]
                     perimeter += ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
                 
-                cumulative_area += area
+                outer_area = area
+                ring_area = max(outer_area - prev_outer_area, 0.0)
                 props = {
                     "label": shape.label,
-                    "area": area,
-                    "cumulative_area": cumulative_area,
+                    "area": ring_area,
+                    "cumulative_area": outer_area,
                     "perimeter": perimeter,
                 }
+                prev_outer_area = outer_area
                 
                 if shape.label in measurements_dict:
                     props["radial_width_px"] = measurements_dict[shape.label]["radial_width"]

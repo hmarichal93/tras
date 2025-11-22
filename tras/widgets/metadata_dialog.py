@@ -7,7 +7,7 @@ from PyQt5 import QtCore, QtWidgets
 class MetadataDialog(QtWidgets.QDialog):
     """Dialog to input sample metadata (harvest year, observation, sample code)"""
     
-    def __init__(self, existing_metadata=None, parent=None):
+    def __init__(self, existing_metadata=None, parent=None, default_sample_code: str = ""):
         super().__init__(parent)
         self.setWindowTitle(self.tr("Sample Metadata"))
         self.setModal(True)
@@ -39,7 +39,11 @@ class MetadataDialog(QtWidgets.QDialog):
         
         # Sample Code
         self.sample_input = QtWidgets.QLineEdit()
-        self.sample_input.setText(existing_metadata.get('sample_code', '') if existing_metadata else '')
+        if existing_metadata:
+            default_code = existing_metadata.get('sample_code', default_sample_code)
+        else:
+            default_code = default_sample_code
+        self.sample_input.setText(default_code)
         self.sample_input.setPlaceholderText(self.tr("e.g., F02c, TREE-001"))
         self.sample_input.setToolTip(self.tr("Unique identifier for this sample"))
         form_layout.addRow(self.tr("Sample Code:"), self.sample_input)
@@ -82,4 +86,3 @@ class MetadataDialog(QtWidgets.QDialog):
             'sample_code': self.sample_input.text().strip(),
             'observation': self.observation_input.toPlainText().strip()
         }
-

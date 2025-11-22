@@ -5,7 +5,7 @@ Integrates APD, CS-TRD, and DeepCS-TRD methods.
 """
 
 __appname__ = "TRAS"
-__version__ = "2.0.0"
+__version__ = "2.0.2"
 
 from tras import utils  # noqa: F401
 

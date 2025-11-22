@@ -7,6 +7,8 @@ import cv2
 import tempfile
 from pathlib import Path
 
+from tras.tree_ring_methods.urudendro._model_weights import get_model_path
+
 
 class PreprocessDialog(QtWidgets.QDialog):
     """Dialog for preprocessing wood cross-section images"""
@@ -167,7 +169,29 @@ class PreprocessDialog(QtWidgets.QDialog):
     
     def _on_bg_changed(self, state):
         """Toggle background removal"""
-        self.background_removed = state == QtCore.Qt.Checked
+        if state == QtCore.Qt.Checked:
+            model_path = get_model_path()
+            if not model_path.exists():
+                model_path_str = str(model_path)
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    self.tr("Model Not Found"),
+                    self.tr(
+                        "U2Net background removal requires the model file at:\n"
+                        f"{model_path_str}\n\n"
+                        "Run `python tools/download_release_assets.py --url "
+                        "https://github.com/hmarichal93/tras/releases/tag/v2.0.2_models "
+                        "--dest ./downloaded_assets` to download it."
+                    ),
+                )
+                self.bg_checkbox.blockSignals(True)
+                self.bg_checkbox.setChecked(False)
+                self.bg_checkbox.blockSignals(False)
+                self.background_removed = False
+                return
+            self.background_removed = True
+        else:
+            self.background_removed = False
     
     def _on_crop_button(self):
         """Handle crop button click - close dialog to let user draw rectangle"""
@@ -270,7 +294,9 @@ class PreprocessDialog(QtWidgets.QDialog):
         # 3. Remove background using U2Net if enabled
         if self.background_removed:
             try:
-                from urudendro import remove_salient_object
+                from tras.tree_ring_methods.urudendro.remove_salient_object import (
+                    remove_salient_object,
+                )
                 
                 # Create temporary files
                 with tempfile.TemporaryDirectory() as temp_dir:

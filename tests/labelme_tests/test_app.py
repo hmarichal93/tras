@@ -18,7 +18,7 @@ data_dir = osp.join(here, "data")
 
 
 def _show_window_and_wait_for_imagedata(
-    qtbot: QtBot, win: labelme.app.MainWindow
+    qtbot: QtBot, win: tras.app.MainWindow
 ) -> None:
     win.show()
 
@@ -31,7 +31,7 @@ def _show_window_and_wait_for_imagedata(
 
 @pytest.mark.gui
 def test_MainWindow_open(qtbot: QtBot) -> None:
-    win: labelme.app.MainWindow = labelme.app.MainWindow()
+    win: tras.app.MainWindow = tras.app.MainWindow()
     qtbot.addWidget(win)
     win.show()
     win.close()
@@ -40,7 +40,7 @@ def test_MainWindow_open(qtbot: QtBot) -> None:
 @pytest.mark.gui
 def test_MainWindow_open_img(qtbot: QtBot) -> None:
     img_file: str = osp.join(data_dir, "raw/2011_000003.jpg")
-    win: labelme.app.MainWindow = labelme.app.MainWindow(filename=img_file)
+    win: tras.app.MainWindow = tras.app.MainWindow(filename=img_file)
     qtbot.addWidget(win)
     _show_window_and_wait_for_imagedata(qtbot=qtbot, win=win)
     win.close()
@@ -54,9 +54,9 @@ def test_MainWindow_open_json(qtbot: QtBot):
     ]
     json_file: str
     for json_file in json_files:
-        labelme.testing.assert_labelfile_sanity(json_file)
+        tras.testing.assert_labelfile_sanity(json_file)
 
-        win: labelme.app.MainWindow = labelme.app.MainWindow(filename=json_file)
+        win: tras.app.MainWindow = tras.app.MainWindow(filename=json_file)
         qtbot.addWidget(win)
         _show_window_and_wait_for_imagedata(qtbot=qtbot, win=win)
         win.close()
@@ -65,7 +65,7 @@ def test_MainWindow_open_json(qtbot: QtBot):
 @pytest.mark.gui
 def test_MainWindow_openNextAndPrevImg(qtbot: QtBot) -> None:
     directory: str = osp.join(data_dir, "raw")
-    win: labelme.app.MainWindow = labelme.app.MainWindow(filename=directory)
+    win: tras.app.MainWindow = tras.app.MainWindow(filename=directory)
     qtbot.addWidget(win)
     _show_window_and_wait_for_imagedata(qtbot=qtbot, win=win)
 
@@ -91,8 +91,8 @@ def test_MainWindow_annotate_jpg(qtbot: QtBot) -> None:
     input_file: str = osp.join(data_dir, "raw/2011_000003.jpg")
     out_file: str = osp.join(tmp_dir, "2011_000003.json")
 
-    config: dict = labelme.config._get_default_config_and_create_labelmerc()
-    win: labelme.app.MainWindow = labelme.app.MainWindow(
+    config: dict = tras.config._get_default_config_and_create_labelmerc()
+    win: tras.app.MainWindow = tras.app.MainWindow(
         config=config,
         filename=input_file,
         output_file=out_file,
@@ -139,5 +139,5 @@ def test_MainWindow_annotate_jpg(qtbot: QtBot) -> None:
 
     win.saveFile()
 
-    labelme.testing.assert_labelfile_sanity(out_file)
+    tras.testing.assert_labelfile_sanity(out_file)
     shutil.rmtree(tmp_dir)
