@@ -126,7 +126,7 @@ def detect_rings_deepcstrd(
 
 def _get_model_path(model_id: str, tile_size: int = 0) -> str:
     """Get path to DeepCS-TRD model weights."""
-    base_path = Path(__file__).parent.parent / "downloaded_assets"
+    base_path = Path(__file__).parent.parent.parent / "downloaded_assets"
 
     # Normalize tile size
     tile_size = 0 if tile_size not in [0, 256] else tile_size
