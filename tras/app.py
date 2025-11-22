@@ -1341,8 +1341,16 @@ class MainWindow(QtWidgets.QMainWindow):
             )
             return
         
-        # Show metadata dialog
-        dlg = MetadataDialog(existing_metadata=self.sample_metadata, parent=self)
+        # Show metadata dialog with default sample code derived from filename
+        default_sample_code = ""
+        if self.filename:
+            default_sample_code = osp.splitext(osp.basename(self.filename))[0]
+
+        dlg = MetadataDialog(
+            existing_metadata=self.sample_metadata,
+            parent=self,
+            default_sample_code=default_sample_code,
+        )
         if dlg.exec_() != QtWidgets.QDialog.Accepted:
             return
         
