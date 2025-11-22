@@ -61,8 +61,9 @@ cd tras-2.0.1
 conda env create -f environment.yml
 conda activate tras
 pip install -e . 
+
+python tools/download_release_assets.py 
 ```
-> This installs TRAS and all required dependencies, including **uruDendro**, so no extra `pip install` commands are needed.
 
 ### 2. Compile Devernay Edge Detector (for CS-TRD, Linux/macOS only)
 ```bash

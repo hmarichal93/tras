@@ -51,7 +51,7 @@ dependencies = [
   "scikit-learn>=1.0.0",
   "opencv-contrib-python-headless>=4.5.0",
   "python-dateutil>=2.8.0",
-  "urudendro @ git+https://github.com/hmarichal93/uruDendro.git@main",
+  "typer>=0.12.5"
 ]
 
 [tool.hatch.metadata.hooks.fancy-pypi-readme]
