@@ -45,11 +45,6 @@ jobs:
       if: matrix.os == 'macos-latest'
       run: brew install geos
 
-    - name: Install GEOS on Windows
-      if: matrix.os == 'windows-latest'
-      shell: powershell
-      run: choco install geos -y
-
     - shell: bash
       run: |
         make setup
