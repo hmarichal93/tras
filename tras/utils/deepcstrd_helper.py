@@ -126,8 +126,8 @@ def detect_rings_deepcstrd(
 
 def _get_model_path(model_id: str, tile_size: int = 0) -> str:
     """Get path to DeepCS-TRD model weights."""
-    base_path = Path(__file__).parent.parent / "tree_ring_methods" / "deepcstrd" / "models" / "deep_cstrd"
-    
+    base_path = Path(__file__).parent.parent / "downloaded_assets"
+
     # Normalize tile size
     tile_size = 0 if tile_size not in [0, 256] else tile_size
     
@@ -143,9 +143,11 @@ def _get_model_path(model_id: str, tile_size: int = 0) -> str:
             print(f"Warning: Tiled model for {model_id} not found, using full image model")
             model_path = base_path / f"0_{model_id}_1504.pth"
     
-    # If still not found, fallback to generic
+    # If still not found, fail with guidance instead of silently returning generic
     if not model_path.exists():
-        print(f"Warning: Model {model_id} not found, using generic model")
-        model_path = base_path / "0_all_1504.pth"
-    
+        raise FileNotFoundError(
+            f"DeepCS-TRD model '{model_id}' (tile size {tile_size}) not found in {base_path}. "
+            "Run `python tools/download_release_assets.py` to download the models."
+        )
+
     return str(model_path)
