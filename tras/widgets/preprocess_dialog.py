@@ -294,7 +294,9 @@ class PreprocessDialog(QtWidgets.QDialog):
         # 3. Remove background using U2Net if enabled
         if self.background_removed:
             try:
-                from tras.tree_ring_methods.urudendro import remove_salient_object
+                from tras.tree_ring_methods.urudendro.remove_salient_object import (
+                    remove_salient_object,
+                )
                 
                 # Create temporary files
                 with tempfile.TemporaryDirectory() as temp_dir:
