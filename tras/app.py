@@ -770,6 +770,16 @@ class MainWindow(QtWidgets.QMainWindow):
             enabled=False,
         )
         
+        # Export action
+        exportData = action(
+            self.tr("Export Data"),
+            self._action_export_data,
+            None,
+            "save",
+            self.tr("Step 8: Export annotations, measurements, and PDF report"),
+            enabled=False,
+        )
+        
 
         # Group zoom controls into a list for easier toggling.
         self.zoom_actions = (
@@ -794,6 +804,7 @@ class MainWindow(QtWidgets.QMainWindow):
             metadata,
             setScale,
             measureRadialWidth,
+            exportData,
         )
         # menu shown at right click
         self.context_menu_actions = (
@@ -868,6 +879,7 @@ class MainWindow(QtWidgets.QMainWindow):
             None,
             measureRadialWidth, # Step 6: Measure Width
             ringProperties,     # Step 7: View Properties
+            exportData,         # Step 8: Export Data
         ))
         utils.addActions(
             self.menus.view,
@@ -1989,15 +2001,14 @@ class MainWindow(QtWidgets.QMainWindow):
         
         logger.info(f"Drew radial measurement line from ({pith_xy[0]:.1f}, {pith_xy[1]:.1f}) to ({end_x:.1f}, {end_y:.1f})")
     
-    def _action_ring_properties(self) -> None:
-        """Compute and display ring properties (area, perimeter, etc.)"""
+    def _prepare_ring_properties_data(self) -> tuple[list[dict], list[dict], dict] | None:
+        """Prepare ring properties data for analysis.
+        
+        Returns:
+            Tuple of (ring_properties, radial_measurements, metadata) or None if no data
+        """
         if not self.canvas.shapes and not self.radial_line_measurements:
-            QtWidgets.QMessageBox.information(
-                self,
-                self.tr("No Data"),
-                self.tr("There are no ring polygons or radial measurements to analyze.")
-            )
-            return
+            return None
         
         # Filter ring shapes and sort by label (ring_1, ring_2, ...)
         ring_shapes = [
@@ -2067,12 +2078,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 ring_properties.append(props)
             
             if not ring_properties:
-                QtWidgets.QMessageBox.warning(
-                    self,
-                    self.tr("No Valid Rings"),
-                    self.tr("No rings have enough points for analysis.")
-                )
-                return
+                return None
         if measurements_dict:
             sorted_meas = sorted(
                 measurements_dict.items(),
@@ -2087,23 +2093,10 @@ class MainWindow(QtWidgets.QMainWindow):
                     }
                 )
         elif not use_polygon_metrics:
-            QtWidgets.QMessageBox.information(
-                self,
-                self.tr("No Measurements"),
-                self.tr(
-                    "No ring polygons are available and no radial measurements have been performed.\n\n"
-                    "Use Tools > Measure Ring Width to compute radial widths first."
-                ),
-            )
-            return
+            return None
         
         if not ring_properties and not radial_measurements:
-            QtWidgets.QMessageBox.information(
-                self,
-                self.tr("No Data"),
-                self.tr("There are no ring polygons or radial measurements to analyze."),
-            )
-            return
+            return None
         
         logger.info(
             f"✓ Prepared {len(ring_properties)} closed rings and {len(radial_measurements)} open rings for analysis"
@@ -2116,6 +2109,21 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.image_scale:
             metadata['scale'] = self.image_scale
         
+        return (ring_properties, radial_measurements, metadata)
+    
+    def _action_ring_properties(self) -> None:
+        """Compute and display ring properties (area, perimeter, etc.)"""
+        data = self._prepare_ring_properties_data()
+        if data is None:
+            QtWidgets.QMessageBox.information(
+                self,
+                self.tr("No Data"),
+                self.tr("There are no ring polygons or radial measurements to analyze.")
+            )
+            return
+        
+        ring_properties, radial_measurements, metadata = data
+        
         # Show dialog with results
         dlg = RingPropertiesDialog(
             ring_properties,
@@ -2123,6 +2131,13 @@ class MainWindow(QtWidgets.QMainWindow):
             parent=self,
             metadata=metadata if metadata else None,
         )
+        dlg.exec_()
+    
+    def _action_export_data(self) -> None:
+        """Export annotations, measurements, and PDF report."""
+        from tras.widgets import ExportDialog
+        
+        dlg = ExportDialog(parent=self)
         dlg.exec_()
 
     def _rename_open_rings_with_years(self, pith_xy: tuple[float, float] | None) -> None:
