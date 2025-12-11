@@ -29,46 +29,86 @@ jobs:
           
       - name: Install dependencies
         run: |
-          pip install tomli
+          pip install tomli tomli-w
           
-      - name: Read version from pyproject.toml
-        id: get_version
+      - name: Read current version and increment
+        id: version
         run: |
-          VERSION=$(python << 'EOF'
+          python << 'EOF'
           import tomli
+          import tomli_w
+          import re
+          
+          # Read current version
           with open("pyproject.toml", "rb") as f:
               config = tomli.load(f)
-          print(config["project"]["version"])
-          EOF
-          )
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "Version: ${VERSION}"
           
-      - name: Check if tag already exists
+          current_version = config["project"]["version"]
+          print(f"Current version: {current_version}")
+          
+          # Increment patch version (e.g., 2.0.2 -> 2.0.3)
+          parts = current_version.split(".")
+          if len(parts) == 3:
+              major, minor, patch = parts
+              new_patch = str(int(patch) + 1)
+              new_version = f"{major}.{minor}.{new_patch}"
+          elif len(parts) == 2:
+              major, minor = parts
+              new_version = f"{major}.{int(minor) + 1}.0"
+          else:
+              # Fallback: just increment last number
+              new_version = str(int(current_version) + 1)
+          
+          print(f"New version: {new_version}")
+          
+          # Update pyproject.toml
+          config["project"]["version"] = new_version
+          with open("pyproject.toml", "wb") as f:
+              tomli_w.dump(config, f)
+          
+          # Output for GitHub Actions
+          import os
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"current_version={current_version}\n")
+              f.write(f"new_version={new_version}\n")
+          EOF
+          
+      - name: Check if new tag already exists
         id: check_tag
         run: |
-          VERSION="${{ steps.get_version.outputs.version }}"
-          echo "Checking for tag: v${VERSION}"
-          if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
+          NEW_VERSION="${{ steps.version.outputs.new_version }}"
+          echo "Checking for tag: v${NEW_VERSION}"
+          if git rev-parse "v${NEW_VERSION}" >/dev/null 2>&1; then
             echo "exists=true" >> $GITHUB_OUTPUT
-            echo "Tag v${VERSION} already exists!"
+            echo "Tag v${NEW_VERSION} already exists!"
           else
             echo "exists=false" >> $GITHUB_OUTPUT
-            echo "Tag v${VERSION} does not exist, will create it"
+            echo "Tag v${NEW_VERSION} does not exist, will create it"
           fi
+          
+      - name: Commit version update
+        if: steps.check_tag.outputs.exists == 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NEW_VERSION="${{ steps.version.outputs.new_version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pyproject.toml
+          git commit -m "Bump version to ${NEW_VERSION}"
+          git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git HEAD:main
+          echo "Version updated to ${NEW_VERSION} and pushed"
           
       - name: Create git tag
         if: steps.check_tag.outputs.exists == 'false'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION="${{ steps.get_version.outputs.version }}"
-          echo "Creating tag: v${VERSION}"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "v${VERSION}" -m "Release v${VERSION}"
-          git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git "v${VERSION}"
-          echo "Tag v${VERSION} created and pushed successfully"
+          NEW_VERSION="${{ steps.version.outputs.new_version }}"
+          echo "Creating tag: v${NEW_VERSION}"
+          git tag -a "v${NEW_VERSION}" -m "Release v${NEW_VERSION}"
+          git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git "v${NEW_VERSION}"
+          echo "Tag v${NEW_VERSION} created and pushed successfully"
           
       - name: Install GitHub CLI
         if: steps.check_tag.outputs.exists == 'false'
@@ -89,17 +129,18 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION="${{ steps.get_version.outputs.version }}"
+          NEW_VERSION="${{ steps.version.outputs.new_version }}"
+          CURRENT_VERSION="${{ steps.version.outputs.current_version }}"
           RELEASE_NOTES="${{ github.event.inputs.release_notes }}"
           
           if [ -z "$RELEASE_NOTES" ]; then
-            RELEASE_NOTES="Release v${VERSION}"
+            RELEASE_NOTES="Release v${NEW_VERSION}"$'\n\n'"This release increments the version from v${CURRENT_VERSION} to v${NEW_VERSION}."
           fi
           
-          echo "Creating release for v${VERSION}"
-          gh release create "v${VERSION}" \
-            --title "Release v${VERSION}" \
+          echo "Creating release for v${NEW_VERSION}"
+          gh release create "v${NEW_VERSION}" \
+            --title "Release v${NEW_VERSION}" \
             --notes "${RELEASE_NOTES}" \
             --repo "${{ github.repository }}"
-          echo "Release v${VERSION} created successfully"
+          echo "Release v${NEW_VERSION} created successfully"
 
