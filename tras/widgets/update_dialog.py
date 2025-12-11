@@ -21,7 +21,7 @@ class VersionCheckWorker(QtCore.QThread):
 class UpdateCheckDialog(QtWidgets.QDialog):
     """Dialog for checking if updates are available."""
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, initial_result: VersionInfo | None = None):
         super().__init__(parent)
         self.setWindowTitle(self.tr("Check for Updates"))
         self.setModal(True)
@@ -64,7 +64,12 @@ class UpdateCheckDialog(QtWidgets.QDialog):
 
         # Worker thread
         self.worker = None
-        self._check_version()
+        
+        # If initial result provided, use it directly; otherwise check
+        if initial_result is not None:
+            self._on_version_check_complete(initial_result)
+        else:
+            self._check_version()
 
     def _check_version(self):
         """Start the version check in a background thread."""

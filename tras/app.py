@@ -1001,6 +1001,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.populateModeActions()
 
+        # Check for updates at startup (delayed to not block initialization)
+        QtCore.QTimer.singleShot(3000, self._check_for_updates_startup)
+
         # self.firstStart = True
         # if self.firstStart:
         #    QWhatsThis.enterWhatsThisMode()
@@ -2359,6 +2362,32 @@ class MainWindow(QtWidgets.QMainWindow):
         """Show the update check dialog."""
         dialog = UpdateCheckDialog(parent=self)
         dialog.exec_()
+
+    def _check_for_updates_startup(self):
+        """Check for updates at startup (non-blocking, non-intrusive)."""
+        from tras.widgets.update_dialog import VersionCheckWorker
+        from tras.utils.version_check import VersionInfo
+
+        def on_check_complete(result: VersionInfo):
+            """Handle the version check result."""
+            if result.error or result.latest_version is None:
+                # Silently fail - don't bother user with network errors at startup
+                return
+
+            if not result.is_up_to_date:
+                # Show update dialog automatically when update is available
+                dialog = UpdateCheckDialog(parent=self, initial_result=result)
+                dialog.exec_()
+
+        # Run check in background thread
+        # Store reference to prevent garbage collection before thread completes
+        self._startup_version_worker = VersionCheckWorker()
+        self._startup_version_worker.finished.connect(on_check_complete)
+        # Clean up worker thread after it finishes
+        self._startup_version_worker.finished.connect(
+            self._startup_version_worker.deleteLater
+        )
+        self._startup_version_worker.start()
 
     def show_shortcuts_dialog(self):
         """Show the keyboard shortcuts dialog."""
