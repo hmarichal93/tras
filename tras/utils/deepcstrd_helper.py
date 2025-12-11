@@ -41,10 +41,13 @@ def detect_rings_deepcstrd(
     Returns:
         List of ring polylines, each as Nx2 array of (x, y) points
     """
-    # Ensure RGB format
+    # Ensure RGB format (convert common OpenCV BGR to RGB)
     if image.ndim == 2:
         import cv2
         image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+    elif image.ndim == 3 and image.shape[2] == 3:
+        import cv2
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     elif image.ndim == 3 and image.shape[2] == 4:
         image = image[..., :3]
     
