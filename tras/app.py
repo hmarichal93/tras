@@ -1115,15 +1115,26 @@ class MainWindow(QtWidgets.QMainWindow):
             image_np = self.imageArray
             logger.info(f"✓ Using stored preprocessed numpy array: {image_np.shape} ({image_np.dtype})")
         else:
-            # Convert QImage to numpy array
-            if self.image.format() != QtGui.QImage.Format_RGB888:
-                qimage_rgb = self.image.convertToFormat(QtGui.QImage.Format_RGB888)
-            else:
-                qimage_rgb = self.image
+            # Convert QImage to numpy array using PIL (same robust method as preprocessing dialog)
+            from PIL import Image as PILImage
+            import tempfile
+            import os
             
-            # Extract image as numpy array
-            image_np = utils.img_qt_to_arr(qimage_rgb)[:, :, :3]
-            logger.info(f"Extracted image from QImage: {image_np.shape} ({image_np.dtype})")
+            # Save QImage to temp file and reload with PIL (most robust method, avoids warping)
+            with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                tmp_path = tmp.name
+            
+            self.image.save(tmp_path, 'PNG')
+            pil_img = PILImage.open(tmp_path).convert('RGB')
+            image_np = np.array(pil_img, dtype=np.uint8)
+            
+            # Clean up temp file
+            try:
+                os.unlink(tmp_path)
+            except:
+                pass
+            
+            logger.info(f"Extracted image from QImage using PIL: {image_np.shape} ({image_np.dtype})")
         
         # Log image info
         logger.info(f"Tree ring detection image: {image_np.shape} ({image_np.dtype})")
@@ -1138,11 +1149,15 @@ class MainWindow(QtWidgets.QMainWindow):
             logger.info("Image is original (no preprocessing applied)")
         
         # Show detection dialog (loop to handle click pith mode)
+        # Use actual numpy array dimensions, not QImage dimensions (they may differ after preprocessing)
+        actual_width = image_np.shape[1] if image_np is not None else self.image.width()
+        actual_height = image_np.shape[0] if image_np is not None else self.image.height()
+        
         clicked_cx, clicked_cy = None, None
         while True:
             dlg = TreeRingDialog(
-                image_width=self.image.width(), 
-                image_height=self.image.height(), 
+                image_width=actual_width, 
+                image_height=actual_height, 
                 parent=self, 
                 image_np=image_np,
                 initial_cx=clicked_cx,

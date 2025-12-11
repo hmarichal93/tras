@@ -24,30 +24,40 @@ class TreeRingDialog(QtWidgets.QDialog):
         self.setWindowTitle(self.tr("Tree Ring Detection"))
         self.setModal(True)
 
+        # Store image first
+        self.image_np = image_np
+        
+        # Use actual image dimensions if image_np is provided (may differ from QImage dimensions after preprocessing)
+        if image_np is not None:
+            actual_width = image_np.shape[1]
+            actual_height = image_np.shape[0]
+        else:
+            actual_width = image_width
+            actual_height = image_height
+
         # Use provided coordinates or default to center
         if initial_cx is not None and initial_cy is not None:
             cx_default = float(initial_cx)
             cy_default = float(initial_cy)
         else:
-            cx_default = float(image_width) / 2.0
-            cy_default = float(image_height) / 2.0
+            cx_default = float(actual_width) / 2.0
+            cy_default = float(actual_height) / 2.0
 
         self.form = QtWidgets.QFormLayout()
 
         self.cx = QtWidgets.QDoubleSpinBox()
-        self.cx.setRange(0.0, float(image_width - 1))
+        self.cx.setRange(0.0, float(actual_width - 1))
         self.cx.setDecimals(2)
         self.cx.setValue(cx_default)
         self.form.addRow(self.tr("Center X"), self.cx)
 
         self.cy = QtWidgets.QDoubleSpinBox()
-        self.cy.setRange(0.0, float(image_height - 1))
+        self.cy.setRange(0.0, float(actual_height - 1))
         self.cy.setDecimals(2)
         self.cy.setValue(cy_default)
         self.form.addRow(self.tr("Center Y"), self.cy)
 
         # Store references
-        self.image_np = image_np
         self.parent_window = parent
         self.detected_pith_xy = None  # Store pith coordinates when detection succeeds
         
@@ -339,6 +349,13 @@ class TreeRingDialog(QtWidgets.QDialog):
             # Ensure image is in RGB format (OpenCV-safe copy)
             image_to_process = np.ascontiguousarray(image_to_process, dtype=np.uint8)
             
+            # Save original image for debugging
+            debug_dir = Path.home() / ".tras_debug"
+            debug_dir.mkdir(exist_ok=True)
+            original_debug_path = debug_dir / "cstrd_original.png"
+            cv2.imwrite(str(original_debug_path), cv2.cvtColor(image_to_process, cv2.COLOR_RGB2BGR))
+            logger.info(f"CS-TRD: Saved original image to {original_debug_path}")
+            
             if self.remove_bg_checkbox.isChecked():
                 logger.info("CS-TRD: Removing background before detection...")
                 logger.info(f"CS-TRD: Image before BG removal - shape={image_to_process.shape}, dtype={image_to_process.dtype}, min={image_to_process.min()}, max={image_to_process.max()}")
@@ -363,11 +380,23 @@ class TreeRingDialog(QtWidgets.QDialog):
                         remove_salient_object(str(input_path), str(output_path))
                         
                         # Load result (convert BGR back to RGB)
-                        result = cv2.imread(str(output_path))
-                        if result is not None:
-                            image_to_process = cv2.cvtColor(result, cv2.COLOR_BGR2RGB)
-                            image_to_process = np.ascontiguousarray(image_to_process, dtype=np.uint8)
+                        # Use PIL to read the output (matches how remove_salient_object saves it)
+                        from PIL import Image as PILImage
+                        result_pil = PILImage.open(str(output_path)).convert('RGB')
+                        result = np.array(result_pil, dtype=np.uint8)
+                        if result is not None and result.size > 0:
+                            # Ensure same dimensions as input
+                            if result.shape[:2] != image_to_process.shape[:2]:
+                                logger.warning(f"CS-TRD: Output shape {result.shape[:2]} != input shape {image_to_process.shape[:2]}, resizing...")
+                                result = cv2.resize(result, (image_to_process.shape[1], image_to_process.shape[0]))
+                            image_to_process = np.ascontiguousarray(result, dtype=np.uint8)
                             logger.info(f"CS-TRD: Image after BG removal - shape={image_to_process.shape}, dtype={image_to_process.dtype}, min={image_to_process.min()}, max={image_to_process.max()}")
+                            
+                            # Save background-removed image for debugging
+                            bg_removed_debug_path = debug_dir / "cstrd_bg_removed.png"
+                            cv2.imwrite(str(bg_removed_debug_path), cv2.cvtColor(image_to_process, cv2.COLOR_RGB2BGR))
+                            logger.info(f"CS-TRD: Saved background-removed image to {bg_removed_debug_path}")
+                            
                             logger.info("CS-TRD: Background removal completed")
                         else:
                             raise Exception("U2Net did not produce output")
@@ -469,6 +498,13 @@ class TreeRingDialog(QtWidgets.QDialog):
             # Ensure image is in RGB format (OpenCV-safe copy)
             image_to_process = np.ascontiguousarray(image_to_process, dtype=np.uint8)
             
+            # Save original image for debugging
+            debug_dir = Path.home() / ".tras_debug"
+            debug_dir.mkdir(exist_ok=True)
+            original_debug_path = debug_dir / "deepcstrd_original.png"
+            cv2.imwrite(str(original_debug_path), cv2.cvtColor(image_to_process, cv2.COLOR_RGB2BGR))
+            logger.info(f"DeepCS-TRD: Saved original image to {original_debug_path}")
+            
             if self.remove_bg_checkbox.isChecked():
                 logger.info("DeepCS-TRD: Removing background before detection...")
                 logger.info(f"DeepCS-TRD: Image before BG removal - shape={image_to_process.shape}, dtype={image_to_process.dtype}, min={image_to_process.min()}, max={image_to_process.max()}")
@@ -493,11 +529,23 @@ class TreeRingDialog(QtWidgets.QDialog):
                         remove_salient_object(str(input_path), str(output_path))
                         
                         # Load result (convert BGR back to RGB)
-                        result = cv2.imread(str(output_path))
-                        if result is not None:
-                            image_to_process = cv2.cvtColor(result, cv2.COLOR_BGR2RGB)
-                            image_to_process = np.ascontiguousarray(image_to_process, dtype=np.uint8)
+                        # Use PIL to read the output (matches how remove_salient_object saves it)
+                        from PIL import Image as PILImage
+                        result_pil = PILImage.open(str(output_path)).convert('RGB')
+                        result = np.array(result_pil, dtype=np.uint8)
+                        if result is not None and result.size > 0:
+                            # Ensure same dimensions as input
+                            if result.shape[:2] != image_to_process.shape[:2]:
+                                logger.warning(f"DeepCS-TRD: Output shape {result.shape[:2]} != input shape {image_to_process.shape[:2]}, resizing...")
+                                result = cv2.resize(result, (image_to_process.shape[1], image_to_process.shape[0]))
+                            image_to_process = np.ascontiguousarray(result, dtype=np.uint8)
                             logger.info(f"DeepCS-TRD: Image after BG removal - shape={image_to_process.shape}, dtype={image_to_process.dtype}, min={image_to_process.min()}, max={image_to_process.max()}")
+                            
+                            # Save background-removed image for debugging
+                            bg_removed_debug_path = debug_dir / "deepcstrd_bg_removed.png"
+                            cv2.imwrite(str(bg_removed_debug_path), cv2.cvtColor(image_to_process, cv2.COLOR_RGB2BGR))
+                            logger.info(f"DeepCS-TRD: Saved background-removed image to {bg_removed_debug_path}")
+                            
                             logger.info("DeepCS-TRD: Background removal completed")
                         else:
                             raise Exception("U2Net did not produce output")
