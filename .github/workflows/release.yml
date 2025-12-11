@@ -12,12 +12,15 @@ jobs:
   release:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -26,42 +29,60 @@ jobs:
           
       - name: Install dependencies
         run: |
-          pip install tomli tomli-w
+          pip install tomli
           
       - name: Read version from pyproject.toml
         id: get_version
         run: |
-          python << 'EOF'
+          VERSION=$(python << 'EOF'
           import tomli
-          import tomli_w
-          
           with open("pyproject.toml", "rb") as f:
               config = tomli.load(f)
-          
-          version = config["project"]["version"]
-          print(f"version={version}")
+          print(config["project"]["version"])
           EOF
-        shell: bash
-        
+          )
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Version: ${VERSION}"
+          
       - name: Check if tag already exists
         id: check_tag
         run: |
           VERSION="${{ steps.get_version.outputs.version }}"
+          echo "Checking for tag: v${VERSION}"
           if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
-            echo "exists=true"
+            echo "exists=true" >> $GITHUB_OUTPUT
             echo "Tag v${VERSION} already exists!"
           else
-            echo "exists=false"
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Tag v${VERSION} does not exist, will create it"
           fi
           
       - name: Create git tag
         if: steps.check_tag.outputs.exists == 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${{ steps.get_version.outputs.version }}"
+          echo "Creating tag: v${VERSION}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "v${VERSION}" -m "Release v${VERSION}"
-          git push origin "v${VERSION}"
+          git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git "v${VERSION}"
+          echo "Tag v${VERSION} created and pushed successfully"
+          
+      - name: Install GitHub CLI
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          if ! command -v gh &> /dev/null; then
+            type -p curl >/dev/null || (apt update && apt install curl -y)
+            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+            && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+            && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+            && apt update \
+            && apt install gh -y
+          else
+            echo "GitHub CLI already installed"
+          fi
           
       - name: Create GitHub Release
         if: steps.check_tag.outputs.exists == 'false'
@@ -75,8 +96,10 @@ jobs:
             RELEASE_NOTES="Release v${VERSION}"
           fi
           
+          echo "Creating release for v${VERSION}"
           gh release create "v${VERSION}" \
             --title "Release v${VERSION}" \
             --notes "${RELEASE_NOTES}" \
             --repo "${{ github.repository }}"
+          echo "Release v${VERSION} created successfully"
 
