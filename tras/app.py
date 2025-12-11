@@ -44,6 +44,7 @@ from tras.widgets import PreprocessDialog
 from tras.widgets import RingPropertiesDialog
 from tras.widgets import MetadataDialog
 from tras.widgets import ShortcutsDialog
+from tras.widgets import UpdateCheckDialog
 
 from . import utils
 
@@ -495,6 +496,13 @@ class MainWindow(QtWidgets.QMainWindow):
             "help",
             self.tr("View all keyboard shortcuts"),
         )
+        
+        checkUpdates = action(
+            self.tr("Check for &Updates"),
+            self.show_update_dialog,
+            icon="help",
+            tip=self.tr("Check if a newer version is available"),
+        )
 
         zoom = QtWidgets.QWidgetAction(self)
         zoomBoxLayout = QtWidgets.QVBoxLayout()
@@ -849,7 +857,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 quit,
             ),
         )
-        utils.addActions(self.menus.help, (help, keyboardShortcuts, None, self.actions.about))
+        utils.addActions(self.menus.help, (help, keyboardShortcuts, None, checkUpdates, None, self.actions.about))
         # Tools menu organized by workflow order
         utils.addActions(self.menus.tools, (
             metadata,           # Step 1: Sample Metadata (optional, before starting)
@@ -2347,6 +2355,11 @@ class MainWindow(QtWidgets.QMainWindow):
         url = "https://github.com/hmarichal93/tras/blob/main/examples/tree_rings/README.md"  # NOQA
         webbrowser.open(url)
     
+    def show_update_dialog(self):
+        """Show the update check dialog."""
+        dialog = UpdateCheckDialog(parent=self)
+        dialog.exec_()
+
     def show_shortcuts_dialog(self):
         """Show the keyboard shortcuts dialog."""
         dialog = ShortcutsDialog(self._config["shortcuts"], parent=self)

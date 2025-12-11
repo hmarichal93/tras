@@ -14,4 +14,5 @@ from .scale_dialog import ScaleDialog, LineCalibrationDialog
 from .radial_width_dialog import RadialWidthDialog
 from .shortcuts_dialog import ShortcutsDialog
 from .unique_label_qlist_widget import UniqueLabelQListWidget
+from .update_dialog import UpdateCheckDialog
 from .zoom_widget import ZoomWidget
