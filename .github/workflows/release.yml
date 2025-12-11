@@ -86,6 +86,35 @@ jobs:
             echo "Tag v${NEW_VERSION} does not exist, will create it"
           fi
           
+      - name: Get commits since last release
+        if: steps.check_tag.outputs.exists == 'false'
+        id: commits
+        run: |
+          CURRENT_VERSION="${{ steps.version.outputs.current_version }}"
+          CURRENT_TAG="v${CURRENT_VERSION}"
+          
+          # Find the last tag (before current version)
+          # Get all tags sorted by version, exclude the current version tag
+          LAST_TAG=$(git tag --sort=-version:refname | grep -v "^${CURRENT_TAG}$" | head -n 1 || echo "")
+          
+          if [ -z "$LAST_TAG" ]; then
+            # No previous tag, get all commits up to HEAD
+            COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges)
+          else
+            # Get commits since last tag
+            COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges)
+          fi
+          
+          # Store in output (use EOF delimiter for multiline)
+          {
+            echo 'commits<<EOF'
+            echo "$COMMITS"
+            echo EOF
+          } >> $GITHUB_OUTPUT
+          
+          echo "Found commits since ${LAST_TAG:-beginning}:"
+          echo "$COMMITS"
+          
       - name: Commit version update
         if: steps.check_tag.outputs.exists == 'false'
         env:
@@ -132,9 +161,20 @@ jobs:
           NEW_VERSION="${{ steps.version.outputs.new_version }}"
           CURRENT_VERSION="${{ steps.version.outputs.current_version }}"
           RELEASE_NOTES="${{ github.event.inputs.release_notes }}"
+          COMMITS="${{ steps.commits.outputs.commits }}"
           
           if [ -z "$RELEASE_NOTES" ]; then
             RELEASE_NOTES="Release v${NEW_VERSION}"$'\n\n'"This release increments the version from v${CURRENT_VERSION} to v${NEW_VERSION}."
+            
+            # Add commits section if there are commits
+            if [ -n "$COMMITS" ]; then
+              RELEASE_NOTES="${RELEASE_NOTES}"$'\n\n'"## Changes"$'\n\n'"${COMMITS}"
+            fi
+          else
+            # User provided release notes, but still append commits if they exist
+            if [ -n "$COMMITS" ]; then
+              RELEASE_NOTES="${RELEASE_NOTES}"$'\n\n'"## Commits"$'\n\n'"${COMMITS}"
+            fi
           fi
           
           echo "Creating release for v${NEW_VERSION}"
