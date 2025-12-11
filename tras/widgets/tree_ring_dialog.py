@@ -232,7 +232,7 @@ class TreeRingDialog(QtWidgets.QDialog):
         # Resize parameters
         self.deepcstrd_width = QtWidgets.QSpinBox()
         self.deepcstrd_width.setRange(0, 10000)
-        self.deepcstrd_width.setValue(0)
+        self.deepcstrd_width.setValue(1504)
         self.deepcstrd_width.setSingleStep(100)
         self.deepcstrd_width.setToolTip(
             self.tr("Resize image width (0 = no resize).\n"
@@ -243,7 +243,7 @@ class TreeRingDialog(QtWidgets.QDialog):
         
         self.deepcstrd_height = QtWidgets.QSpinBox()
         self.deepcstrd_height.setRange(0, 10000)
-        self.deepcstrd_height.setValue(0)
+        self.deepcstrd_height.setValue(1504)
         self.deepcstrd_height.setSingleStep(100)
         self.deepcstrd_height.setToolTip(
             self.tr("Resize image height (0 = no resize).\n"
@@ -388,6 +388,8 @@ class TreeRingDialog(QtWidgets.QDialog):
             # Get model selection and parameters from UI
             model_text = self.deepcstrd_model.currentText()
             model_id = model_text.split(" ")[0]  # Extract "generic", "pinus_v1", etc.
+            print(f"[DEBUG] UI model_text: '{model_text}'")
+            print(f"[DEBUG] Extracted model_id: '{model_id}'")
             
             tile_text = self.deepcstrd_tile_size.currentText()
             tile_size = 256 if "256" in tile_text else 0
@@ -557,7 +559,7 @@ class TreeRingDialog(QtWidgets.QDialog):
             "pinus_v1": "pinus_v1 (Pinus taeda v1)",
             "pinus_v2": "pinus_v2 (Pinus taeda v2)",
             "gleditsia": "gleditsia (Gleditsia triacanthos)",
-            "salix": "salix (Salix humboldtiana)"
+            "salix": "salix (Salix glauca)"
         }
         
         # Scan for additional custom models
