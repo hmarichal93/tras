@@ -4,8 +4,11 @@ import platform
 from typing import Optional
 
 import io
+import tempfile
+from pathlib import Path
 
 import numpy as np
+import cv2
 from PIL import Image, ImageDraw
 from loguru import logger
 from PyQt5 import QtCore, QtGui, QtWidgets
@@ -94,6 +97,15 @@ class TreeRingDialog(QtWidgets.QDialog):
         
         detection_label = QtWidgets.QLabel(self.tr("<b>Step 2: Detect Tree Rings</b>"))
         self.form.addRow(detection_label)
+        
+        # Background removal option
+        self.remove_bg_checkbox = QtWidgets.QCheckBox(self.tr("Remove background before detection"))
+        self.remove_bg_checkbox.setChecked(True)  # Checked by default
+        self.remove_bg_checkbox.setToolTip(
+            self.tr("Remove background using U2Net to improve detection performance.\n"
+                   "This can help reduce false detections from background artifacts.")
+        )
+        self.form.addRow(self.remove_bg_checkbox)
         
         # Add CS-TRD button (disabled on Windows)
         self.btn_cstrd = QtWidgets.QPushButton(self.tr("Detect with CS-TRD (CPU)"))
@@ -320,9 +332,56 @@ class TreeRingDialog(QtWidgets.QDialog):
             
             logger.info(f"CS-TRD: Parameters - sigma={sigma}, th_low={th_low}, th_high={th_high}, alpha={alpha}, nr={nr}, resize=({width}, {height})")
             
+            # Apply background removal if enabled
+            image_to_process = self.image_np.copy()
+            
+            # Ensure image is in RGB format and contiguous (exactly like preprocessing dialog)
+            # Ensure image is in RGB format (OpenCV-safe copy)
+            image_to_process = np.ascontiguousarray(image_to_process, dtype=np.uint8)
+            
+            if self.remove_bg_checkbox.isChecked():
+                logger.info("CS-TRD: Removing background before detection...")
+                logger.info(f"CS-TRD: Image before BG removal - shape={image_to_process.shape}, dtype={image_to_process.dtype}, min={image_to_process.min()}, max={image_to_process.max()}")
+                try:
+                    from tras.tree_ring_methods.urudendro.remove_salient_object import (
+                        remove_salient_object,
+                    )
+                    
+                        # Create temporary files for U2Net
+                    with tempfile.TemporaryDirectory() as temp_dir:
+                        input_path = Path(temp_dir) / "input.png"
+                        output_path = Path(temp_dir) / "output.png"
+                        
+                        # Ensure image is uint8 before saving (fix for depth warning)
+                        if image_to_process.dtype != np.uint8:
+                            image_to_process = (255 * (image_to_process.astype(np.float32) / image_to_process.max())).astype(np.uint8)
+                        
+                        # Save current image (convert RGB to BGR for cv2.imwrite)
+                        cv2.imwrite(str(input_path), cv2.cvtColor(image_to_process, cv2.COLOR_RGB2BGR))
+                        
+                        # Run U2Net background removal
+                        remove_salient_object(str(input_path), str(output_path))
+                        
+                        # Load result (convert BGR back to RGB)
+                        result = cv2.imread(str(output_path))
+                        if result is not None:
+                            image_to_process = cv2.cvtColor(result, cv2.COLOR_BGR2RGB)
+                            image_to_process = np.ascontiguousarray(image_to_process, dtype=np.uint8)
+                            logger.info(f"CS-TRD: Image after BG removal - shape={image_to_process.shape}, dtype={image_to_process.dtype}, min={image_to_process.min()}, max={image_to_process.max()}")
+                            logger.info("CS-TRD: Background removal completed")
+                        else:
+                            raise Exception("U2Net did not produce output")
+                except Exception as bg_error:
+                    logger.warning(f"CS-TRD: Background removal failed: {bg_error}, continuing with original image")
+                    QtWidgets.QMessageBox.warning(
+                        self,
+                        self.tr("Background Removal Failed"),
+                        self.tr(f"Background removal failed: {bg_error}\n\nContinuing with original image.")
+                    )
+            
             # Run CS-TRD with current parameters
             rings = detect_rings_cstrd(
-                self.image_np, 
+                image_to_process, 
                 center_xy=(cx, cy),
                 sigma=sigma,
                 th_low=th_low,
@@ -403,9 +462,56 @@ class TreeRingDialog(QtWidgets.QDialog):
             
             logger.info(f"DeepCS-TRD: Model={model_id}, tile_size={tile_size}, alpha={alpha}, nr={nr}, rotations={total_rotations}, threshold={prediction_map_threshold}, resize=({width}, {height})")
             
+            # Apply background removal if enabled
+            image_to_process = self.image_np.copy()
+            
+            # Ensure image is in RGB format and contiguous (exactly like preprocessing dialog)
+            # Ensure image is in RGB format (OpenCV-safe copy)
+            image_to_process = np.ascontiguousarray(image_to_process, dtype=np.uint8)
+            
+            if self.remove_bg_checkbox.isChecked():
+                logger.info("DeepCS-TRD: Removing background before detection...")
+                logger.info(f"DeepCS-TRD: Image before BG removal - shape={image_to_process.shape}, dtype={image_to_process.dtype}, min={image_to_process.min()}, max={image_to_process.max()}")
+                try:
+                    from tras.tree_ring_methods.urudendro.remove_salient_object import (
+                        remove_salient_object,
+                    )
+                    
+                    # Create temporary files for U2Net
+                    with tempfile.TemporaryDirectory() as temp_dir:
+                        input_path = Path(temp_dir) / "input.png"
+                        output_path = Path(temp_dir) / "output.png"
+                        
+                        # Ensure image is uint8 before saving (fix for depth warning)
+                        if image_to_process.dtype != np.uint8:
+                            image_to_process = (255 * (image_to_process.astype(np.float32) / image_to_process.max())).astype(np.uint8)
+                        
+                        # Save current image (convert RGB to BGR for cv2.imwrite)
+                        cv2.imwrite(str(input_path), cv2.cvtColor(image_to_process, cv2.COLOR_RGB2BGR))
+                        
+                        # Run U2Net background removal
+                        remove_salient_object(str(input_path), str(output_path))
+                        
+                        # Load result (convert BGR back to RGB)
+                        result = cv2.imread(str(output_path))
+                        if result is not None:
+                            image_to_process = cv2.cvtColor(result, cv2.COLOR_BGR2RGB)
+                            image_to_process = np.ascontiguousarray(image_to_process, dtype=np.uint8)
+                            logger.info(f"DeepCS-TRD: Image after BG removal - shape={image_to_process.shape}, dtype={image_to_process.dtype}, min={image_to_process.min()}, max={image_to_process.max()}")
+                            logger.info("DeepCS-TRD: Background removal completed")
+                        else:
+                            raise Exception("U2Net did not produce output")
+                except Exception as bg_error:
+                    logger.warning(f"DeepCS-TRD: Background removal failed: {bg_error}, continuing with original image")
+                    QtWidgets.QMessageBox.warning(
+                        self,
+                        self.tr("Background Removal Failed"),
+                        self.tr(f"Background removal failed: {bg_error}\n\nContinuing with original image.")
+                    )
+            
             # Run DeepCS-TRD with current parameters
             rings = detect_rings_deepcstrd(
-                self.image_np, 
+                image_to_process, 
                 center_xy=(cx, cy),
                 model_id=model_id,
                 tile_size=tile_size,
