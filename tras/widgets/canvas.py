@@ -689,9 +689,90 @@ class Canvas(QtWidgets.QWidget):
         self.storeShapes()
         self.update()
 
+    def _draw_empty_state_instructions(self, painter: QtGui.QPainter) -> None:
+        """Draw workflow instructions when no image is loaded."""
+        painter.setRenderHint(QtGui.QPainter.Antialiasing)
+        painter.setRenderHint(QtGui.QPainter.TextAntialiasing)
+        
+        # Get widget dimensions
+        width = self.width()
+        height = self.height()
+        
+        # Define colors
+        title_color = QtGui.QColor(60, 60, 60)
+        text_color = QtGui.QColor(100, 100, 100)
+        step_number_color = QtGui.QColor(70, 130, 180)  # Steel blue
+        
+        # Calculate content box dimensions for consistent alignment
+        content_x = width // 4
+        content_width = width // 2
+        
+        # Title - use full width for centering
+        title_font = QtGui.QFont()
+        title_font.setPointSize(18)
+        title_font.setBold(True)
+        painter.setFont(title_font)
+        painter.setPen(title_color)
+        
+        title_text = self.tr("Tree Ring Analysis Workflow")
+        title_rect = QtCore.QRect(0, height // 4, width, 40)
+        painter.drawText(title_rect, Qt.AlignCenter, title_text)
+        
+        # Subtitle - use full width for centering
+        subtitle_font = QtGui.QFont()
+        subtitle_font.setPointSize(11)
+        subtitle_font.setItalic(True)
+        painter.setFont(subtitle_font)
+        painter.setPen(text_color)
+        
+        subtitle_text = self.tr("In case of issues, please write to hmarichal93@gmail.com (Henry Marichal)")
+        subtitle_rect = QtCore.QRect(0, height // 4 + 45, width, 30)
+        painter.drawText(subtitle_rect, Qt.AlignCenter, subtitle_text)
+        
+        # Steps
+        steps = [
+            self.tr("1. Load Image — File > Open or drag and drop"),
+            self.tr("2. Set Scale (Optional) — Tools > Set Image Scale"),
+            self.tr("3. Preprocess Image (Optional) — Tools > Preprocess Image"),
+            self.tr("4. Detect Tree Rings — Tools > Tree Ring Detection"),
+            self.tr("5. Manual Editing (Optional) — Edit/add rings if needed"),
+            self.tr("6. View Ring Properties — Tools > Ring Properties"),
+            self.tr("7. Export Results — Tools > Export Data"),
+        ]
+        
+        step_font = QtGui.QFont()
+        step_font.setPointSize(12)
+        painter.setFont(step_font)
+        
+        # Calculate starting Y position for steps
+        start_y = height // 4 + 100
+        line_height = 40
+        
+        for i, step in enumerate(steps):
+            y_pos = start_y + i * line_height
+            
+            # Draw step text
+            if i == 0:
+                # Highlight first step
+                painter.setPen(step_number_color)
+                step_font.setBold(True)
+                painter.setFont(step_font)
+            else:
+                painter.setPen(text_color)
+                step_font.setBold(False)
+                painter.setFont(step_font)
+            
+            step_rect = QtCore.QRect(content_x, y_pos, content_width, 35)
+            painter.drawText(step_rect, Qt.AlignLeft | Qt.AlignVCenter, step)
+
     def paintEvent(self, event: QtGui.QPaintEvent) -> None:
-        if not self.pixmap:
-            return super().paintEvent(event)
+        if not self.pixmap or self.pixmap.isNull():
+            # Draw empty state instructions
+            p = self._painter
+            p.begin(self)
+            self._draw_empty_state_instructions(p)
+            p.end()
+            return
 
         p = self._painter
         p.begin(self)
