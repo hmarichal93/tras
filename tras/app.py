@@ -250,13 +250,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self.tr("Load a JSON annotation file onto the image currently in the canvas"),
             enabled=False,
         )
-        opendir = action(
-            self.tr("Open Dir"),
-            self.openDirDialog,
-            shortcuts["open_dir"],
-            "open",
-            self.tr("Open Dir"),
-        )
         openNextImg = action(
             self.tr("&Next Image"),
             self.openNextImg,
@@ -855,7 +848,6 @@ class MainWindow(QtWidgets.QMainWindow):
                 loadAnnotations,
                 openNextImg,
                 openPrevImg,
-                opendir,
                 self.menus.recentFiles,
                 save,
                 saveAs,
@@ -924,7 +916,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tools = self.toolbar("Tools")
         self.toolbar_actions = (
             open_,
-            opendir,
             openPrevImg,
             openNextImg,
             save,
