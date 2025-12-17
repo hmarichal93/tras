@@ -162,6 +162,78 @@ def check_deepcstrd_models() -> dict[str, Any]:
 
 
 @lru_cache(maxsize=None)
+def _check_inbd_models_cached() -> dict[str, Any]:
+    """
+    Check if INBD model files and source code are available.
+
+    Returns:
+        Dictionary with keys: available (bool), models_found (list[str]), 
+        source_available (bool), path (str | None), error (str | None)
+    """
+    # Check for INBD source directory
+    inbd_src_dir = (
+        Path(__file__).parent.parent
+        / "tree_ring_methods"
+        / "inbd"
+        / "src"
+    )
+    
+    source_available = inbd_src_dir.exists() and (inbd_src_dir / "main.py").exists()
+    
+    # Check for model checkpoints
+    checkpoints_dir = inbd_src_dir / "checkpoints"
+    
+    required_models = ["INBD_EH"]  # Minimum required: one model
+    optional_models = ["INBD_DO", "INBD_VM", "INBD_UruDendro"]
+    
+    models_found = []
+    if checkpoints_dir.exists():
+        for model_dir in checkpoints_dir.iterdir():
+            if model_dir.is_dir() and (model_dir / "model.pt.zip").exists():
+                models_found.append(model_dir.name)
+    
+    # Build error message
+    errors = []
+    if not source_available:
+        errors.append(
+            "INBD source code not found. Clone with:\n"
+            "  cd tras/tree_ring_methods/inbd\n"
+            "  git clone https://github.com/hmarichal93/INBD.git src"
+        )
+    
+    if not models_found:
+        errors.append(
+            "INBD models not found. Download with:\n"
+            "  cd tras/tree_ring_methods/inbd\n"
+            "  ./download_models.sh"
+        )
+    
+    if errors:
+        return {
+            "available": False,
+            "source_available": source_available,
+            "models_found": models_found,
+            "models_required": required_models,
+            "path": str(checkpoints_dir) if checkpoints_dir.exists() else None,
+            "error": "\n\n".join(errors),
+        }
+    
+    return {
+        "available": True,
+        "source_available": source_available,
+        "models_found": models_found,
+        "models_required": required_models,
+        "path": str(checkpoints_dir),
+        "error": None,
+    }
+
+
+def check_inbd_models() -> dict[str, Any]:
+    """Public wrapper with cached results."""
+    return copy.deepcopy(_check_inbd_models_cached())
+
+
+@lru_cache(maxsize=None)
 def _check_system_library_cached(library_name: str) -> dict[str, Any]:
     """
     Check if a system library is available (Qt5, OpenCV system libs).
@@ -262,6 +334,7 @@ def check_all_dependencies() -> dict[str, Any]:
     # Check model files
     model_files = {
         "deepcstrd": check_deepcstrd_models(),
+        "inbd": check_inbd_models(),
     }
 
     # Check system libraries
@@ -295,6 +368,9 @@ def check_all_dependencies() -> dict[str, Any]:
 
     if not model_files["deepcstrd"]["available"]:
         errors.append(f"DeepCS-TRD models not found: {model_files['deepcstrd']['error']}")
+    
+    if not model_files["inbd"]["available"]:
+        warnings.append(f"INBD not configured (optional): {model_files['inbd']['error']}")
 
     for lib_name, status in system_libraries.items():
         if not status["available"]:

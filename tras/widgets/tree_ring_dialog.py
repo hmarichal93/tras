@@ -17,6 +17,7 @@ from PyQt5.QtWidgets import QApplication
 from tras.utils.apd_helper import detect_pith_apd
 from tras.utils.cstrd_helper import detect_rings_cstrd
 from tras.utils.deepcstrd_helper import detect_rings_deepcstrd
+from tras.utils.inbd_helper import detect_rings_inbd
 
 class TreeRingDialog(QtWidgets.QDialog):
     def __init__(self, image_width: int, image_height: int, parent=None, image_np=None, initial_cx=None, initial_cy=None):
@@ -295,14 +296,82 @@ class TreeRingDialog(QtWidgets.QDialog):
         
         self.deepcstrd_advanced_group.setLayout(deepcstrd_layout)
         self.form.addRow(self.deepcstrd_advanced_group)
+        
+        # INBD button
+        self.btn_inbd = QtWidgets.QPushButton(self.tr("Detect with INBD (GPU)"))
+        self.btn_inbd.clicked.connect(self._on_inbd)
+        self.btn_inbd.setToolTip(self.tr("INBD (CVPR 2023): Iterative boundary detection for tree rings"))
+        self.form.addRow(self.btn_inbd)
+        
+        # INBD Model Selection & Parameters
+        self.inbd_advanced_group = QtWidgets.QGroupBox(self.tr("INBD Model & Parameters"))
+        self.inbd_advanced_group.setCheckable(True)
+        self.inbd_advanced_group.setChecked(False)  # Collapsed by default
+        inbd_layout = QtWidgets.QFormLayout()
+        
+        # Model Selection with Upload button
+        model_row = QtWidgets.QHBoxLayout()
+        self.inbd_model = QtWidgets.QComboBox()
+        self.inbd_model.addItems([
+            "INBD_EH (Empetrum hermaphroditum)",
+            "INBD_DO (Dryas octopetala)",
+            "INBD_VM (Vaccinium myrtillus)",
+            "INBD_UruDendro (Pinus taeda)"
+        ])
+        self.inbd_model.setToolTip(
+            self.tr("Select the INBD model trained on your target species.\n"
+                   "EH/DO/VM: Shrub species\n"
+                   "UruDendro: Tree species (Pinus taeda)")
+        )
+        model_row.addWidget(self.inbd_model, stretch=3)
+        
+        # Upload Model button
+        self.btn_upload_inbd_model = QtWidgets.QPushButton(self.tr("📁 Upload"))
+        self.btn_upload_inbd_model.setToolTip(
+            self.tr("Upload a custom INBD model (.pt.zip file).\n"
+                   "You'll be asked for a model name.")
+        )
+        self.btn_upload_inbd_model.clicked.connect(self._on_upload_inbd_model)
+        model_row.addWidget(self.btn_upload_inbd_model, stretch=1)
+        
+        inbd_layout.addRow(self.tr("Model:"), model_row)
+        
+        # Auto-detection checkbox
+        self.inbd_auto_pith = QtWidgets.QCheckBox(
+            self.tr("Use auto-detection (recommended)")
+        )
+        self.inbd_auto_pith.setToolTip(
+            self.tr("Let INBD detect the pith automatically from the innermost ring.\n"
+                   "This is the recommended mode for INBD.\n"
+                   "If unchecked, uses the pith coordinates from Step 1.")
+        )
+        self.inbd_auto_pith.setChecked(True)  # Checked by default
+        inbd_layout.addRow(self.inbd_auto_pith)
+        
+        self.inbd_advanced_group.setLayout(inbd_layout)
+        self.form.addRow(self.inbd_advanced_group)
+        
+        # Store INBD results
+        self.inbd_rings = None
 
         btns = QtWidgets.QDialogButtonBox(
             QtWidgets.QDialogButtonBox.Cancel
         )
         btns.rejected.connect(self.reject)
 
+        # Create a scrollable area for the form
+        scroll_widget = QtWidgets.QWidget()
+        scroll_widget.setLayout(self.form)
+        
+        scroll_area = QtWidgets.QScrollArea()
+        scroll_area.setWidget(scroll_widget)
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        scroll_area.setMinimumWidth(600)
+        scroll_area.setMinimumHeight(500)  # Set a reasonable minimum height
+
         layout = QtWidgets.QVBoxLayout()
-        layout.addLayout(self.form)
+        layout.addWidget(scroll_area)
         layout.addWidget(btns)
         self.setLayout(layout)
 
@@ -597,6 +666,174 @@ class TreeRingDialog(QtWidgets.QDialog):
                 self.tr("DeepCS-TRD Error"), 
                 self.tr(f"Failed to detect rings:\n{str(e)}\n\nCheck console for details.")
             )
+    
+    def _on_inbd(self):
+        """Handle INBD tree ring detection."""
+        if self.image_np is None:
+            QtWidgets.QMessageBox.warning(self, self.tr("No image"), self.tr("No image data available for INBD."))
+            return
+        try:
+            # Get current center coordinates
+            cx = float(self.cx.value())
+            cy = float(self.cy.value())
+            
+            # DEBUG: Check image properties
+            logger.info(f"INBD: Image check - shape={self.image_np.shape}, dtype={self.image_np.dtype}")
+            logger.info(f"INBD: Image stats - min={self.image_np.min()}, max={self.image_np.max()}, mean={self.image_np.mean():.2f}")
+            
+            # Show progress message
+            QtWidgets.QMessageBox.information(
+                self, 
+                self.tr("INBD Running"), 
+                self.tr("INBD is running. This may take 1-2 minutes. Click OK and wait...")
+            )
+            
+            # Set wait cursor and log
+            logger.info(f"INBD: Starting ring detection on image {self.image_np.shape}, center=({cx:.1f}, {cy:.1f})")
+            QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
+            
+            # Get model selection from UI
+            model_text = self.inbd_model.currentText()
+            # Extract model ID (e.g., "INBD_EH" from "INBD_EH (Empetrum hermaphroditum)")
+            model_id = model_text.split(" ")[0]
+            
+            logger.info(f"INBD: Model={model_id}")
+            
+            # Apply background removal if enabled
+            image_to_process = self.image_np.copy()
+            image_to_process = np.ascontiguousarray(image_to_process, dtype=np.uint8)
+            
+            if self.remove_bg_checkbox.isChecked():
+                logger.info("INBD: Removing background before detection...")
+                try:
+                    from tras.tree_ring_methods.urudendro.remove_salient_object import (
+                        remove_salient_object,
+                    )
+                    
+                    # Create temporary files for U2Net
+                    with tempfile.TemporaryDirectory() as temp_dir:
+                        input_path = Path(temp_dir) / "input.png"
+                        output_path = Path(temp_dir) / "output.png"
+                        
+                        # Ensure image is uint8 before saving
+                        if image_to_process.dtype != np.uint8:
+                            image_to_process = (255 * (image_to_process.astype(np.float32) / image_to_process.max())).astype(np.uint8)
+                        
+                        # Save current image (convert RGB to BGR for cv2.imwrite)
+                        cv2.imwrite(str(input_path), cv2.cvtColor(image_to_process, cv2.COLOR_RGB2BGR))
+                        
+                        # Run U2Net background removal
+                        remove_salient_object(str(input_path), str(output_path))
+                        
+                        # Load result
+                        from PIL import Image as PILImage
+                        result_pil = PILImage.open(str(output_path)).convert('RGB')
+                        result = np.array(result_pil, dtype=np.uint8)
+                        if result is not None and result.size > 0:
+                            if result.shape[:2] != image_to_process.shape[:2]:
+                                result = cv2.resize(result, (image_to_process.shape[1], image_to_process.shape[0]))
+                            image_to_process = np.ascontiguousarray(result, dtype=np.uint8)
+                            logger.info("INBD: Background removal completed")
+                        else:
+                            raise Exception("U2Net did not produce output")
+                except Exception as bg_error:
+                    logger.warning(f"INBD: Background removal failed: {bg_error}, continuing with original image")
+                    QtWidgets.QMessageBox.warning(
+                        self,
+                        self.tr("Background Removal Failed"),
+                        self.tr(f"Background removal failed: {bg_error}\n\nContinuing with original image.")
+                    )
+            
+            # Run INBD with current parameters
+            # Check if user wants to use auto-detection
+            if self.inbd_auto_pith.isChecked():
+                logger.info("INBD: Using auto-detection mode (no pith coordinates)")
+                rings = detect_rings_inbd(
+                    image_to_process, 
+                    center_xy=None,  # Let INBD auto-detect
+                    model_id=model_id
+                )
+            else:
+                logger.info(f"INBD: Using manual pith coordinates: ({cx:.1f}, {cy:.1f})")
+                rings = detect_rings_inbd(
+                    image_to_process, 
+                    center_xy=(cx, cy),
+                    model_id=model_id
+                )
+            
+            QApplication.restoreOverrideCursor()
+            
+            if not rings:
+                logger.warning("INBD: No rings detected")
+                QtWidgets.QMessageBox.information(self, self.tr("No rings found"), self.tr("INBD did not detect any rings."))
+                return
+            
+            logger.info(f"INBD: Detected {len(rings)} rings")
+            self.inbd_rings = rings
+            self.detected_pith_xy = (cx, cy)  # Store pith coordinates
+            QtWidgets.QMessageBox.information(
+                self, 
+                self.tr("INBD Success"), 
+                self.tr(f"Detected {len(rings)} rings. Click OK to insert them.")
+            )
+            self.accept()  # Close dialog and signal to use these rings
+        except FileNotFoundError as e:
+            QApplication.restoreOverrideCursor()
+            # Handle missing INBD setup with helpful instructions
+            error_msg = str(e)
+            if "INBD model" in error_msg or "not found" in error_msg:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    self.tr("INBD Not Set Up"),
+                    self.tr(
+                        "INBD models are not installed. Please follow these steps:\n\n"
+                        "1. Clone INBD repository:\n"
+                        "   cd tras/tree_ring_methods/inbd\n"
+                        "   git clone https://github.com/hmarichal93/INBD.git src\n\n"
+                        "2. Download models:\n"
+                        "   cd src\n"
+                        "   python fetch_pretrained_models.py\n\n"
+                        "Or use the download script:\n"
+                        "   cd tras/tree_ring_methods/inbd\n"
+                        "   ./download_models.sh\n\n"
+                        "After setup, models will be available at:\n"
+                        "   tras/tree_ring_methods/inbd/src/checkpoints/\n\n"
+                        "See tras/tree_ring_methods/inbd/README.md for details."
+                    )
+                )
+            else:
+                QtWidgets.QMessageBox.critical(
+                    self,
+                    self.tr("File Not Found"),
+                    self.tr(f"File not found:\n{str(e)}")
+                )
+        except ImportError as e:
+            QApplication.restoreOverrideCursor()
+            # Handle missing INBD source code
+            QtWidgets.QMessageBox.warning(
+                self,
+                self.tr("INBD Not Installed"),
+                self.tr(
+                    "INBD source code is not installed.\n\n"
+                    "Please clone the INBD repository:\n"
+                    "   cd tras/tree_ring_methods/inbd\n"
+                    "   git clone https://github.com/hmarichal93/INBD.git src\n\n"
+                    "Then download the models:\n"
+                    "   cd src\n"
+                    "   python fetch_pretrained_models.py\n\n"
+                    f"Error details: {str(e)}"
+                )
+            )
+        except Exception as e:
+            QApplication.restoreOverrideCursor()
+            import traceback
+            error_details = traceback.format_exc()
+            logger.error(f"INBD Error: {error_details}")
+            QtWidgets.QMessageBox.critical(
+                self, 
+                self.tr("INBD Error"), 
+                self.tr(f"Failed to detect rings:\n{str(e)}\n\nCheck console for details.")
+            )
 
     def _on_click_pith(self):
         """Request to click on image to set pith - closes dialog and signals parent"""
@@ -642,6 +879,10 @@ class TreeRingDialog(QtWidgets.QDialog):
     def get_deepcstrd_rings(self):
         # Returns rings if DeepCSTRD was used, else None
         return getattr(self, 'deepcstrd_rings', None)
+    
+    def get_inbd_rings(self):
+        # Returns rings if INBD was used, else None
+        return getattr(self, 'inbd_rings', None)
     
     def get_pith_xy(self):
         """Return pith coordinates used for detection, or None"""
@@ -728,6 +969,97 @@ class TreeRingDialog(QtWidgets.QDialog):
         self.deepcstrd_model.clear()
         for model_id, display_name in model_names.items():
             self.deepcstrd_model.addItem(display_name)
+    
+    def _on_upload_inbd_model(self):
+        """Handle INBD model upload button click."""
+        from pathlib import Path
+        import shutil
+        
+        # File dialog to select .pt.zip file
+        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self,
+            self.tr("Select INBD Model File"),
+            "",
+            self.tr("INBD Model Files (*.pt.zip);;All Files (*)")
+        )
+        
+        if not file_path:
+            return  # User cancelled
+        
+        # Ask for model name
+        model_name, ok = QtWidgets.QInputDialog.getText(
+            self,
+            self.tr("Model Name"),
+            self.tr("Enter a name for this model (e.g., 'eucalyptus', 'oak'):\n"
+                   "(Use only letters, numbers, and underscores)\n"
+                   "Will be saved as: INBD_<name>")
+        )
+        
+        if not ok or not model_name:
+            return  # User cancelled
+        
+        # Validate model name
+        model_name = model_name.strip().replace(" ", "_")
+        if not model_name.replace("_", "").isalnum():
+            QtWidgets.QMessageBox.warning(
+                self,
+                self.tr("Invalid Name"),
+                self.tr("Model name can only contain letters, numbers, and underscores.")
+            )
+            return
+        
+        # Create model directory name
+        model_dir_name = f"INBD_{model_name}"
+        
+        # Get destination path - store in INBD checkpoints directory
+        checkpoints_dir = Path(__file__).parent.parent / "tree_ring_methods" / "inbd" / "src" / "checkpoints"
+        dest_dir = checkpoints_dir / model_dir_name
+        dest_file = dest_dir / "model.pt.zip"
+        
+        if dest_file.exists():
+            reply = QtWidgets.QMessageBox.question(
+                self,
+                self.tr("Model Exists"),
+                self.tr(f"Model '{model_dir_name}' already exists. Overwrite?"),
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No
+            )
+            if reply != QtWidgets.QMessageBox.Yes:
+                return
+        
+        try:
+            # Create directory if it doesn't exist
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Copy model file
+            shutil.copy2(file_path, dest_file)
+            
+            # Add to model list if not already there
+            new_model_text = f"{model_dir_name} (custom)"
+            if self.inbd_model.findText(new_model_text) < 0:
+                self.inbd_model.addItem(new_model_text)
+            
+            # Select the newly uploaded model
+            index = self.inbd_model.findText(new_model_text)
+            if index >= 0:
+                self.inbd_model.setCurrentIndex(index)
+            
+            QtWidgets.QMessageBox.information(
+                self,
+                self.tr("Upload Successful"),
+                self.tr(f"Model uploaded successfully!\n\n"
+                       f"Model: {model_dir_name}\n"
+                       f"Location: {dest_file}")
+            )
+            
+            logger.info(f"Uploaded custom INBD model: {dest_file}")
+            
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(
+                self,
+                self.tr("Upload Failed"),
+                self.tr(f"Failed to upload model:\n{str(e)}")
+            )
+            logger.error(f"Failed to upload INBD model: {e}", exc_info=True)
     
     def _on_upload_model(self):
         """Handle model upload button click."""

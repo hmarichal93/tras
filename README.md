@@ -77,6 +77,7 @@ cd ../../../..  # Return to tras-${TRAS_VERSION} directory
 - **APD**: Automatic Pith Detection (~1s, CPU)
 - **CS-TRD**: Classical edge detection (~73s, CPU) *[Linux/macOS only]*
 - **DeepCS-TRD**: Deep learning U-Net (~101s, GPU)
+- **INBD**: Iterative Next Boundary Detection (CVPR 2023, GPU)
 
 <img src="assets/detection-methods.png" alt="Detection Methods" width="100%"/>
 
@@ -175,7 +176,7 @@ tras --version                    # Check version
 4. **🎯 Detect Rings**
    - `Tools > Tree Ring Detection`
    - Choose pith: APD (auto) or manual click
-   - Select method: CS-TRD (Linux/macOS) or DeepCS-TRD (all platforms)
+   - Select method: CS-TRD (Linux/macOS), DeepCS-TRD, or INBD (all platforms)
 
 5. **📝 Add Metadata**
    - `Tools > Sample Metadata`
@@ -210,7 +211,7 @@ If you use TRAS in your research, please cite the following papers:
 }
 ```
 
-### CS-TRD (Classical Tree Ring Detection)
+### CS-TRD (Cross-Section Tree Ring Detection)
 ```bibtex
 @misc{marichal2024cstrdcrosssectionstree,
   title={CS-TRD: a Cross Sections Tree Ring Detection method}, 
@@ -233,6 +234,17 @@ If you use TRAS in your research, please cite the following papers:
   archivePrefix={arXiv},
   primaryClass={cs.CV},
   url={https://arxiv.org/abs/2504.16242}
+}
+```
+
+### INBD (Iterative Next Boundary Detection)
+```bibtex
+@inproceedings{gillert2023inbd,
+  title={Iterative Next Boundary Detection for Instance Segmentation of Tree Rings in Microscopy Images of Shrub Cross Sections},
+  author={Gillert, Alexander and Resente, Giulia and Anadon-Rosell, Alba and Wilmking, Martin and von Lukas, Uwe},
+  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  pages={14540--14548},
+  year={2023}
 }
 ```
 

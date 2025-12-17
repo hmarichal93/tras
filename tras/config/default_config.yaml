@@ -161,3 +161,6 @@ tree_ring_detection:
   preprocessing:
     default_scale: 700
     auto_remove_background: false
+  # INBD defaults
+  inbd:
+    default_model: "INBD_EH"  # Default to Empetrum hermaphroditum model

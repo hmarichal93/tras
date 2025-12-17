@@ -627,7 +627,7 @@ class MainWindow(QtWidgets.QMainWindow):
 <p><b>Features:</b></p>
 <ul>
     <li>Automatic Pith Detection (APD)</li>
-    <li>Tree Ring Detection (CS-TRD, DeepCS-TRD)</li>
+    <li>Tree Ring Detection (CS-TRD, DeepCS-TRD, INBD)</li>
     <li>Radial Width Measurement</li>
     <li>Image Preprocessing & Scale Calibration</li>
     <li>Professional PDF Reports</li>
@@ -699,7 +699,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self._action_detect_rings,
             shortcuts["detect_tree_rings"],
             "tree_ring",
-            self.tr("Step 4: Automatically detect rings using APD, CS-TRD, or DeepCS-TRD"),
+            self.tr("Step 4: Automatically detect rings using APD, CS-TRD, DeepCS-TRD, or INBD"),
             enabled=False,
         )
         
@@ -1194,18 +1194,21 @@ class MainWindow(QtWidgets.QMainWindow):
                 # User cancelled
                 return
         
-        # Get rings from CS-TRD or DeepCS-TRD
+        # Get rings from CS-TRD, DeepCS-TRD, or INBD
         cstrd_rings = dlg.get_cstrd_rings()
         deepcstrd_rings = dlg.get_deepcstrd_rings()
+        inbd_rings = dlg.get_inbd_rings()
         pith_xy = dlg.get_pith_xy()
         
         if cstrd_rings is not None:
             rings = cstrd_rings
         elif deepcstrd_rings is not None:
             rings = deepcstrd_rings
+        elif inbd_rings is not None:
+            rings = inbd_rings
         else:
             # No detection method was used
-            self.errorMessage(self.tr("No detection"), self.tr("Please use CS-TRD or DeepCS-TRD detection buttons."))
+            self.errorMessage(self.tr("No detection"), self.tr("Please use CS-TRD, DeepCS-TRD, or INBD detection buttons."))
             return
         
         # Store pith coordinates for later use (e.g., radial width measurement)
