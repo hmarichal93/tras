@@ -19,6 +19,78 @@ from tras.utils.cstrd_helper import detect_rings_cstrd
 from tras.utils.deepcstrd_helper import detect_rings_deepcstrd
 from tras.utils.inbd_helper import detect_rings_inbd
 
+
+def _remove_background(
+    image: np.ndarray,
+    method_name: str,
+    debug_dir: Path | None = None,
+    debug_filename: str | None = None,
+) -> tuple[np.ndarray, str | None]:
+    """
+    Remove background from image using U2Net.
+    
+    Args:
+        image: Input image (RGB, numpy array)
+        method_name: Name of the detection method for logging (e.g., "CS-TRD")
+        debug_dir: Optional directory to save debug image
+        debug_filename: Optional filename for debug image (e.g., "cstrd_bg_removed.png")
+    
+    Returns:
+        Tuple of (processed_image, error_message).
+        If successful, error_message is None.
+        If failed, returns original image and error message.
+    """
+    logger.info(f"{method_name}: Removing background before detection...")
+    
+    try:
+        from tras.tree_ring_methods.urudendro.remove_salient_object import (
+            remove_salient_object,
+        )
+        from PIL import Image as PILImage
+        
+        # Ensure image is uint8 before saving
+        image_to_save = image
+        if image_to_save.dtype != np.uint8:
+            image_to_save = (255 * (image_to_save.astype(np.float32) / image_to_save.max())).astype(np.uint8)
+        
+        with tempfile.TemporaryDirectory() as temp_dir:
+            input_path = Path(temp_dir) / "input.png"
+            output_path = Path(temp_dir) / "output.png"
+            
+            # Save current image (convert RGB to BGR for cv2.imwrite)
+            cv2.imwrite(str(input_path), cv2.cvtColor(image_to_save, cv2.COLOR_RGB2BGR))
+            
+            # Run U2Net background removal
+            remove_salient_object(str(input_path), str(output_path))
+            
+            # Load result using PIL (matches how remove_salient_object saves it)
+            result_pil = PILImage.open(str(output_path)).convert('RGB')
+            result = np.array(result_pil, dtype=np.uint8)
+            
+            if result is None or result.size == 0:
+                raise Exception("U2Net did not produce output")
+            
+            # Ensure same dimensions as input
+            if result.shape[:2] != image_to_save.shape[:2]:
+                logger.warning(f"{method_name}: Output shape {result.shape[:2]} != input shape {image_to_save.shape[:2]}, resizing...")
+                result = cv2.resize(result, (image_to_save.shape[1], image_to_save.shape[0]))
+            
+            result = np.ascontiguousarray(result, dtype=np.uint8)
+            
+            # Save debug image if requested
+            if debug_dir is not None and debug_filename is not None:
+                bg_removed_debug_path = debug_dir / debug_filename
+                cv2.imwrite(str(bg_removed_debug_path), cv2.cvtColor(result, cv2.COLOR_RGB2BGR))
+                logger.info(f"{method_name}: Saved background-removed image to {bg_removed_debug_path}")
+            
+            logger.info(f"{method_name}: Background removal completed")
+            return result, None
+            
+    except Exception as bg_error:
+        logger.warning(f"{method_name}: Background removal failed: {bg_error}, continuing with original image")
+        return image, str(bg_error)
+
+
 class TreeRingDialog(QtWidgets.QDialog):
     def __init__(self, image_width: int, image_height: int, parent=None, image_np=None, initial_cx=None, initial_cy=None):
         super().__init__(parent)
@@ -426,51 +498,10 @@ class TreeRingDialog(QtWidgets.QDialog):
             logger.info(f"CS-TRD: Saved original image to {original_debug_path}")
             
             if self.remove_bg_checkbox.isChecked():
-                logger.info("CS-TRD: Removing background before detection...")
-                logger.info(f"CS-TRD: Image before BG removal - shape={image_to_process.shape}, dtype={image_to_process.dtype}, min={image_to_process.min()}, max={image_to_process.max()}")
-                try:
-                    from tras.tree_ring_methods.urudendro.remove_salient_object import (
-                        remove_salient_object,
-                    )
-                    
-                        # Create temporary files for U2Net
-                    with tempfile.TemporaryDirectory() as temp_dir:
-                        input_path = Path(temp_dir) / "input.png"
-                        output_path = Path(temp_dir) / "output.png"
-                        
-                        # Ensure image is uint8 before saving (fix for depth warning)
-                        if image_to_process.dtype != np.uint8:
-                            image_to_process = (255 * (image_to_process.astype(np.float32) / image_to_process.max())).astype(np.uint8)
-                        
-                        # Save current image (convert RGB to BGR for cv2.imwrite)
-                        cv2.imwrite(str(input_path), cv2.cvtColor(image_to_process, cv2.COLOR_RGB2BGR))
-                        
-                        # Run U2Net background removal
-                        remove_salient_object(str(input_path), str(output_path))
-                        
-                        # Load result (convert BGR back to RGB)
-                        # Use PIL to read the output (matches how remove_salient_object saves it)
-                        from PIL import Image as PILImage
-                        result_pil = PILImage.open(str(output_path)).convert('RGB')
-                        result = np.array(result_pil, dtype=np.uint8)
-                        if result is not None and result.size > 0:
-                            # Ensure same dimensions as input
-                            if result.shape[:2] != image_to_process.shape[:2]:
-                                logger.warning(f"CS-TRD: Output shape {result.shape[:2]} != input shape {image_to_process.shape[:2]}, resizing...")
-                                result = cv2.resize(result, (image_to_process.shape[1], image_to_process.shape[0]))
-                            image_to_process = np.ascontiguousarray(result, dtype=np.uint8)
-                            logger.info(f"CS-TRD: Image after BG removal - shape={image_to_process.shape}, dtype={image_to_process.dtype}, min={image_to_process.min()}, max={image_to_process.max()}")
-                            
-                            # Save background-removed image for debugging
-                            bg_removed_debug_path = debug_dir / "cstrd_bg_removed.png"
-                            cv2.imwrite(str(bg_removed_debug_path), cv2.cvtColor(image_to_process, cv2.COLOR_RGB2BGR))
-                            logger.info(f"CS-TRD: Saved background-removed image to {bg_removed_debug_path}")
-                            
-                            logger.info("CS-TRD: Background removal completed")
-                        else:
-                            raise Exception("U2Net did not produce output")
-                except Exception as bg_error:
-                    logger.warning(f"CS-TRD: Background removal failed: {bg_error}, continuing with original image")
+                image_to_process, bg_error = _remove_background(
+                    image_to_process, "CS-TRD", debug_dir, "cstrd_bg_removed.png"
+                )
+                if bg_error:
                     QtWidgets.QMessageBox.warning(
                         self,
                         self.tr("Background Removal Failed"),
@@ -575,51 +606,10 @@ class TreeRingDialog(QtWidgets.QDialog):
             logger.info(f"DeepCS-TRD: Saved original image to {original_debug_path}")
             
             if self.remove_bg_checkbox.isChecked():
-                logger.info("DeepCS-TRD: Removing background before detection...")
-                logger.info(f"DeepCS-TRD: Image before BG removal - shape={image_to_process.shape}, dtype={image_to_process.dtype}, min={image_to_process.min()}, max={image_to_process.max()}")
-                try:
-                    from tras.tree_ring_methods.urudendro.remove_salient_object import (
-                        remove_salient_object,
-                    )
-                    
-                    # Create temporary files for U2Net
-                    with tempfile.TemporaryDirectory() as temp_dir:
-                        input_path = Path(temp_dir) / "input.png"
-                        output_path = Path(temp_dir) / "output.png"
-                        
-                        # Ensure image is uint8 before saving (fix for depth warning)
-                        if image_to_process.dtype != np.uint8:
-                            image_to_process = (255 * (image_to_process.astype(np.float32) / image_to_process.max())).astype(np.uint8)
-                        
-                        # Save current image (convert RGB to BGR for cv2.imwrite)
-                        cv2.imwrite(str(input_path), cv2.cvtColor(image_to_process, cv2.COLOR_RGB2BGR))
-                        
-                        # Run U2Net background removal
-                        remove_salient_object(str(input_path), str(output_path))
-                        
-                        # Load result (convert BGR back to RGB)
-                        # Use PIL to read the output (matches how remove_salient_object saves it)
-                        from PIL import Image as PILImage
-                        result_pil = PILImage.open(str(output_path)).convert('RGB')
-                        result = np.array(result_pil, dtype=np.uint8)
-                        if result is not None and result.size > 0:
-                            # Ensure same dimensions as input
-                            if result.shape[:2] != image_to_process.shape[:2]:
-                                logger.warning(f"DeepCS-TRD: Output shape {result.shape[:2]} != input shape {image_to_process.shape[:2]}, resizing...")
-                                result = cv2.resize(result, (image_to_process.shape[1], image_to_process.shape[0]))
-                            image_to_process = np.ascontiguousarray(result, dtype=np.uint8)
-                            logger.info(f"DeepCS-TRD: Image after BG removal - shape={image_to_process.shape}, dtype={image_to_process.dtype}, min={image_to_process.min()}, max={image_to_process.max()}")
-                            
-                            # Save background-removed image for debugging
-                            bg_removed_debug_path = debug_dir / "deepcstrd_bg_removed.png"
-                            cv2.imwrite(str(bg_removed_debug_path), cv2.cvtColor(image_to_process, cv2.COLOR_RGB2BGR))
-                            logger.info(f"DeepCS-TRD: Saved background-removed image to {bg_removed_debug_path}")
-                            
-                            logger.info("DeepCS-TRD: Background removal completed")
-                        else:
-                            raise Exception("U2Net did not produce output")
-                except Exception as bg_error:
-                    logger.warning(f"DeepCS-TRD: Background removal failed: {bg_error}, continuing with original image")
+                image_to_process, bg_error = _remove_background(
+                    image_to_process, "DeepCS-TRD", debug_dir, "deepcstrd_bg_removed.png"
+                )
+                if bg_error:
                     QtWidgets.QMessageBox.warning(
                         self,
                         self.tr("Background Removal Failed"),
@@ -704,40 +694,8 @@ class TreeRingDialog(QtWidgets.QDialog):
             image_to_process = np.ascontiguousarray(image_to_process, dtype=np.uint8)
             
             if self.remove_bg_checkbox.isChecked():
-                logger.info("INBD: Removing background before detection...")
-                try:
-                    from tras.tree_ring_methods.urudendro.remove_salient_object import (
-                        remove_salient_object,
-                    )
-                    
-                    # Create temporary files for U2Net
-                    with tempfile.TemporaryDirectory() as temp_dir:
-                        input_path = Path(temp_dir) / "input.png"
-                        output_path = Path(temp_dir) / "output.png"
-                        
-                        # Ensure image is uint8 before saving
-                        if image_to_process.dtype != np.uint8:
-                            image_to_process = (255 * (image_to_process.astype(np.float32) / image_to_process.max())).astype(np.uint8)
-                        
-                        # Save current image (convert RGB to BGR for cv2.imwrite)
-                        cv2.imwrite(str(input_path), cv2.cvtColor(image_to_process, cv2.COLOR_RGB2BGR))
-                        
-                        # Run U2Net background removal
-                        remove_salient_object(str(input_path), str(output_path))
-                        
-                        # Load result
-                        from PIL import Image as PILImage
-                        result_pil = PILImage.open(str(output_path)).convert('RGB')
-                        result = np.array(result_pil, dtype=np.uint8)
-                        if result is not None and result.size > 0:
-                            if result.shape[:2] != image_to_process.shape[:2]:
-                                result = cv2.resize(result, (image_to_process.shape[1], image_to_process.shape[0]))
-                            image_to_process = np.ascontiguousarray(result, dtype=np.uint8)
-                            logger.info("INBD: Background removal completed")
-                        else:
-                            raise Exception("U2Net did not produce output")
-                except Exception as bg_error:
-                    logger.warning(f"INBD: Background removal failed: {bg_error}, continuing with original image")
+                image_to_process, bg_error = _remove_background(image_to_process, "INBD")
+                if bg_error:
                     QtWidgets.QMessageBox.warning(
                         self,
                         self.tr("Background Removal Failed"),
@@ -1062,7 +1020,7 @@ class TreeRingDialog(QtWidgets.QDialog):
             logger.error(f"Failed to upload INBD model: {e}", exc_info=True)
     
     def _on_upload_model(self):
-        """Handle model upload button click."""
+        """Handle DeepCS-TRDmodel upload button click."""
         from pathlib import Path
         import shutil
         
