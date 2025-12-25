@@ -316,12 +316,12 @@ class TreeRingDialog(QtWidgets.QDialog):
             "INBD_EH (Empetrum hermaphroditum)",
             "INBD_DO (Dryas octopetala)",
             "INBD_VM (Vaccinium myrtillus)",
-            "INBD_UruDendro (Pinus taeda)"
+            "INBD_UruDendro1 (Pinus taeda)"
         ])
         self.inbd_model.setToolTip(
             self.tr("Select the INBD model trained on your target species.\n"
                    "EH/DO/VM: Shrub species\n"
-                   "UruDendro: Tree species (Pinus taeda)")
+                   "UruDendro1: Tree species (Pinus taeda)")
         )
         model_row.addWidget(self.inbd_model, stretch=3)
         

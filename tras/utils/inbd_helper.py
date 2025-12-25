@@ -23,11 +23,11 @@ def detect_rings_inbd(
         image: Input image as numpy array (H x W x 3)
         center_xy: Pith center coordinates (x, y). Optional - if None, INBD will 
                    attempt to detect the pith automatically or use its own method.
-        model_id: Model identifier ("INBD_EH", "INBD_DO", "INBD_VM", "INBD_UruDendro")
+        model_id: Model identifier ("INBD_EH", "INBD_DO", "INBD_VM", "INBD_UruDendro1")
             - INBD_EH: Empetrum hermaphroditum (shrub)
             - INBD_DO: Dryas octopetala (shrub)
             - INBD_VM: Vaccinium myrtillus (shrub)
-            - INBD_UruDendro: Pinus taeda (tree)
+            - INBD_UruDendro1: Pinus taeda (tree)
         output_format: Output format ("polylines" or "masks")
     
     Returns:

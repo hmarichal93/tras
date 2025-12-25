@@ -67,6 +67,15 @@ cd ../../../..  # Return to tras-${TRAS_VERSION} directory
 ```
 > **Note**: CS-TRD is not available on Windows. Windows users should use DeepCS-TRD instead.
 
+### 3. Install INBD Tree-Ring Detection Method (Optional)
+```bash
+mkdir -p tras/tree_ring_methods/inbd && cd tras/tree_ring_methods/inbd
+git clone https://github.com/hmarichal93/INBD.git src
+./download_models.sh
+```
+
+
+
 ## ✨ Key Features
 
 <table>
