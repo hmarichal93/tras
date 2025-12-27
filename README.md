@@ -199,7 +199,7 @@ tras --version                    # Check version
 
 If you use TRAS in your research, please cite the following papers:
 
-### UruDendro,
+### UruDendro
 ```bibtex
 @article{UruDendro,
   author    = {Henry Marichal and Diego Passarella and Christine Lucas and Ludmila Profumo and Verónica Casaravilla and María Noel Rocha Galli and Serrana Ambite and Gregory Randall},
@@ -253,17 +253,6 @@ If you use TRAS in your research, please cite the following papers:
   archivePrefix={arXiv},
   primaryClass={cs.CV},
   url={https://arxiv.org/abs/2504.16242}
-}
-```
-
-### INBD (Iterative Next Boundary Detection)
-```bibtex
-@inproceedings{gillert2023inbd,
-  title={Iterative Next Boundary Detection for Instance Segmentation of Tree Rings in Microscopy Images of Shrub Cross Sections},
-  author={Gillert, Alexander and Resente, Giulia and Anadon-Rosell, Alba and Wilmking, Martin and von Lukas, Uwe},
-  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
-  pages={14540--14548},
-  year={2023}
 }
 ```
 
