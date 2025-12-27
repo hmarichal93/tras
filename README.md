@@ -199,6 +199,22 @@ tras --version                    # Check version
 
 If you use TRAS in your research, please cite the following papers:
 
+### UruDendro,
+```bibtex
+@article{UruDendro,
+  author    = {Henry Marichal and Diego Passarella and Christine Lucas and Ludmila Profumo and Verónica Casaravilla and María Noel Rocha Galli and Serrana Ambite and Gregory Randall},
+  title     = {UruDendro, a public dataset of 64 cross-section images and manual annual ring delineations of \textit{Pinus taeda L.}},
+  journal   = {Annals of Forest Science},
+  volume    = {82},
+  number    = {1},
+  pages     = {25},
+  year      = {2025},
+  issn      = {1297-966X},
+  doi       = {10.1186/s13595-025-01296-5},
+  url       = {https://doi.org/10.1186/s13595-025-01296-5}
+}
+```
+
 ### APD (Automatic Pith Detection)
 ```bibtex
 @inproceedings{apd,
@@ -213,14 +229,17 @@ If you use TRAS in your research, please cite the following papers:
 
 ### CS-TRD (Cross-Section Tree Ring Detection)
 ```bibtex
-@misc{marichal2024cstrdcrosssectionstree,
+@article{marichal2024cstrdcrosssectionstree,
   title={CS-TRD: a Cross Sections Tree Ring Detection method}, 
   author={Henry Marichal and Diego Passarella and Gregory Randall},
   year={2024},
-  eprint={2305.10809},
-  archivePrefix={arXiv},
-  primaryClass={cs.CV},
-  url={https://arxiv.org/abs/2305.10809}
+  url={https://doi.org/10.5201/ipol.2025.485},
+  doi={https://doi.org/10.5201/ipol.2025.485},
+  issn = {2105-1232},
+  year = {2025},
+  pages = {78-107},
+  journal = {Image Processing On Line},
+  keywords = {image processing, dendrometry, tree ring detection}
 }
 ```
 
