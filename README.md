@@ -232,7 +232,6 @@ If you use TRAS in your research, please cite the following papers:
 @article{marichal2024cstrdcrosssectionstree,
   title={CS-TRD: a Cross Sections Tree Ring Detection method}, 
   author={Henry Marichal and Diego Passarella and Gregory Randall},
-  year={2024},
   url={https://doi.org/10.5201/ipol.2025.485},
   doi={https://doi.org/10.5201/ipol.2025.485},
   issn = {2105-1232},
