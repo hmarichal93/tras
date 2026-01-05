@@ -229,16 +229,14 @@ If you use TRAS in your research, please cite the following papers:
 
 ### CS-TRD (Cross-Section Tree Ring Detection)
 ```bibtex
-@article{marichal2024cstrdcrosssectionstree,
-  title={CS-TRD: a Cross Sections Tree Ring Detection method}, 
-  author={Henry Marichal and Diego Passarella and Gregory Randall},
-  url={https://doi.org/10.5201/ipol.2025.485},
-  doi={https://doi.org/10.5201/ipol.2025.485},
-  issn = {2105-1232},
-  year = {2025},
-  pages = {78-107},
-  journal = {Image Processing On Line},
-  keywords = {image processing, dendrometry, tree ring detection}
+@article{ipol.2025.485,
+    title   = {{CS-TRD: a Cross-Section Tree Ring Detection Method}},
+    author  = {Marichal, Henry and Passarella, Diego and Randall, Gregory},
+    journal = {{Image Processing On Line}},
+    volume  = {15},
+    pages   = {78--107},
+    year    = {2025},
+    note    = {\url{https://doi.org/10.5201/ipol.2025.485}}
 }
 ```
 
