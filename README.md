@@ -242,14 +242,26 @@ If you use TRAS in your research, please cite the following papers:
 
 ### DeepCS-TRD (Deep Learning Tree Ring Detection)
 ```bibtex
-@misc{marichal2025deepcstrddeeplearningbasedcrosssection,
-  title={DeepCS-TRD, a Deep Learning-based Cross-Section Tree Ring Detector}, 
-  author={Henry Marichal and Verónica Casaravilla and Candice Power and Karolain Mello and Joaquín Mazarino and Christine Lucas and Ludmila Profumo and Diego Passarella and Gregory Randall},
-  year={2025},
-  eprint={2504.16242},
-  archivePrefix={arXiv},
-  primaryClass={cs.CV},
-  url={https://arxiv.org/abs/2504.16242}
+@InProceedings{10.1007/978-3-032-10185-3_3,
+author="Marichal, Henry
+and Casaravilla, Ver{\'o}nica
+and Power, Candice
+and Mello, Karolain
+and Mazarino, Joaqu{\'i}n
+and Lucas, Christine
+and Profumo, Ludmila
+and Passarella, Diego
+and Randall, Gregory",
+editor="Rodol{\`a}, Emanuele
+and Galasso, Fabio
+and Masi, Iacopo",
+title="DeepCS-TRD, a Deep Learning-Based Cross-Section Tree Ring Detector",
+booktitle="Image Analysis and Processing -- ICIAP 2025",
+year="2026",
+publisher="Springer Nature Switzerland",
+address="Cham",
+pages="29--41",
+isbn="978-3-032-10185-3"
 }
 ```
 
