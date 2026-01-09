@@ -35,7 +35,14 @@ class RingPropertiesDialog(QtWidgets.QDialog):
         self.has_polygon_data = bool(self.ring_properties)
         self.has_radial_data = bool(self.radial_measurements)
 
-        self.cumulative_areas, self.annual_growth_areas = self._compute_polygon_metrics()
+        result = self._compute_polygon_metrics()
+        if len(result) == 4:
+            self.cumulative_areas, self.annual_growth_areas, self.cumulative_areas_no_exclusion, self.annual_growth_areas_no_exclusion = result
+        else:
+            # Fallback for old format
+            self.cumulative_areas, self.annual_growth_areas = result
+            self.cumulative_areas_no_exclusion = []
+            self.annual_growth_areas_no_exclusion = []
 
         layout = QtWidgets.QVBoxLayout()
 
@@ -91,12 +98,16 @@ class RingPropertiesDialog(QtWidgets.QDialog):
 
     def _compute_polygon_metrics(self):
         if not self.has_polygon_data:
-            return [], []
+            return [], [], [], [], [], []
 
         annual_growth_areas = []
         cumulative_areas = []
+        annual_growth_areas_no_exclusion = []
+        cumulative_areas_no_exclusion = []
         prev_cumulative = 0.0
+        prev_cumulative_no_exclusion = 0.0
         for props in self.ring_properties:
+            # With exclusion
             cumulative_value = props.get("cumulative_area")
             if cumulative_value is None:
                 area_value = props.get("area", 0.0) or 0.0
@@ -104,13 +115,29 @@ class RingPropertiesDialog(QtWidgets.QDialog):
             else:
                 cumulative_value = float(cumulative_value)
             cumulative_value = max(cumulative_value, 0.0)
-
             growth_value = max(cumulative_value - prev_cumulative, 0.0)
             annual_growth_areas.append(growth_value)
             cumulative_areas.append(cumulative_value)
             prev_cumulative = cumulative_value
+            
+            # Without exclusion
+            cumulative_value_no_excl = props.get("cumulative_area_no_exclusion")
+            if cumulative_value_no_excl is None:
+                area_value_no_excl = props.get("area_no_exclusion")
+                if area_value_no_excl is None:
+                    # Fallback to same as with exclusion if not available
+                    cumulative_value_no_excl = cumulative_value
+                else:
+                    cumulative_value_no_excl = prev_cumulative_no_exclusion + float(area_value_no_excl)
+            else:
+                cumulative_value_no_excl = float(cumulative_value_no_excl)
+            cumulative_value_no_excl = max(cumulative_value_no_excl, 0.0)
+            growth_value_no_excl = max(cumulative_value_no_excl - prev_cumulative_no_exclusion, 0.0)
+            annual_growth_areas_no_exclusion.append(growth_value_no_excl)
+            cumulative_areas_no_exclusion.append(cumulative_value_no_excl)
+            prev_cumulative_no_exclusion = cumulative_value_no_excl
 
-        return cumulative_areas, annual_growth_areas
+        return cumulative_areas, annual_growth_areas, cumulative_areas_no_exclusion, annual_growth_areas_no_exclusion
 
     def _build_polygon_section(self):
         widget = QtWidgets.QWidget()
@@ -122,31 +149,53 @@ class RingPropertiesDialog(QtWidgets.QDialog):
         has_radial_column = any(
             props.get("radial_width_px") is not None for props in self.ring_properties
         )
+        # Check if exclusion areas are present (has area_no_exclusion field)
+        has_exclusion = any(
+            props.get("area_no_exclusion") is not None for props in self.ring_properties
+        )
 
         table = QtWidgets.QTableWidget()
         if has_scale:
             headers = [
                 self.tr("Ring"),
                 self.tr(f"Area ({unit}²)"),
-                self.tr(f"Cumul. Area ({unit}²)"),
-                self.tr(f"Perimeter ({unit})"),
             ]
+            if has_exclusion:
+                headers.append(self.tr(f"Area (no excl.) ({unit}²)"))
+            headers.extend([
+                self.tr(f"Cumul. Area ({unit}²)"),
+            ])
+            if has_exclusion:
+                headers.append(self.tr(f"Cumul. Area (no excl.) ({unit}²)"))
+            headers.append(self.tr(f"Perimeter ({unit})"))
             if has_radial_column:
                 headers.append(self.tr(f"Radial Width ({unit})"))
             headers.extend(
                 [
                     self.tr("Area (px²)"),
-                    self.tr("Cumul. Area (px²)"),
-                    self.tr("Perimeter (px)"),
                 ]
             )
+            if has_exclusion:
+                headers.append(self.tr("Area (no excl.) (px²)"))
+            headers.extend([
+                self.tr("Cumul. Area (px²)"),
+            ])
+            if has_exclusion:
+                headers.append(self.tr("Cumul. Area (no excl.) (px²)"))
+            headers.append(self.tr("Perimeter (px)"))
         else:
             headers = [
                 self.tr("Ring"),
                 self.tr("Area (px²)"),
-                self.tr("Cumul. Area (px²)"),
-                self.tr("Perimeter (px)"),
             ]
+            if has_exclusion:
+                headers.append(self.tr("Area (no excl.) (px²)"))
+            headers.extend([
+                self.tr("Cumul. Area (px²)"),
+            ])
+            if has_exclusion:
+                headers.append(self.tr("Cumul. Area (no excl.) (px²)"))
+            headers.append(self.tr("Perimeter (px)"))
             if has_radial_column:
                 headers.append(self.tr("Radial Width (px)"))
 
@@ -165,6 +214,13 @@ class RingPropertiesDialog(QtWidgets.QDialog):
 
             cumul_area_px = self.cumulative_areas[row]
             annual_area_px = self.annual_growth_areas[row]
+            if has_exclusion and len(self.cumulative_areas_no_exclusion) > row:
+                cumul_area_px_no_excl = self.cumulative_areas_no_exclusion[row]
+                annual_area_px_no_excl = self.annual_growth_areas_no_exclusion[row]
+            else:
+                cumul_area_px_no_excl = cumul_area_px
+                annual_area_px_no_excl = annual_area_px
+            
             if has_scale and scale_value is not None:
                 area_physical = annual_area_px * (scale_value ** 2)
                 cumul_physical = cumul_area_px * (scale_value ** 2)
@@ -172,8 +228,16 @@ class RingPropertiesDialog(QtWidgets.QDialog):
 
                 table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{area_physical:.4f}"))
                 col += 1
+                if has_exclusion:
+                    area_physical_no_excl = annual_area_px_no_excl * (scale_value ** 2)
+                    table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{area_physical_no_excl:.4f}"))
+                    col += 1
                 table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{cumul_physical:.4f}"))
                 col += 1
+                if has_exclusion:
+                    cumul_physical_no_excl = cumul_area_px_no_excl * (scale_value ** 2)
+                    table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{cumul_physical_no_excl:.4f}"))
+                    col += 1
                 table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{perim_physical:.4f}"))
                 col += 1
 
@@ -190,8 +254,14 @@ class RingPropertiesDialog(QtWidgets.QDialog):
 
                 table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{annual_area_px:.2f}"))
                 col += 1
+                if has_exclusion:
+                    table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{annual_area_px_no_excl:.2f}"))
+                    col += 1
                 table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{cumul_area_px:.2f}"))
                 col += 1
+                if has_exclusion:
+                    table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{cumul_area_px_no_excl:.2f}"))
+                    col += 1
                 table.setItem(
                     row,
                     col,
@@ -201,8 +271,14 @@ class RingPropertiesDialog(QtWidgets.QDialog):
             else:
                 table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{annual_area_px:.2f}"))
                 col += 1
+                if has_exclusion:
+                    table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{annual_area_px_no_excl:.2f}"))
+                    col += 1
                 table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{cumul_area_px:.2f}"))
                 col += 1
+                if has_exclusion:
+                    table.setItem(row, col, QtWidgets.QTableWidgetItem(f"{cumul_area_px_no_excl:.2f}"))
+                    col += 1
                 table.setItem(
                     row,
                     col,
