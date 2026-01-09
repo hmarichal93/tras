@@ -49,6 +49,17 @@ class ExportDialog(QtWidgets.QDialog):
         self.export_json_checkbox.setChecked(True)
         options_layout.addWidget(self.export_json_checkbox)
         
+        # Save image checkbox
+        self.export_image_checkbox = QtWidgets.QCheckBox(
+            self.tr("Save image as separate file")
+        )
+        self.export_image_checkbox.setToolTip(
+            self.tr("Save the current image (with annotations if visible) as a separate image file.\n"
+                   "The image will be saved in PNG format.")
+        )
+        self.export_image_checkbox.setChecked(False)
+        options_layout.addWidget(self.export_image_checkbox)
+        
         # CSV measurements checkbox
         self.export_csv_checkbox = QtWidgets.QCheckBox(
             self.tr("Export measurements as CSV")
@@ -121,6 +132,7 @@ class ExportDialog(QtWidgets.QDialog):
         
         # Connect checkboxes to update status
         self.export_json_checkbox.toggled.connect(self._update_status)
+        self.export_image_checkbox.toggled.connect(self._update_status)
         self.export_csv_checkbox.toggled.connect(self._update_status)
         self.export_pos_checkbox.toggled.connect(self._update_status)
         self.export_pdf_checkbox.toggled.connect(self._update_status)
@@ -161,6 +173,8 @@ class ExportDialog(QtWidgets.QDialog):
         selected = []
         if self.export_json_checkbox.isChecked():
             selected.append(self.tr("JSON"))
+        if self.export_image_checkbox.isChecked():
+            selected.append(self.tr("Image"))
         if self.export_csv_checkbox.isChecked() and self.export_csv_checkbox.isEnabled():
             selected.append(self.tr("CSV"))
         if self.export_pos_checkbox.isChecked() and self.export_pos_checkbox.isEnabled():
@@ -203,6 +217,7 @@ class ExportDialog(QtWidgets.QDialog):
         # Check if at least one option is selected
         if not any([
             self.export_json_checkbox.isChecked(),
+            self.export_image_checkbox.isChecked(),
             self.export_csv_checkbox.isChecked() and self.export_csv_checkbox.isEnabled(),
             self.export_pos_checkbox.isChecked() and self.export_pos_checkbox.isEnabled(),
             self.export_pdf_checkbox.isChecked(),
@@ -241,6 +256,16 @@ class ExportDialog(QtWidgets.QDialog):
                 except Exception as e:
                     errors.append(f"JSON: {str(e)}")
                     logger.error(f"Failed to export JSON: {e}", exc_info=True)
+            
+            # Export image as separate file
+            if self.export_image_checkbox.isChecked():
+                try:
+                    image_file = self._export_image(output_path)
+                    if image_file:
+                        exported_files.append(image_file)
+                except Exception as e:
+                    errors.append(f"Image: {str(e)}")
+                    logger.error(f"Failed to export image: {e}", exc_info=True)
             
             # Export CSV measurements
             if self.export_csv_checkbox.isChecked() and self.export_csv_checkbox.isEnabled():
@@ -301,63 +326,177 @@ class ExportDialog(QtWidgets.QDialog):
     def _export_json(self, output_dir: Path) -> str | None:
         """Export annotations as JSON."""
         if not self.parent_window:
+            logger.error("Export JSON: No parent window")
             return None
         
-        # Use default filename based on image or sample code
-        metadata = getattr(self.parent_window, 'sample_metadata', None) or {}
-        if self.parent_window.filename:
-            # Use current filename
-            json_file = Path(self.parent_window.filename)
-            json_file = output_dir / json_file.name
-        elif metadata.get('sample_code'):
-            base_name = metadata['sample_code']
-            json_file = output_dir / f"{base_name}.json"
-        else:
-            base_name = "annotations"
-            json_file = output_dir / f"{base_name}.json"
-        
-        # Convert shapes to dictionaries using the same format as saveLabels
-        def format_shape(s):
-            from tras import utils
-            import numpy as np
+        try:
+            # Use default filename based on image or sample code
+            metadata = getattr(self.parent_window, 'sample_metadata', None) or {}
+            if self.parent_window.filename:
+                # self.filename is the image file path, convert to JSON filename
+                image_path = Path(self.parent_window.filename)
+                json_file = output_dir / f"{image_path.stem}.json"
+            elif metadata.get('sample_code'):
+                base_name = metadata['sample_code']
+                json_file = output_dir / f"{base_name}.json"
+            else:
+                base_name = "annotations"
+                json_file = output_dir / f"{base_name}.json"
             
-            data = s.other_data.copy() if hasattr(s, 'other_data') and s.other_data else {}
-            data.update(
-                dict(
-                    label=s.label,
-                    points=[(p.x(), p.y()) for p in s.points],
-                    group_id=s.group_id if hasattr(s, 'group_id') else None,
-                    description=s.description if hasattr(s, 'description') else "",
-                    shape_type=s.shape_type,
-                    flags=s.flags if hasattr(s, 'flags') else {},
-                    mask=None
-                    if not hasattr(s, 'mask') or s.mask is None
-                    else utils.img_arr_to_b64(s.mask.astype(np.uint8)),
+            logger.info(f"Export JSON: Target file is {json_file}")
+            
+            # Convert shapes to dictionaries using the same format as saveLabels
+            def format_shape(s):
+                from tras import utils
+                import numpy as np
+                
+                data = s.other_data.copy() if hasattr(s, 'other_data') and s.other_data else {}
+                data.update(
+                    dict(
+                        label=s.label,
+                        points=[(p.x(), p.y()) for p in s.points],
+                        group_id=s.group_id if hasattr(s, 'group_id') else None,
+                        description=s.description if hasattr(s, 'description') else "",
+                        shape_type=s.shape_type,
+                        flags=s.flags if hasattr(s, 'flags') else {},
+                        mask=None
+                        if not hasattr(s, 'mask') or s.mask is None
+                        else utils.img_arr_to_b64(s.mask.astype(np.uint8)),
+                    )
                 )
+                return data
+            
+            shapes = [format_shape(shape) for shape in self.parent_window.canvas.shapes]
+            
+            if not shapes:
+                logger.warning("Export JSON: No shapes to export")
+                return None
+            
+            logger.info(f"Export JSON: Found {len(shapes)} shapes to export")
+            
+            # Save using LabelFile
+            # Match the logic from MainWindow.saveLabels()
+            import os.path as osp
+            
+            # Make imagePath relative to the JSON file location
+            imagePath = ""
+            if self.parent_window.imagePath:
+                try:
+                    imagePath = osp.relpath(self.parent_window.imagePath, osp.dirname(str(json_file)))
+                except ValueError:
+                    # relpath can fail if paths are on different drives (Windows)
+                    # Fall back to absolute path or just the filename
+                    logger.warning(f"Export JSON: Could not make imagePath relative, using basename")
+                    imagePath = osp.basename(self.parent_window.imagePath)
+            
+            # Respect store_data config (same as saveLabels)
+            imageData = None
+            if hasattr(self.parent_window, '_config') and self.parent_window._config.get("store_data", True):
+                imageData = self.parent_window.imageData
+            elif not hasattr(self.parent_window, '_config'):
+                # If config doesn't exist, default to storing data
+                imageData = self.parent_window.imageData
+            
+            # Prepare otherData (same as saveLabels)
+            otherData = {}
+            if self.parent_window.otherData:
+                otherData = self.parent_window.otherData.copy()
+            
+            # Ensure output directory exists
+            json_file.parent.mkdir(parents=True, exist_ok=True)
+            
+            logger.info(f"Export JSON: Saving to {json_file}")
+            logger.info(f"Export JSON: imagePath={imagePath}, imageHeight={self.parent_window.image.height()}, imageWidth={self.parent_window.image.width()}")
+            
+            label_file = LabelFile()
+            label_file.save(
+                filename=str(json_file),
+                shapes=shapes,
+                imagePath=imagePath,
+                imageHeight=self.parent_window.image.height(),
+                imageWidth=self.parent_window.image.width(),
+                imageData=imageData,
+                otherData=otherData,
+                flags={}
             )
-            return data
-        
-        shapes = [format_shape(shape) for shape in self.parent_window.canvas.shapes]
-        
-        if not shapes:
-            logger.warning("No shapes to export")
+            
+            # Verify file was created
+            if json_file.exists():
+                logger.info(f"Export JSON: Successfully exported to {json_file} ({json_file.stat().st_size} bytes)")
+                return str(json_file)
+            else:
+                logger.error(f"Export JSON: File was not created at {json_file}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Export JSON: Exception during export: {e}", exc_info=True)
+            raise
+    
+    def _export_image(self, output_dir: Path) -> str | None:
+        """Export image as separate file."""
+        if not self.parent_window:
+            logger.error("Export Image: No parent window")
             return None
         
-        # Save using LabelFile
-        label_file = LabelFile()
-        label_file.save(
-            filename=str(json_file),
-            shapes=shapes,
-            imagePath=self.parent_window.imagePath or "",
-            imageHeight=self.parent_window.image.height(),
-            imageWidth=self.parent_window.image.width(),
-            imageData=self.parent_window.imageData,
-            otherData=self.parent_window.otherData,
-            flags={}
-        )
-        
-        logger.info(f"Exported JSON annotations to {json_file}")
-        return str(json_file)
+        try:
+            # Determine output filename based on image or sample code
+            metadata = getattr(self.parent_window, 'sample_metadata', None) or {}
+            if self.parent_window.filename:
+                # Use image filename but change extension to PNG
+                image_path = Path(self.parent_window.filename)
+                image_file = output_dir / f"{image_path.stem}.png"
+            elif metadata.get('sample_code'):
+                base_name = metadata['sample_code']
+                image_file = output_dir / f"{base_name}.png"
+            else:
+                base_name = "image"
+                image_file = output_dir / f"{base_name}.png"
+            
+            logger.info(f"Export Image: Target file is {image_file}")
+            
+            # Get the image from parent window
+            # Use imageArray if available (preprocessed), otherwise convert QImage
+            if hasattr(self.parent_window, 'imageArray') and self.parent_window.imageArray is not None:
+                # Use the numpy array directly (preprocessed image)
+                import numpy as np
+                from PIL import Image
+                img_array = self.parent_window.imageArray
+                logger.info(f"Export Image: Using imageArray, shape={img_array.shape}, dtype={img_array.dtype}")
+                
+                # Ensure it's uint8
+                if img_array.dtype != np.uint8:
+                    if img_array.max() <= 1.0:
+                        img_array = (img_array * 255).astype(np.uint8)
+                    else:
+                        img_array = img_array.astype(np.uint8)
+                
+                # Convert to PIL Image and save
+                pil_image = Image.fromarray(img_array)
+                pil_image.save(str(image_file), format='PNG')
+            else:
+                # Fall back to QImage
+                qimage = self.parent_window.image
+                if qimage.isNull():
+                    logger.error("Export Image: QImage is null")
+                    return None
+                
+                logger.info(f"Export Image: Using QImage, size={qimage.width()}x{qimage.height()}")
+                success = qimage.save(str(image_file), "PNG")
+                if not success:
+                    logger.error(f"Export Image: QImage.save() failed for {image_file}")
+                    return None
+            
+            # Verify file was created
+            if image_file.exists():
+                logger.info(f"Export Image: Successfully exported to {image_file} ({image_file.stat().st_size} bytes)")
+                return str(image_file)
+            else:
+                logger.error(f"Export Image: File was not created at {image_file}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Export Image: Exception during export: {e}", exc_info=True)
+            raise
     
     def _export_csv(self, output_dir: Path) -> str | None:
         """Export measurements as CSV."""
