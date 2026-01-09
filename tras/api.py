@@ -104,7 +104,7 @@ def detect(
     pith_x: Optional[float] = None,
     pith_y: Optional[float] = None,
     auto_pith: bool = True,
-    pith_method: str = "apd",
+    pith_method: str = "apd_dl",
     ring_method: str = "deepcstrd",
     scale: Optional[float] = None,
     remove_background: bool = False,

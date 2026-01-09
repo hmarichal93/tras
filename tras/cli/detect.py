@@ -27,7 +27,7 @@ def main(
     pith_x: Optional[float] = typer.Option(None, "--pith-x", help="Manual pith X coordinate"),
     pith_y: Optional[float] = typer.Option(None, "--pith-y", help="Manual pith Y coordinate"),
     auto_pith: bool = typer.Option(True, "--auto-pith/--no-auto-pith", help="Auto-detect pith with APD"),
-    pith_method: str = typer.Option("apd", "--pith-method", help="APD method: 'apd' or 'apd_pcl'"),
+    pith_method: str = typer.Option("apd_dl", "--pith-method", help="APD method: 'apd', 'apd_pcl', or 'apd_dl'"),
     ring_method: str = typer.Option(
         "deepcstrd", "--ring-method", help="Ring detection method: 'cstrd' or 'deepcstrd'"
     ),

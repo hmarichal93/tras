@@ -41,3 +41,5 @@ F02c*
 *.json
 
 .history/
+downloaded_assets/
+tras/tree_ring_methods/cstrd/config

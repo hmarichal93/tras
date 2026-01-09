@@ -219,7 +219,8 @@ class TreeRingDialog(QtWidgets.QDialog):
         apd_layout.addRow(self.tr("Structure Tensor Sigma:"), self.apd_st_sigma)
 
         self.apd_method = QtWidgets.QComboBox()
-        self.apd_method.addItems(["apd", "apd_pcl"])
+        self.apd_method.addItems(["apd", "apd_pcl", "apd_dl"])
+        self.apd_method.setCurrentText("apd_dl")  # Set apd_dl as default
         apd_layout.addRow(self.tr("Method:"), self.apd_method)
 
         self.apd_advanced_group.setLayout(apd_layout)
