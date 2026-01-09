@@ -202,7 +202,7 @@ def detect(
                 center_xy=pith_xy,
                 model_id=inbd_model,
                 return_pith=True,
-            )
+        )
     else:
         raise ValueError(f"Unknown ring detection method: {ring_method}")
 

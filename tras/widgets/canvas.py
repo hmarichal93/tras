@@ -764,6 +764,18 @@ class Canvas(QtWidgets.QWidget):
             
             step_rect = QtCore.QRect(content_x, y_pos, content_width, 35)
             painter.drawText(step_rect, Qt.AlignLeft | Qt.AlignVCenter, step)
+        
+        # Add note about exclusion areas
+        note_font = QtGui.QFont()
+        note_font.setPointSize(10)
+        note_font.setItalic(True)
+        painter.setFont(note_font)
+        painter.setPen(QtGui.QColor(120, 120, 120))  # Slightly lighter gray
+        
+        note_text = self.tr("Tip: You can draw exclusion areas (Tools > Draw Exclusion Area) to subtract regions from ring area calculations")
+        note_y = start_y + len(steps) * line_height + 20
+        note_rect = QtCore.QRect(content_x, note_y, content_width, 30)
+        painter.drawText(note_rect, Qt.AlignLeft | Qt.AlignVCenter, note_text)
 
     def paintEvent(self, event: QtGui.QPaintEvent) -> None:
         if not self.pixmap or self.pixmap.isNull():

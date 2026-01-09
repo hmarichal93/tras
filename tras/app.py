@@ -505,6 +505,60 @@ class MainWindow(QtWidgets.QMainWindow):
             icon="help",
             tip=self.tr("Check if a newer version is available"),
         )
+        
+        about = action(
+            f"&About {__appname__}",
+            functools.partial(
+                QMessageBox.about,
+                self,
+                f"About {__appname__}",
+                f"""
+<h3>{__appname__} - Tree Ring Analyzer Suite</h3>
+<p>Specialized tool for dendrochronology and tree ring analysis</p>
+<p>Version: {__version__}</p>
+<p>This tool was developed during the PhD thesis of Henry Marichal.</p>
+<p><b>Thesis:</b><br/>
+<a href="https://hdl.handle.net/20.500.12008/52991">Application of image processing and artificial intelligence techniques for the automatic dendrometry of native and commercial wood species</a></p>
+<p><b>Features:</b></p>
+<ul>
+    <li>Automatic Pith Detection (APD)</li>
+    <li>Tree Ring Detection (CS-TRD, DeepCS-TRD, INBD)</li>
+    <li>Radial Width Measurement</li>
+    <li>Image Preprocessing &amp; Scale Calibration</li>
+    <li>Exclusion Areas for Ring Area Calculations</li>
+    <li>Professional PDF Reports</li>
+</ul>
+<p><b>Collaborators:</b></p>
+<ul>
+    <li>Marichal, Henry</li>
+    <li>Casaravilla, Verónica</li>
+    <li>Lucas, Christine</li>
+    <li>Power, Candice</li>
+    <li>Mello, Karolain</li>
+    <li>Mazarino, Joaquín</li>
+    <li>Profumo, Ludmila</li>
+    <li>Joaquin Blanco</li>
+    <li>Passarella, Diego</li>
+    <li>Randall, Gregory</li>
+</ul>
+<p>
+    <a href="https://github.com/hmarichal93/tras">GitHub Repository</a> |
+    <a href="https://github.com/hmarichal93/tras/blob/main/README.md">Documentation</a>
+</p>
+<p><i>Based on LabelMe by Kentaro Wada</i></p>
+<p><i>Adapted for tree ring analysis by hmarichal93</i></p>
+""",
+            ),
+            icon="help",
+            tip=f"About {__appname__}",
+        )
+        # On macOS, set menu role so About appears in application menu
+        import sys
+        if sys.platform == "darwin":
+            about.setMenuRole(QtWidgets.QAction.AboutRole)
+        # Ensure About action is visible
+        about.setVisible(True)
+        about.setEnabled(True)
 
         zoom = QtWidgets.QWidgetAction(self)
         zoomBoxLayout = QtWidgets.QVBoxLayout()
@@ -623,33 +677,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Store actions for further handling.
         self.actions = types.SimpleNamespace(
-            about=action(
-                text=f"&About {__appname__}",
-                slot=functools.partial(
-                    QMessageBox.about,
-                    self,
-                    f"About {__appname__}",
-                    f"""
-<h3>{__appname__} - Tree Ring Analyzer Suite</h3>
-<p>Specialized tool for dendrochronology and tree ring analysis</p>
-<p>Version: {__version__}</p>
-<p><b>Features:</b></p>
-<ul>
-    <li>Automatic Pith Detection (APD)</li>
-    <li>Tree Ring Detection (CS-TRD, DeepCS-TRD, INBD)</li>
-    <li>Radial Width Measurement</li>
-    <li>Image Preprocessing & Scale Calibration</li>
-    <li>Professional PDF Reports</li>
-</ul>
-<p>
-    <a href="https://github.com/hmarichal93/tras">GitHub Repository</a> |
-    <a href="https://github.com/hmarichal93/tras/blob/main/README.md">Documentation</a>
-</p>
-<p><i>Based on LabelMe by Kentaro Wada</i></p>
-<p><i>Adapted for tree ring analysis by hmarichal93</i></p>
-""",
-                ),
-            ),
+            about=about,
             saveAuto=saveAuto,
             saveWithImageData=saveWithImageData,
             changeOutputDir=changeOutputDir,
@@ -874,7 +902,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 quit,
             ),
         )
-        utils.addActions(self.menus.help, (help, keyboardShortcuts, None, checkUpdates, None, self.actions.about))
+        utils.addActions(self.menus.help, (help, keyboardShortcuts, None, checkUpdates, None, about))
         # Tools menu organized by workflow order
         utils.addActions(self.menus.tools, (
             metadata,           # Step 1: Sample Metadata (optional, before starting)
