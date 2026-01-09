@@ -383,6 +383,15 @@ class MainWindow(QtWidgets.QMainWindow):
             self.tr("Draw an open ring (line strip). Ctrl+LeftClick ends creation."),
             enabled=False,
         )
+        createExclusionMode = action(
+            self.tr("Draw Exclusion Area"),
+            lambda: self.toggleDrawMode(False, createMode="polygon", exclusion_mode=True),
+            None,  # No shortcut by default
+            "cancel",
+            self.tr("Draw exclusion areas (polygons) that will be subtracted from ring areas"),
+            enabled=False,
+            checkable=True,
+        )
         editMode = action(
             self.tr("✏️ Edit Rings"),
             self.setEditMode,
@@ -496,6 +505,60 @@ class MainWindow(QtWidgets.QMainWindow):
             icon="help",
             tip=self.tr("Check if a newer version is available"),
         )
+        
+        about = action(
+            f"&About {__appname__}",
+            functools.partial(
+                QMessageBox.about,
+                self,
+                f"About {__appname__}",
+                f"""
+<h3>{__appname__} - Tree Ring Analyzer Suite</h3>
+<p>Specialized tool for dendrochronology and tree ring analysis</p>
+<p>Version: {__version__}</p>
+<p>This tool was developed during the PhD thesis of Henry Marichal.</p>
+<p><b>Thesis:</b><br/>
+<a href="https://hdl.handle.net/20.500.12008/52991">Application of image processing and artificial intelligence techniques for the automatic dendrometry of native and commercial wood species</a></p>
+<p><b>Features:</b></p>
+<ul>
+    <li>Automatic Pith Detection (APD)</li>
+    <li>Tree Ring Detection (CS-TRD, DeepCS-TRD, INBD)</li>
+    <li>Radial Width Measurement</li>
+    <li>Image Preprocessing &amp; Scale Calibration</li>
+    <li>Exclusion Areas for Ring Area Calculations</li>
+    <li>Professional PDF Reports</li>
+</ul>
+<p><b>Collaborators:</b></p>
+<ul>
+    <li>Marichal, Henry</li>
+    <li>Casaravilla, Verónica</li>
+    <li>Lucas, Christine</li>
+    <li>Power, Candice</li>
+    <li>Mello, Karolain</li>
+    <li>Mazarino, Joaquín</li>
+    <li>Profumo, Ludmila</li>
+    <li>Joaquin Blanco</li>
+    <li>Passarella, Diego</li>
+    <li>Randall, Gregory</li>
+</ul>
+<p>
+    <a href="https://github.com/hmarichal93/tras">GitHub Repository</a> |
+    <a href="https://github.com/hmarichal93/tras/blob/main/README.md">Documentation</a>
+</p>
+<p><i>Based on LabelMe by Kentaro Wada</i></p>
+<p><i>Adapted for tree ring analysis by hmarichal93</i></p>
+""",
+            ),
+            icon="help",
+            tip=f"About {__appname__}",
+        )
+        # On macOS, set menu role so About appears in application menu
+        import sys
+        if sys.platform == "darwin":
+            about.setMenuRole(QtWidgets.QAction.AboutRole)
+        # Ensure About action is visible
+        about.setVisible(True)
+        about.setEnabled(True)
 
         zoom = QtWidgets.QWidgetAction(self)
         zoomBoxLayout = QtWidgets.QVBoxLayout()
@@ -614,33 +677,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Store actions for further handling.
         self.actions = types.SimpleNamespace(
-            about=action(
-                text=f"&About {__appname__}",
-                slot=functools.partial(
-                    QMessageBox.about,
-                    self,
-                    f"About {__appname__}",
-                    f"""
-<h3>{__appname__} - Tree Ring Analyzer Suite</h3>
-<p>Specialized tool for dendrochronology and tree ring analysis</p>
-<p>Version: {__version__}</p>
-<p><b>Features:</b></p>
-<ul>
-    <li>Automatic Pith Detection (APD)</li>
-    <li>Tree Ring Detection (CS-TRD, DeepCS-TRD, INBD)</li>
-    <li>Radial Width Measurement</li>
-    <li>Image Preprocessing & Scale Calibration</li>
-    <li>Professional PDF Reports</li>
-</ul>
-<p>
-    <a href="https://github.com/hmarichal93/tras">GitHub Repository</a> |
-    <a href="https://github.com/hmarichal93/tras/blob/main/README.md">Documentation</a>
-</p>
-<p><i>Based on LabelMe by Kentaro Wada</i></p>
-<p><i>Adapted for tree ring analysis by hmarichal93</i></p>
-""",
-                ),
-            ),
+            about=about,
             saveAuto=saveAuto,
             saveWithImageData=saveWithImageData,
             changeOutputDir=changeOutputDir,
@@ -675,6 +712,7 @@ class MainWindow(QtWidgets.QMainWindow):
             createLineMode=createLineMode,
             createPointMode=createPointMode,
             createLineStripMode=createLineStripMode,
+            createExclusionMode=createExclusionMode,
             zoom=zoom,
             zoomIn=zoomIn,
             zoomOut=zoomOut,
@@ -692,6 +730,9 @@ class MainWindow(QtWidgets.QMainWindow):
             ("polygon", createMode),
             ("linestrip", createLineStripMode),
         ]
+        
+        # Store exclusion mode action
+        self._exclusion_mode = False
 
         # Tree Ring Detection action
         detectTreeRings = action(
@@ -788,6 +829,7 @@ class MainWindow(QtWidgets.QMainWindow):
             loadAnnotations,
             createMode,
             createLineStripMode,
+            createExclusionMode,
             editMode,
             brightnessContrast,
             detectTreeRings,  # Keep enabled but not in toolbar
@@ -860,7 +902,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 quit,
             ),
         )
-        utils.addActions(self.menus.help, (help, keyboardShortcuts, None, checkUpdates, None, self.actions.about))
+        utils.addActions(self.menus.help, (help, keyboardShortcuts, None, checkUpdates, None, about))
         # Tools menu organized by workflow order
         utils.addActions(self.menus.tools, (
             metadata,           # Step 1: Sample Metadata (optional, before starting)
@@ -868,6 +910,8 @@ class MainWindow(QtWidgets.QMainWindow):
             setScale,           # Step 2: Set Scale
             preprocessImage,    # Step 3: Preprocess
             detectTreeRings,    # Step 4: Detect Rings
+            None,
+            self.actions.createExclusionMode,  # Draw Exclusion Areas
             None,
             measureRadialWidth, # Step 6: Measure Width
             ringProperties,     # Step 7: View Properties
@@ -2004,9 +2048,17 @@ class MainWindow(QtWidgets.QMainWindow):
         if not self.canvas.shapes and not self.radial_line_measurements:
             return None
         
-        # Filter ring shapes and sort by label (ring_1, ring_2, ...)
+        # Filter ring shapes (exclude exclusion areas) and sort by label (ring_1, ring_2, ...)
         ring_shapes = [
-            s for s in self.canvas.shapes if getattr(s, "shape_type", "") == "polygon"
+            s for s in self.canvas.shapes 
+            if getattr(s, "shape_type", "") == "polygon" 
+            and getattr(s, "label", "") != "exclusion"
+        ]
+        # Get exclusion areas
+        exclusion_shapes = [
+            s for s in self.canvas.shapes 
+            if getattr(s, "shape_type", "") == "polygon" 
+            and getattr(s, "label", "") == "exclusion"
         ]
         use_polygon_metrics = len(ring_shapes) > 0
         measurements_dict = (self.radial_line_measurements or {}).get("measurements", {})
@@ -2034,6 +2086,7 @@ class MainWindow(QtWidgets.QMainWindow):
             logger.info(f"Computing properties for {len(ring_shapes)} rings...")
             
             prev_outer_area = 0.0
+            prev_outer_area_no_exclusion = 0.0
             for shape in ring_shapes:
                 points = [(p.x(), p.y()) for p in shape.points]
                 if len(points) < 3:
@@ -2055,14 +2108,52 @@ class MainWindow(QtWidgets.QMainWindow):
                     perimeter += ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
                 
                 outer_area = area
+                outer_area_no_exclusion = area  # Store original area before exclusion
+                
+                # Subtract exclusion areas that intersect with this ring's cumulative area
+                excluded_area = 0.0
+                if exclusion_shapes:
+                    from shapely.geometry import Polygon as ShapelyPolygon
+                    try:
+                        # Create Shapely polygon for the ring (cumulative area)
+                        ring_poly = ShapelyPolygon(points)
+                        if not ring_poly.is_valid:
+                            ring_poly = ring_poly.buffer(0)  # Fix invalid polygon
+                        
+                        # Calculate excluded area that intersects with this ring
+                        for excl_shape in exclusion_shapes:
+                            excl_points = [(p.x(), p.y()) for p in excl_shape.points]
+                            if len(excl_points) >= 3:
+                                excl_poly = ShapelyPolygon(excl_points)
+                                if not excl_poly.is_valid:
+                                    excl_poly = excl_poly.buffer(0)
+                                
+                                # Find intersection with current ring
+                                if ring_poly.intersects(excl_poly):
+                                    intersection = ring_poly.intersection(excl_poly)
+                                    if intersection.area > 0:
+                                        excluded_area += intersection.area
+                        
+                        # Subtract excluded area from cumulative area
+                        outer_area = max(outer_area - excluded_area, 0.0)
+                    except Exception as e:
+                        logger.warning(f"Error computing exclusion areas for ring {shape.label}: {e}")
+                
+                # Compute ring area (growth area) after exclusion
                 ring_area = max(outer_area - prev_outer_area, 0.0)
+                # Compute ring area without exclusion (for comparison)
+                ring_area_no_exclusion = max(outer_area_no_exclusion - prev_outer_area_no_exclusion, 0.0)
+                
                 props = {
                     "label": shape.label,
-                    "area": ring_area,
-                    "cumulative_area": outer_area,
+                    "area": ring_area,  # Area with exclusion subtracted
+                    "area_no_exclusion": ring_area_no_exclusion,  # Area without exclusion
+                    "cumulative_area": outer_area,  # Cumulative area with exclusion subtracted
+                    "cumulative_area_no_exclusion": outer_area_no_exclusion,  # Cumulative area without exclusion
                     "perimeter": perimeter,
                 }
                 prev_outer_area = outer_area
+                prev_outer_area_no_exclusion = outer_area_no_exclusion
                 
                 if shape.label in measurements_dict:
                     props["radial_width_px"] = measurements_dict[shape.label]["radial_width"]
@@ -2428,15 +2519,22 @@ class MainWindow(QtWidgets.QMainWindow):
         self.actions.undo.setEnabled(not drawing)
         self.actions.delete.setEnabled(not drawing)
 
-    def toggleDrawMode(self, edit=True, createMode="polygon"):
+    def toggleDrawMode(self, edit=True, createMode="polygon", exclusion_mode=False):
         self.canvas.setEditing(edit)
         self.canvas.createMode = createMode
+        # Store exclusion mode state
+        self._exclusion_mode = exclusion_mode
         if edit:
             for _, draw_action in self.draw_actions:
                 draw_action.setEnabled(True)
+            if hasattr(self, 'actions') and hasattr(self.actions, 'createExclusionMode'):
+                self.actions.createExclusionMode.setChecked(False)
+                self._exclusion_mode = False
         else:
             for draw_mode, draw_action in self.draw_actions:
                 draw_action.setEnabled(createMode != draw_mode)
+            if hasattr(self, 'actions') and hasattr(self.actions, 'createExclusionMode'):
+                self.actions.createExclusionMode.setChecked(exclusion_mode)
         self.actions.editMode.setEnabled(not edit)
 
     def setEditMode(self):
@@ -2630,13 +2728,22 @@ class MainWindow(QtWidgets.QMainWindow):
         )
 
     def _update_shape_color(self, shape):
-        r, g, b = self._get_rgb_by_label(shape.label)
-        shape.line_color = QtGui.QColor(r, g, b)
-        shape.vertex_fill_color = QtGui.QColor(r, g, b)
-        shape.hvertex_fill_color = QtGui.QColor(255, 255, 255)
-        shape.fill_color = QtGui.QColor(r, g, b, 128)
-        shape.select_line_color = QtGui.QColor(255, 255, 255)
-        shape.select_fill_color = QtGui.QColor(r, g, b, 155)
+        # Exclusion areas always use red color
+        if shape.label == "exclusion":
+            shape.line_color = QtGui.QColor(255, 0, 0, 200)  # Red with transparency
+            shape.vertex_fill_color = QtGui.QColor(255, 0, 0, 255)
+            shape.hvertex_fill_color = QtGui.QColor(255, 255, 255)
+            shape.fill_color = QtGui.QColor(255, 0, 0, 50)   # Light red fill
+            shape.select_line_color = QtGui.QColor(255, 255, 255)
+            shape.select_fill_color = QtGui.QColor(255, 0, 0, 155)
+        else:
+            r, g, b = self._get_rgb_by_label(shape.label)
+            shape.line_color = QtGui.QColor(r, g, b)
+            shape.vertex_fill_color = QtGui.QColor(r, g, b)
+            shape.hvertex_fill_color = QtGui.QColor(255, 255, 255)
+            shape.fill_color = QtGui.QColor(r, g, b, 128)
+            shape.select_line_color = QtGui.QColor(255, 255, 255)
+            shape.select_fill_color = QtGui.QColor(r, g, b, 155)
 
     def _get_rgb_by_label(self, label: str) -> tuple[int, int, int]:
         if self._config["shape_color"] == "auto":
@@ -2851,6 +2958,12 @@ class MainWindow(QtWidgets.QMainWindow):
             flags = {}
             group_id = None
             description = ""
+        elif getattr(self, '_exclusion_mode', False):
+            # Exclusion mode: automatically set label to "exclusion"
+            text = "exclusion"
+            flags = {}
+            group_id = None
+            description = "Exclusion area (subtracted from ring areas)"
         else:
             items = self.uniqLabelList.selectedItems()
             text = None
@@ -2878,6 +2991,10 @@ class MainWindow(QtWidgets.QMainWindow):
             shape = self.canvas.setLastLabel(text, flags)
             shape.group_id = group_id
             shape.description = description
+            # Set visual style for exclusion areas (red color)
+            if text == "exclusion":
+                shape.line_color = QtGui.QColor(255, 0, 0, 200)  # Red with transparency
+                shape.fill_color = QtGui.QColor(255, 0, 0, 50)   # Light red fill
             self.addLabel(shape)
             self.actions.editMode.setEnabled(True)
             self.actions.undoLastPoint.setEnabled(False)

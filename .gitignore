@@ -39,3 +39,7 @@ F02c*
 *.xls
 *.pth 
 *.json
+
+.history/
+downloaded_assets/
+tras/tree_ring_methods/cstrd/config/

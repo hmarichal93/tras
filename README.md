@@ -57,6 +57,7 @@ conda activate tras
 pip install -e . 
 python tools/download_release_assets.py 
 ```
+> **Note**: The download script automatically fetches all required model weights, including APD YOLO weights (`downloaded_assets/apd/yolo/all_best_yolov8.pt`) for the `apd_dl` method.
 
 ### 2. Compile Devernay Edge Detector (for CS-TRD, Linux/macOS only)
 ```bash
@@ -67,6 +68,15 @@ cd ../../../..  # Return to tras-${TRAS_VERSION} directory
 ```
 > **Note**: CS-TRD is not available on Windows. Windows users should use DeepCS-TRD instead.
 
+### 3. Install INBD Tree-Ring Detection Method (Optional)
+```bash
+mkdir -p tras/tree_ring_methods/inbd && cd tras/tree_ring_methods/inbd
+git clone https://github.com/hmarichal93/INBD.git src
+./download_models.sh
+```
+
+
+
 ## ✨ Key Features
 
 <table>
@@ -74,7 +84,7 @@ cd ../../../..  # Return to tras-${TRAS_VERSION} directory
 <td width="50%" valign="top">
 
 ### 🔬 **Automatic Detection**
-- **APD**: Automatic Pith Detection (~1s, CPU)
+- **APD**: Automatic Pith Detection (~1s, CPU) - includes `apd`, `apd_pcl`, and `apd_dl` (YOLO) methods
 - **CS-TRD**: Classical edge detection (~73s, CPU) *[Linux/macOS only]*
 - **DeepCS-TRD**: Deep learning U-Net (~101s, GPU)
 - **INBD**: Iterative Next Boundary Detection (CVPR 2023, GPU)
@@ -175,7 +185,7 @@ tras --version                    # Check version
 
 4. **🎯 Detect Rings**
    - `Tools > Tree Ring Detection`
-   - Choose pith: APD (auto) or manual click
+   - Choose pith: APD (auto, with methods: `apd`, `apd_pcl`, or `apd_dl`) or manual click
    - Select method: CS-TRD (Linux/macOS), DeepCS-TRD, or INBD (all platforms)
 
 5. **📝 Add Metadata**

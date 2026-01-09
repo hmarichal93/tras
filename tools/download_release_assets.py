@@ -104,6 +104,30 @@ def download_asset(asset: dict, dest: Path, token: Optional[str], overwrite: boo
     return dest_path
 
 
+def download_direct_url(url: str, dest_path: Path, overwrite: bool) -> Path:
+    """Download a file directly from a URL to a specific destination path."""
+    if dest_path.exists() and not overwrite:
+        print(f"[skip] {dest_path.name} already exists")
+        return dest_path
+
+    dest_path.parent.mkdir(parents=True, exist_ok=True)
+    print(f"[downloading] {dest_path.name} from {url}")
+    try:
+        req = Request(url, headers={"User-Agent": "tras-download-script"})
+        with urlopen(req) as resp, dest_path.open("wb") as fh:
+            while True:
+                chunk = resp.read(64 * 1024)
+                if not chunk:
+                    break
+                fh.write(chunk)
+    except (HTTPError, URLError) as exc:
+        if dest_path.exists():
+            dest_path.unlink()
+        raise RuntimeError(f"Failed to download '{dest_path.name}': {exc}") from exc
+
+    return dest_path
+
+
 @app.command()
 def main(
     url: str = typer.Option("https://github.com/hmarichal93/tras/releases/tag/v2.0.2_models", "--url", "-u", help="Release URL such as https://github.com/<owner>/<repo>/releases/tag/<slug>"),
@@ -146,6 +170,16 @@ def main(
         except RuntimeError as exc:
             typer.secho(str(exc), file=sys.stderr, fg=typer.colors.RED)
             raise typer.Exit(1) from exc
+
+    # Download APD YOLO weights directly from GitHub releases
+    apd_yolo_url = "https://github.com/hmarichal93/apd/releases/download/v1.0_icpr_2024_submission/all_best_yolov8.pt"
+    apd_yolo_path = dest_dir / "apd" / "yolo" / "all_best_yolov8.pt"
+    try:
+        download_direct_url(apd_yolo_url, apd_yolo_path, overwrite)
+        completed += 1
+    except RuntimeError as exc:
+        typer.secho(str(exc), file=sys.stderr, fg=typer.colors.RED)
+        raise typer.Exit(1) from exc
 
     typer.echo(f"Downloaded {completed} asset(s) to {dest_dir.resolve()}")
 

@@ -24,13 +24,20 @@ else
     exit 1
 fi
 
+# Download UruDendro model from GitHub releases
+echo "Downloading UruDendro1 model..."
+wget -q --show-progress -O model_uru1.update.pt.zip \
+    https://github.com/hmarichal93/mlbrief_inbd/releases/download/v1.0_ipol/model_uru1.update.pt.zip
+mkdir -p checkpoints/INBD_UruDendro1
+mv model_uru1.update.pt.zip checkpoints/INBD_UruDendro1/model.pt.zip
+
 echo "✓ INBD models downloaded successfully!"
 echo ""
 echo "Available models:"
 echo "  - INBD_EH: Empetrum hermaphroditum (shrub)"
 echo "  - INBD_DO: Dryas octopetala (shrub)"
 echo "  - INBD_VM: Vaccinium myrtillus (shrub)"
-echo "  - INBD_UruDendro: Pinus taeda (tree)"
+echo "  - INBD_UruDendro1: Pinus taeda (tree)"
 echo ""
 echo "Models are stored in: $(pwd)/checkpoints/"
 
