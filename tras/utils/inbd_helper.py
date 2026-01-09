@@ -1,5 +1,5 @@
 import numpy as np
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Union
 import sys
 from pathlib import Path
 
@@ -11,8 +11,9 @@ def detect_rings_inbd(
     image: np.ndarray, 
     center_xy: Optional[Tuple[float, float]] = None,
     model_id: str = "INBD_EH",
-    output_format: str = "polylines"
-) -> List[np.ndarray]:
+    output_format: str = "polylines",
+    return_pith: bool = False
+) -> Union[List[np.ndarray], Tuple[List[np.ndarray], Tuple[float, float]]]:
     """
     Run INBD on the given image and return a list of ring polylines (Nx2 arrays).
     
@@ -31,7 +32,10 @@ def detect_rings_inbd(
         output_format: Output format ("polylines" or "masks")
     
     Returns:
-        List of ring polylines, each as Nx2 array of (x, y) points
+        If return_pith=False: List of ring polylines, each as Nx2 array of (x, y) points
+        If return_pith=True: Tuple of (rings, pith_xy) where pith_xy is (x, y) tuple
+            - Auto mode (center_xy=None): pith_xy is the computed pith from innermost region
+            - Manual mode (center_xy provided): pith_xy is the provided center_xy
     
     Raises:
         ImportError: If INBD source code is not available
@@ -79,11 +83,14 @@ def detect_rings_inbd(
     model_path = _get_model_path(model_id)
     
     # Handle optional pith coordinates
+    # Track the final pith used (for return_pith=True)
+    final_pith_xy = None
     cx, cy = None, None
     pad_top, pad_bottom, pad_left, pad_right = 0, 0, 0, 0
     
     if center_xy is not None:
         cx, cy = center_xy
+        final_pith_xy = center_xy  # Manual mode: use provided pith
         
         # Check if pith is too close to edges and add padding if needed
         h, w = image.shape[:2]
@@ -197,7 +204,11 @@ def detect_rings_inbd(
                 computed_cx, computed_cy = _compute_pith_from_labelmap(labelmap_file)
                 if computed_cx is not None and computed_cy is not None:
                     cx, cy = computed_cx, computed_cy
+                    final_pith_xy = (cx - pad_left, cy - pad_top)  # Adjust for padding
                     print(f"INBD: Computed pith at ({cx:.1f}, {cy:.1f})")
+            else:
+                # Manual mode: use provided pith (already set above)
+                final_pith_xy = (cx - pad_left, cy - pad_top)  # Adjust for padding
             
             # Extract rings from labelmap
             rings = _extract_rings_from_labelmap(labelmap_file, cx, cy, pad_left, pad_top)
@@ -212,15 +223,31 @@ def detect_rings_inbd(
                 with open(output_file, 'r') as f:
                     inbd_result = json.load(f)
                 rings = _extract_rings_from_inbd_result(inbd_result, pad_left, pad_top)
+                # Set final_pith_xy if not already set (fallback path)
+                if final_pith_xy is None:
+                    if cx is not None and cy is not None:
+                        final_pith_xy = (cx - pad_left, cy - pad_top)
             else:
                 print("INBD: No output files found")
                 rings = []
+                # Set final_pith_xy if not already set
+                if final_pith_xy is None:
+                    if cx is not None and cy is not None:
+                        final_pith_xy = (cx - pad_left, cy - pad_top)
         
         # Clean up temporary files
         import shutil
         shutil.rmtree(temp_dir, ignore_errors=True)
         
-        return rings
+        # Return rings and optionally pith
+        if return_pith:
+            if final_pith_xy is None:
+                # Fallback: use center of image if pith wasn't computed
+                h, w = image.shape[:2]
+                final_pith_xy = (w / 2.0, h / 2.0)
+            return rings, final_pith_xy
+        else:
+            return rings
         
     except subprocess.TimeoutExpired:
         import shutil

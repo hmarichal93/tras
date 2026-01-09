@@ -19,6 +19,7 @@ from tras.utils.apd_helper import detect_pith_apd
 from tras.utils.cstrd_helper import detect_rings_cstrd
 from tras.utils.deepcstrd_helper import detect_rings_deepcstrd
 from tras.utils.inbd_helper import detect_rings_inbd
+from tras.utils.ring_sampling import resample_rings_by_rays
 
 
 def _remove_background(
@@ -247,6 +248,25 @@ class TreeRingDialog(QtWidgets.QDialog):
             )
         )
         layout.addWidget(self.remove_bg_checkbox)
+
+        # Sampling NR control (shared across all methods)
+        sampling_row = QtWidgets.QHBoxLayout()
+        sampling_label = QtWidgets.QLabel(self.tr("Sampling NR (postprocess):"))
+        self.sampling_nr = QtWidgets.QSpinBox()
+        self.sampling_nr.setRange(36, 720)
+        self.sampling_nr.setValue(360)
+        self.sampling_nr.setSingleStep(36)
+        self.sampling_nr.setToolTip(
+            self.tr(
+                "Number of radial samples for post-processing ring resampling.\n"
+                "This resamples detected rings to a fixed number of points.\n"
+                "Higher values = more points per ring (smoother, larger files)."
+            )
+        )
+        sampling_row.addWidget(sampling_label)
+        sampling_row.addWidget(self.sampling_nr)
+        sampling_row.addStretch()
+        layout.addLayout(sampling_row)
 
         self.method_tabs = QtWidgets.QTabWidget()
         self.method_tabs.addTab(self._build_cstrd_tab(), self.tr("CS-TRD"))
@@ -560,6 +580,13 @@ class TreeRingDialog(QtWidgets.QDialog):
                 type=bool,
             )
         )
+        self.sampling_nr.setValue(
+            int(self._settings.value(
+                self._settings_key("shared/sampling_nr"),
+                self.sampling_nr.value(),
+                type=int,
+            ))
+        )
 
         # Pith / APD
         self.apd_advanced_group.setChecked(
@@ -716,6 +743,9 @@ class TreeRingDialog(QtWidgets.QDialog):
         self._settings.setValue(
             self._settings_key("shared/remove_bg"), self.remove_bg_checkbox.isChecked()
         )
+        self._settings.setValue(
+            self._settings_key("shared/sampling_nr"), self.sampling_nr.value()
+        )
 
         self._settings.setValue(
             self._settings_key("apd/advanced_open"), self.apd_advanced_group.isChecked()
@@ -869,6 +899,13 @@ class TreeRingDialog(QtWidgets.QDialog):
                 return
             
             logger.info(f"CS-TRD: Detected {len(rings)} rings")
+            
+            # Apply postprocess resampling
+            sampling_nr = self.sampling_nr.value()
+            logger.info(f"CS-TRD: Resampling rings to {sampling_nr} points")
+            rings = resample_rings_by_rays(rings, (cx, cy), sampling_nr)
+            logger.info(f"CS-TRD: Resampled to {len(rings)} rings")
+            
             self.cstrd_rings = rings
             self.detected_pith_xy = (cx, cy)  # Store pith coordinates
             QtWidgets.QMessageBox.information(
@@ -977,6 +1014,13 @@ class TreeRingDialog(QtWidgets.QDialog):
                 return
             
             logger.info(f"DeepCS-TRD: Detected {len(rings)} rings")
+            
+            # Apply postprocess resampling
+            sampling_nr = self.sampling_nr.value()
+            logger.info(f"DeepCS-TRD: Resampling rings to {sampling_nr} points")
+            rings = resample_rings_by_rays(rings, (cx, cy), sampling_nr)
+            logger.info(f"DeepCS-TRD: Resampled to {len(rings)} rings")
+            
             self.deepcstrd_rings = rings
             self.detected_pith_xy = (cx, cy)  # Store pith coordinates
             QtWidgets.QMessageBox.information(
@@ -1042,20 +1086,26 @@ class TreeRingDialog(QtWidgets.QDialog):
             
             # Run INBD with current parameters
             # Check if user wants to use auto-detection
+            pith_for_sampling = None
             if self.inbd_auto_pith.isChecked():
                 logger.info("INBD: Using auto-detection mode (no pith coordinates)")
-                rings = detect_rings_inbd(
+                rings, pith_for_sampling = detect_rings_inbd(
                     image_to_process, 
                     center_xy=None,  # Let INBD auto-detect
-                    model_id=model_id
+                    model_id=model_id,
+                    return_pith=True
                 )
+                logger.info(f"INBD: Computed pith for sampling: ({pith_for_sampling[0]:.1f}, {pith_for_sampling[1]:.1f})")
             else:
                 logger.info(f"INBD: Using manual pith coordinates: ({cx:.1f}, {cy:.1f})")
-                rings = detect_rings_inbd(
+                rings, pith_for_sampling = detect_rings_inbd(
                     image_to_process, 
                     center_xy=(cx, cy),
-                    model_id=model_id
+                    model_id=model_id,
+                    return_pith=True
                 )
+                # In manual mode, pith_for_sampling should match (cx, cy) after padding adjustment
+                logger.info(f"INBD: Using provided pith for sampling: ({pith_for_sampling[0]:.1f}, {pith_for_sampling[1]:.1f})")
             
             QApplication.restoreOverrideCursor()
             
@@ -1065,8 +1115,15 @@ class TreeRingDialog(QtWidgets.QDialog):
                 return
             
             logger.info(f"INBD: Detected {len(rings)} rings")
+            
+            # Apply postprocess resampling using the appropriate pith
+            sampling_nr = self.sampling_nr.value()
+            logger.info(f"INBD: Resampling rings to {sampling_nr} points using pith ({pith_for_sampling[0]:.1f}, {pith_for_sampling[1]:.1f})")
+            rings = resample_rings_by_rays(rings, pith_for_sampling, sampling_nr)
+            logger.info(f"INBD: Resampled to {len(rings)} rings")
+            
             self.inbd_rings = rings
-            self.detected_pith_xy = (cx, cy)  # Store pith coordinates
+            self.detected_pith_xy = pith_for_sampling  # Store pith coordinates (computed or provided)
             QtWidgets.QMessageBox.information(
                 self, 
                 self.tr("INBD Success"), 

@@ -15,7 +15,9 @@ from tras.utils import img_arr_to_b64
 from tras.utils.apd_helper import detect_pith_apd
 from tras.utils.cstrd_helper import detect_rings_cstrd
 from tras.utils.deepcstrd_helper import detect_rings_deepcstrd
+from tras.utils.inbd_helper import detect_rings_inbd
 from tras.utils.preprocess_helper import preprocess_image
+from tras.utils.ring_sampling import resample_rings_by_rays
 
 
 @dataclass
@@ -108,6 +110,7 @@ def detect(
     ring_method: str = "deepcstrd",
     scale: Optional[float] = None,
     remove_background: bool = False,
+    sampling_nr: int = 360,
     cstrd_sigma: float = 3.0,
     cstrd_th_low: float = 5.0,
     cstrd_th_high: float = 20.0,
@@ -119,6 +122,8 @@ def detect(
     deepcstrd_nr: int = 360,
     deepcstrd_rotations: int = 5,
     deepcstrd_threshold: float = 0.5,
+    inbd_model: str = "INBD_EH",
+    inbd_auto_pith: bool = True,
 ) -> DetectionResult:
     """
     Perform pith and ring detection for an input image.
@@ -160,6 +165,8 @@ def detect(
         raise ValueError("Pith coordinates required. Provide --pith-x/--pith-y or enable auto detection.")
 
     logger.info("Detecting rings via %s", ring_method)
+    pith_for_sampling = pith_xy
+    
     if ring_method == "cstrd":
         rings = detect_rings_cstrd(
             image,
@@ -181,10 +188,30 @@ def detect(
             total_rotations=deepcstrd_rotations,
             prediction_map_threshold=deepcstrd_threshold,
         )
+    elif ring_method == "inbd":
+        if inbd_auto_pith:
+            rings, pith_for_sampling = detect_rings_inbd(
+                image,
+                center_xy=None,
+                model_id=inbd_model,
+                return_pith=True,
+            )
+        else:
+            rings, pith_for_sampling = detect_rings_inbd(
+                image,
+                center_xy=pith_xy,
+                model_id=inbd_model,
+                return_pith=True,
+            )
     else:
         raise ValueError(f"Unknown ring detection method: {ring_method}")
 
     logger.info("Detected %d rings", len(rings))
+    
+    # Apply postprocess resampling
+    logger.info("Resampling rings to %d points using pith (%.1f, %.1f)", sampling_nr, pith_for_sampling[0], pith_for_sampling[1])
+    rings = resample_rings_by_rays(rings, pith_for_sampling, sampling_nr)
+    logger.info("Resampled to %d rings", len(rings))
 
     preprocessing_payload = None
     if preprocessing_meta:
@@ -196,11 +223,11 @@ def detect(
         }
 
     if output is not None:
-        _save_detection_results(Path(output), image, pith_xy, rings, preprocessing_payload)
+        _save_detection_results(Path(output), image, pith_for_sampling, rings, preprocessing_payload)
 
     return DetectionResult(
         image=image,
-        pith_xy=pith_xy,
+        pith_xy=pith_for_sampling,
         rings=rings,
         preprocessing=preprocessing_meta,
         output_path=Path(output) if output is not None else None,
