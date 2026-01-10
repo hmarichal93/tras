@@ -30,6 +30,7 @@ def detect_rings_deepcstrd(
         image: Input image as numpy array (H x W x 3)
         center_xy: Pith center coordinates (x, y)
         model_id: Model identifier ("generic", "pinus_v1", "pinus_v2", "gleditsia", "salix")
+                   or filesystem path to model weights (.pth file)
         tile_size: Tile size for processing (0 for no tiling, 256 for tiling)
         alpha: Alpha parameter for angular sampling
         nr: Number of radial samples (360 = 1 degree resolution)
@@ -55,7 +56,7 @@ def detect_rings_deepcstrd(
     if image.dtype != np.uint8:
         image = (255 * (image.astype(np.float32) / image.max())).astype(np.uint8)
     
-    # Get model path
+    # Get model path (supports both model ID and filesystem path)
     model_path = _get_model_path(model_id, tile_size)
     
     cx, cy = center_xy
@@ -128,13 +129,27 @@ def detect_rings_deepcstrd(
     return rings
 
 def _get_model_path(model_id: str, tile_size: int = 0) -> str:
-    """Get path to DeepCS-TRD model weights."""
+    """Get path to DeepCS-TRD model weights.
+    
+    Supports both model IDs (e.g., "generic", "pinus_v2") and filesystem paths.
+    If model_id is a filesystem path that exists, it's returned as-is.
+    Otherwise, it's treated as a model ID and resolved from downloaded_assets.
+    """
+    # Check if model_id is a filesystem path
+    model_path_obj = Path(model_id)
+    if model_path_obj.exists() and model_path_obj.is_file():
+        return str(model_path_obj.resolve())
+    
+    # Treat as model ID and resolve from downloaded_assets
     base_path = Path(__file__).parent.parent.parent / "downloaded_assets"
     print(f"[DEBUG] _get_model_path called with model_id='{model_id}', tile_size={tile_size}")
     print(f"[DEBUG] base_path: {base_path}")
 
-    # Normalize tile size
+    # Normalize tile size - preserve the value if it's 0 or 256
+    original_tile_size = tile_size
     tile_size = 0 if tile_size not in [0, 256] else tile_size
+    if original_tile_size != tile_size:
+        print(f"[DEBUG] Normalized tile_size from {original_tile_size} to {tile_size}")
     
     # Special case: generic model is always full image
     if model_id == "generic":
@@ -142,11 +157,14 @@ def _get_model_path(model_id: str, tile_size: int = 0) -> str:
     else:
         # Try to find model file with specified tile size
         model_path = base_path / f"{tile_size}_{model_id}_1504.pth"
+        print(f"[DEBUG] Looking for model at: {model_path}")
+        print(f"[DEBUG] Model exists: {model_path.exists()}")
         
         # If not found and tile_size=256, fallback to tile_size=0
         if not model_path.exists() and tile_size == 256:
             print(f"Warning: Tiled model for {model_id} not found, using full image model")
             model_path = base_path / f"0_{model_id}_1504.pth"
+            print(f"[DEBUG] Fallback model path: {model_path}")
     
     # If still not found, fail with guidance instead of silently returning generic
     if not model_path.exists():

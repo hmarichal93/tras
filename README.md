@@ -160,11 +160,46 @@ Generate comprehensive reports with a single click, including:
 
 ## 🚀 Quick Start
 
+### GUI Mode
 ```bash
 tras                              # Launch GUI
 tras /path/to/image.jpg          # Open with image
 tras --version                    # Check version
 ```
+
+### CLI Mode
+
+TRAS provides a unified command-line tool that automatically detects whether the input is a single image or a folder:
+
+**Single Image Mode:**
+```bash
+# Auto-detect pith and rings
+tras_detect image.jpg -o output.json
+
+# With custom parameters
+tras_detect image.jpg --ring-method deepcstrd --pith-method apd_dl
+```
+
+**Batch Folder Processing Mode:**
+```bash
+# With YAML config file (recommended)
+tras_detect /path/to/images --config config.yml
+
+# With CLI flags only
+tras_detect /path/to/images --scale-value 0.0213 --scale-unit mm --ring-method deepcstrd
+
+# Override config with CLI flags
+tras_detect /path/to/images --config config.yml --scale-value 0.025 --ring-method cstrd
+```
+
+**Outputs:**
+- **Single image**: Generates `<stem>_detected.json` (or custom output path)
+- **Batch processing**: For each image generates `<stem>.json`, `<stem>.csv`, and `<stem>.pdf`
+
+**Configuration File:**
+See [`examples/cli/process_config.yml`](examples/cli/process_config.yml) for a complete YAML configuration template.
+
+**Required for batch processing:** Physical scale (`--scale-value` and `--scale-unit`) must be provided either via config file or CLI flags.
 
 ## 📖 Workflow
 
