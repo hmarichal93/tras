@@ -1,0 +1,50 @@
+# TRAS Batch Processing Configuration Example
+# Use this file with: tras_detect /path/to/images --config process_config.yml
+
+# REQUIRED: Physical scale for measurement outputs
+physical_scale:
+  value: 0.0213  # unit per pixel (e.g., 0.0213 mm/px)
+  unit: mm       # unit name (mm, cm, etc.)
+
+# Preprocessing options
+preprocess:
+  resize_scale: 0.7           # Optional: resize image (0.1-1.0), None to disable
+  remove_background: false     # Optional: remove background with U2Net
+
+# Postprocessing options
+postprocess:
+  sampling_nr: 360             # Number of radial samples for ring resampling
+
+# Pith detection configuration
+pith:
+  auto: true                   # Auto-detect pith with APD
+  method: apd_dl               # APD method: 'apd', 'apd_pcl', or 'apd_dl'
+
+# Tree ring detection configuration
+rings:
+  method: deepcstrd            # Method: 'cstrd', 'deepcstrd', or 'inbd'
+
+  # CS-TRD parameters (used when rings.method = 'cstrd')
+  cstrd:
+    sigma: 3.0                 # Gaussian sigma for smoothing
+    th_low: 5.0                # Low threshold for edge detection
+    th_high: 20.0              # High threshold for edge detection
+    alpha: 30                  # Angular sampling parameter
+    nr: 360                    # Number of radial samples
+
+  # DeepCS-TRD parameters (used when rings.method = 'deepcstrd')
+  deepcstrd:
+    model: generic             # Model ID ('generic', 'pinus_v1', 'pinus_v2', 'gleditsia', 'salix')
+                               # OR filesystem path to model weights (.pth file)
+    tile_size: 0               # Tile size: 0 (full image) or 256 (tiled processing)
+    alpha: 45                  # Alpha parameter for angular sampling
+    nr: 360                    # Number of radial samples
+    rotations: 5               # Number of rotations for test-time augmentation
+    threshold: 0.5             # Prediction threshold for binary map
+
+  # INBD parameters (used when rings.method = 'inbd')
+  inbd:
+    model: INBD_EH             # Model ID ('INBD_EH', 'INBD_DO', 'INBD_VM', 'INBD_UruDendro1')
+                               # OR filesystem path to model checkpoint (.pt.zip file)
+    auto_pith: true            # Whether INBD should auto-detect pith internally
+

@@ -61,6 +61,7 @@ text = "GPL-3.0-only"
 
 [project.scripts]
 tras = "tras.__main__:main"
+tras_detect = "tras.cli.detect:app"
 tras_draw_json = "tras.cli.draw_json:main"
 tras_draw_label_png = "tras.cli.draw_label_png:main"
 tras_export_json = "tras.cli.export_json:main"

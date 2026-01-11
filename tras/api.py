@@ -11,7 +11,7 @@ from loguru import logger
 from PIL import Image as PILImage
 
 from tras._label_file import LabelFile
-from tras.utils import img_arr_to_b64
+from tras.utils import img_arr_to_data
 from tras.utils.apd_helper import detect_pith_apd
 from tras.utils.cstrd_helper import detect_rings_cstrd
 from tras.utils.deepcstrd_helper import detect_rings_deepcstrd
@@ -82,20 +82,30 @@ def _save_detection_results(
         }
     )
 
-    label_file = LabelFile(
+    # Create LabelFile instance (empty, will be populated by save())
+    label_file = LabelFile(filename=None, enforce_image_data=False)
+    
+    # Prepare image path (relative to label file)
+    image_path_rel = str(output_path.parent / output_path.stem)
+    
+    # Convert image to bytes (save() will encode to base64)
+    image_data_bytes = img_arr_to_data(image)
+    
+    # Prepare flags
+    flags = {}
+    if preprocessing_info:
+        flags["preprocessing"] = json.dumps(preprocessing_info)
+    
+    # Save using the save() method
+    label_file.save(
         filename=str(output_path),
-        imagePath=str(output_path.parent / output_path.stem),
-        imageData=img_arr_to_b64(image),
         shapes=shapes,
-        flags={},
+        imagePath=image_path_rel,
         imageHeight=image.shape[0],
         imageWidth=image.shape[1],
+        imageData=image_data_bytes,
+        flags=flags,
     )
-
-    if preprocessing_info:
-        label_file.flags["preprocessing"] = json.dumps(preprocessing_info)
-
-    label_file.save(str(output_path))
     logger.info("Saved detection results to %s", output_path)
 
 
@@ -122,6 +132,8 @@ def detect(
     deepcstrd_nr: int = 360,
     deepcstrd_rotations: int = 5,
     deepcstrd_threshold: float = 0.5,
+    deepcstrd_width: int = 0,
+    deepcstrd_height: int = 0,
     inbd_model: str = "INBD_EH",
     inbd_auto_pith: bool = True,
 ) -> DetectionResult:
@@ -178,6 +190,7 @@ def detect(
             nr=cstrd_nr,
         )
     elif ring_method == "deepcstrd":
+        logger.info(f"Calling detect_rings_deepcstrd with model_id='{deepcstrd_model}', tile_size={deepcstrd_tile_size}")
         rings = detect_rings_deepcstrd(
             image,
             pith_xy,
@@ -187,6 +200,8 @@ def detect(
             nr=deepcstrd_nr,
             total_rotations=deepcstrd_rotations,
             prediction_map_threshold=deepcstrd_threshold,
+            width=deepcstrd_width,
+            height=deepcstrd_height,
         )
     elif ring_method == "inbd":
         if inbd_auto_pith:

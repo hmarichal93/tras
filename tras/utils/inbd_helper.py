@@ -25,6 +25,7 @@ def detect_rings_inbd(
         center_xy: Pith center coordinates (x, y). Optional - if None, INBD will 
                    attempt to detect the pith automatically or use its own method.
         model_id: Model identifier ("INBD_EH", "INBD_DO", "INBD_VM", "INBD_UruDendro1")
+                   or filesystem path to model checkpoint (.pt.zip file)
             - INBD_EH: Empetrum hermaphroditum (shrub)
             - INBD_DO: Dryas octopetala (shrub)
             - INBD_VM: Vaccinium myrtillus (shrub)
@@ -261,7 +262,18 @@ def detect_rings_inbd(
 
 
 def _get_model_path(model_id: str) -> str:
-    """Get path to INBD model checkpoint."""
+    """Get path to INBD model checkpoint.
+    
+    Supports both model IDs (e.g., "INBD_EH") and filesystem paths.
+    If model_id is a filesystem path that exists, it's returned as-is.
+    Otherwise, it's treated as a model ID and resolved from standard locations.
+    """
+    # Check if model_id is a filesystem path
+    model_path_obj = Path(model_id)
+    if model_path_obj.exists() and model_path_obj.is_file():
+        return str(model_path_obj.resolve())
+    
+    # Treat as model ID and resolve from standard locations
     # Look in downloaded_assets first (for consistency with DeepCS-TRD)
     base_path = Path(__file__).parent.parent.parent / "downloaded_assets" / "inbd"
     

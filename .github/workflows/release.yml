@@ -3,6 +3,15 @@ name: Create Release
 on:
   workflow_dispatch:
     inputs:
+      version_bump:
+        description: 'Version bump type (MAJOR.MINOR.PATCH)'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
       release_notes:
         description: 'Release notes (optional)'
         required: false
@@ -33,11 +42,14 @@ jobs:
           
       - name: Read current version and increment
         id: version
+        env:
+          VERSION_BUMP: ${{ github.event.inputs.version_bump }}
         run: |
           python << 'EOF'
           import tomli
           import tomli_w
           import re
+          import os
           
           # Read current version
           with open("pyproject.toml", "rb") as f:
@@ -46,20 +58,39 @@ jobs:
           current_version = config["project"]["version"]
           print(f"Current version: {current_version}")
           
-          # Increment patch version (e.g., 2.0.2 -> 2.0.3)
+          # Get version bump type from environment variable
+          version_bump = os.environ.get('VERSION_BUMP', 'patch').lower()
+          print(f"Version bump type: {version_bump}")
+          
+          # Parse version (format: MAJOR.MINOR.PATCH)
           parts = current_version.split(".")
           if len(parts) == 3:
-              major, minor, patch = parts
-              new_patch = str(int(patch) + 1)
-              new_version = f"{major}.{minor}.{new_patch}"
+              major, minor, patch = int(parts[0]), int(parts[1]), int(parts[2])
           elif len(parts) == 2:
-              major, minor = parts
-              new_version = f"{major}.{int(minor) + 1}.0"
+              major, minor, patch = int(parts[0]), int(parts[1]), 0
           else:
-              # Fallback: just increment last number
-              new_version = str(int(current_version) + 1)
+              # Fallback: treat as single number (major version)
+              major, minor, patch = int(current_version), 0, 0
           
-          print(f"New version: {new_version}")
+          # Increment version based on bump type
+          if version_bump == 'major':
+              new_major = major + 1
+              new_minor = 0
+              new_patch = 0
+              bump_type = 'major'
+          elif version_bump == 'minor':
+              new_major = major
+              new_minor = minor + 1
+              new_patch = 0
+              bump_type = 'minor'
+          else:  # patch (default)
+              new_major = major
+              new_minor = minor
+              new_patch = patch + 1
+              bump_type = 'patch'
+          
+          new_version = f"{new_major}.{new_minor}.{new_patch}"
+          print(f"New version: {new_version} ({bump_type} bump)")
           
           # Update pyproject.toml
           config["project"]["version"] = new_version
@@ -67,10 +98,10 @@ jobs:
               tomli_w.dump(config, f)
           
           # Output for GitHub Actions
-          import os
           with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
               f.write(f"current_version={current_version}\n")
               f.write(f"new_version={new_version}\n")
+              f.write(f"bump_type={bump_type}\n")
           EOF
           
       - name: Check if new tag already exists
@@ -121,12 +152,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           NEW_VERSION="${{ steps.version.outputs.new_version }}"
+          BUMP_TYPE="${{ steps.version.outputs.bump_type }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add pyproject.toml
-          git commit -m "Bump version to ${NEW_VERSION}"
+          git commit -m "Bump version to ${NEW_VERSION} (${BUMP_TYPE})"
           git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git HEAD:main
-          echo "Version updated to ${NEW_VERSION} and pushed"
+          echo "Version updated to ${NEW_VERSION} (${BUMP_TYPE} bump) and pushed"
           
       - name: Create git tag
         if: steps.check_tag.outputs.exists == 'false'
