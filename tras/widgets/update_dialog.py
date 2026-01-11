@@ -32,8 +32,11 @@ class UpgradeWorker(QtCore.QThread):
 
     def run(self):
         """Run the upgrade."""
+        def progress_callback(msg: str):
+            self.progress.emit(msg)
+        
         self.progress.emit(self.tr("Starting upgrade..."))
-        success, message = upgrade_tras(self.new_version)
+        success, message = upgrade_tras(self.new_version, progress_callback=progress_callback)
         self.finished.emit(success, message)
 
 
@@ -201,6 +204,7 @@ class UpdateCheckDialog(QtWidgets.QDialog):
     def _on_upgrade_progress(self, message: str):
         """Handle upgrade progress updates."""
         self.progress_label.setText(message)
+        logger.info(f"Upgrade progress: {message}")
 
     def _on_upgrade_complete(self, success: bool, message: str):
         """Handle upgrade completion."""
