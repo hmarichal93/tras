@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import re
 import subprocess
+import urllib.request
+import json
 from pathlib import Path
 from typing import NamedTuple
 
@@ -89,57 +91,70 @@ def get_remote_url() -> str | None:
     return None
 
 
+def get_latest_release_from_github_api() -> str | None:
+    """Fetch the latest release tag from GitHub API."""
+    try:
+        url = "https://api.github.com/repos/hmarichal93/tras/releases/latest"
+        with urllib.request.urlopen(url, timeout=10) as response:
+            if response.status != 200:
+                logger.debug("GitHub API returned status code: {}", response.status)
+                return None
+            data = json.loads(response.read().decode())
+            tag_name = data.get("tag_name")
+            if tag_name:
+                return tag_name
+            return None
+    except urllib.error.URLError as e:
+        logger.debug("Failed to fetch latest release from GitHub API: {}", e)
+        return None
+    except json.JSONDecodeError as e:
+        logger.debug("Failed to parse GitHub API response: {}", e)
+        return None
+    except Exception as e:
+        logger.debug("Error fetching latest release from GitHub API: {}", e)
+        return None
+
+
 def get_latest_remote_tag() -> str | None:
-    """Fetch the latest git tag from remote repository."""
+    """Fetch the latest git tag from remote repository or GitHub API."""
+    # First, try to use git if available
     try:
         # Get remote name
         remote_name = get_remote_url()
-        if remote_name is None:
-            logger.debug("No git remote found, skipping version check")
-            return None
-        
-        # Fetch tags from remote
-        result = subprocess.run(
-            ["git", "ls-remote", "--tags", remote_name],
-            capture_output=True,
-            text=True,
-            timeout=10,
-            check=False,
-        )
-        if result.returncode != 0:
-            logger.debug("Failed to fetch tags from {}: {}", remote_name, result.stderr)
-            return None
+        if remote_name is not None:
+            # Fetch tags from remote
+            result = subprocess.run(
+                ["git", "ls-remote", "--tags", remote_name],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False,
+            )
+            if result.returncode == 0:
+                # Parse tags from output
+                tags = []
+                for line in result.stdout.strip().split("\n"):
+                    if not line.strip():
+                        continue
+                    # Format: <hash>	refs/tags/<tag>
+                    parts = line.split("\t")
+                    if len(parts) == 2 and parts[1].startswith("refs/tags/"):
+                        tag = parts[1].replace("refs/tags/", "").strip()
+                        # Remove ^{} suffix that git adds for annotated tags
+                        tag = tag.replace("^{}", "")
+                        if tag and tag not in tags:
+                            tags.append(tag)
 
-        # Parse tags from output
-        tags = []
-        for line in result.stdout.strip().split("\n"):
-            if not line.strip():
-                continue
-            # Format: <hash>	refs/tags/<tag>
-            parts = line.split("\t")
-            if len(parts) == 2 and parts[1].startswith("refs/tags/"):
-                tag = parts[1].replace("refs/tags/", "").strip()
-                # Remove ^{} suffix that git adds for annotated tags
-                tag = tag.replace("^{}", "")
-                if tag and tag not in tags:
-                    tags.append(tag)
-
-        if not tags:
-            return None
-
-        # Sort tags by semantic version (highest first)
-        tags.sort(key=parse_version, reverse=True)
-        return tags[0]
-
-    except subprocess.TimeoutExpired:
-        logger.debug("Timeout while fetching tags from remote")
-        return None
-    except FileNotFoundError:
-        logger.debug("git command not found, skipping version check")
-        return None
-    except Exception as e:
-        logger.debug("Error fetching tags: {}", e)
-        return None
+                if tags:
+                    # Sort tags by semantic version (highest first)
+                    tags.sort(key=parse_version, reverse=True)
+                    return tags[0]
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
+        logger.debug("Git-based version check failed: {}", e)
+    
+    # Fallback to GitHub API if git is not available (e.g., installed from release)
+    logger.debug("Falling back to GitHub API for version check")
+    return get_latest_release_from_github_api()
 
 
 def check_version() -> VersionInfo:
