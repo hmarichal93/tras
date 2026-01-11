@@ -53,19 +53,61 @@ def parse_version(version_str: str) -> tuple[int, ...]:
         return (0, 0, 0)
 
 
-def get_latest_remote_tag() -> str | None:
-    """Fetch the latest git tag from origin."""
+def get_remote_url() -> str | None:
+    """Get the remote URL from git config, trying common remote names."""
+    # Try common remote names in order
+    for remote_name in ["origin", "upstream", "github"]:
+        try:
+            result = subprocess.run(
+                ["git", "config", "--get", f"remote.{remote_name}.url"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return remote_name
+        except Exception:
+            continue
+    
+    # If no named remote found, try to get the first remote
     try:
-        # Fetch tags from origin
         result = subprocess.run(
-            ["git", "ls-remote", "--tags", "origin"],
+            ["git", "remote"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+        if result.returncode == 0:
+            remotes = [r.strip() for r in result.stdout.strip().split("\n") if r.strip()]
+            if remotes:
+                return remotes[0]
+    except Exception:
+        pass
+    
+    return None
+
+
+def get_latest_remote_tag() -> str | None:
+    """Fetch the latest git tag from remote repository."""
+    try:
+        # Get remote name
+        remote_name = get_remote_url()
+        if remote_name is None:
+            logger.debug("No git remote found, skipping version check")
+            return None
+        
+        # Fetch tags from remote
+        result = subprocess.run(
+            ["git", "ls-remote", "--tags", remote_name],
             capture_output=True,
             text=True,
             timeout=10,
             check=False,
         )
         if result.returncode != 0:
-            logger.warning("Failed to fetch tags from origin: {}", result.stderr)
+            logger.debug("Failed to fetch tags from {}: {}", remote_name, result.stderr)
             return None
 
         # Parse tags from output
@@ -90,13 +132,13 @@ def get_latest_remote_tag() -> str | None:
         return tags[0]
 
     except subprocess.TimeoutExpired:
-        logger.warning("Timeout while fetching tags from origin")
+        logger.debug("Timeout while fetching tags from remote")
         return None
     except FileNotFoundError:
-        logger.warning("git command not found")
+        logger.debug("git command not found, skipping version check")
         return None
     except Exception as e:
-        logger.warning("Error fetching tags: {}", e)
+        logger.debug("Error fetching tags: {}", e)
         return None
 
 
@@ -115,11 +157,12 @@ def check_version() -> VersionInfo:
     latest_version = get_latest_remote_tag()
 
     if latest_version is None:
+        # Don't treat this as an error - it's normal when not in a git repo or remote unavailable
         return VersionInfo(
             local_version=local_version,
             latest_version=None,
-            is_up_to_date=False,
-            error="Could not fetch latest version from remote",
+            is_up_to_date=True,  # Assume up-to-date if we can't check
+            error=None,  # Not an error, just unavailable
         )
 
     # Compare versions
