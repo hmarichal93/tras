@@ -87,3 +87,77 @@ window.addEventListener('scroll', () => {
     }
 });
 
+// Fetch latest release version from GitHub API
+async function updateLatestRelease() {
+    try {
+        const response = await fetch('https://api.github.com/repos/hmarichal93/tras/releases/latest');
+        if (!response.ok) {
+            throw new Error('Failed to fetch latest release');
+        }
+        const release = await response.json();
+        const version = release.tag_name.replace(/^v/, ''); // Remove 'v' prefix if present
+        const tagName = release.tag_name;
+        
+        // Update version badge
+        const versionText = document.getElementById('version-text');
+        if (versionText) {
+            versionText.textContent = `Version ${version}`;
+        }
+        
+        // Update download button text
+        const downloadText = document.getElementById('download-text');
+        if (downloadText) {
+            downloadText.textContent = `Download ${tagName}`;
+        }
+        
+        // Update download link to point to latest release assets
+        const downloadLink = document.getElementById('download-link');
+        if (downloadLink) {
+            // Find zip asset or use archive link
+            const zipAsset = release.assets.find(asset => asset.name.endsWith('.zip'));
+            if (zipAsset) {
+                downloadLink.href = zipAsset.browser_download_url;
+            } else {
+                downloadLink.href = `https://github.com/hmarichal93/tras/archive/refs/tags/${tagName}.zip`;
+            }
+        }
+        
+        // Update installation download link
+        const installDownloadLink = document.getElementById('install-download-link');
+        if (installDownloadLink) {
+            installDownloadLink.href = `https://github.com/hmarichal93/tras/archive/refs/tags/${tagName}.zip`;
+            installDownloadLink.textContent = `Latest Release (${tagName})`;
+        }
+        
+        // Update footer version
+        const footerVersion = document.getElementById('footer-version');
+        if (footerVersion) {
+            footerVersion.textContent = tagName;
+        }
+        
+        // Update meta description and title
+        document.querySelector('meta[name="description"]').content = 
+            `TRAS - Tree Ring Analyzer Suite ${tagName} - Professional dendrochronology software with automatic tree ring detection and measurement`;
+        document.title = `TRAS - Tree Ring Analyzer Suite ${tagName}`;
+        
+    } catch (error) {
+        console.error('Error fetching latest release:', error);
+        // Fallback: keep "Latest" text or show error
+        const versionText = document.getElementById('version-text');
+        if (versionText) {
+            versionText.textContent = 'Latest';
+        }
+        const downloadText = document.getElementById('download-text');
+        if (downloadText) {
+            downloadText.textContent = 'Download Latest';
+        }
+    }
+}
+
+// Call on page load
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', updateLatestRelease);
+} else {
+    updateLatestRelease();
+}
+
