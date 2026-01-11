@@ -10,7 +10,7 @@ build-backend = "hatchling.build"
 name = "tras"
 description = "TRAS - Tree Ring Analyzer Suite - Specialized tool for dendrochronology"
 requires-python = ">=3.9"
-version = "2.1.0"
+version = "2.1.1"
 authors = [
     { name = "Henry Marichal", email = "hmarichal93@gmail.com" },
     { name = "Original LabelMe", email = "www.kentaro.wada@gmail.com" },
