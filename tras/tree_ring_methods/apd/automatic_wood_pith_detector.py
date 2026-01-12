@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+from pathlib import Path
 from ultralytics import YOLO
 import pandas as pd
 
@@ -124,11 +125,81 @@ def apd_dl(img_in, output_dir, weights_path):
     if weights_path is None:
         raise ValueError("model is None")
 
+    # Resolve the output directory path to handle symlinks (e.g., /var -> /private/var on macOS)
+    output_dir = Path(output_dir).resolve()
 
     print(f"weights_path {weights_path}")
     model = YOLO(weights_path, task='detect')
-    _ = model(img_in, project=output_dir, save=True, save_txt=True, imgsz=640)
-    cx, cy, _, _ = read_label(output_dir / 'predict/labels/image0.txt', img_in)
+    results = model(img_in, project=str(output_dir), save=True, save_txt=True, imgsz=640)
+    
+    # Find the actual output directory created by YOLO (it creates a 'predict' subdirectory)
+    # YOLO might resolve paths differently, so we need to find where it actually saved the files
+    predict_dir = output_dir / 'predict'
+    labels_dir = predict_dir / 'labels'
+    
+    # Try to find the label file - YOLO might name it differently or save to a different location
+    label_file = None
+    if labels_dir.exists():
+        # Look for label files in the labels directory
+        label_files = list(labels_dir.glob('*.txt'))
+        if label_files:
+            label_file = label_files[0]  # Use the first label file found
+        else:
+            # Check if YOLO saved to a different location based on the results
+            # YOLO might create subdirectories based on the run number
+            for subdir in predict_dir.iterdir():
+                if subdir.is_dir() and (subdir / 'labels').exists():
+                    subdir_labels = list((subdir / 'labels').glob('*.txt'))
+                    if subdir_labels:
+                        label_file = subdir_labels[0]
+                        break
+    
+    # If no label file found, try to extract coordinates from YOLO results directly
+    if label_file is None or not label_file.exists():
+        # Check results to see if any detections were made
+        has_detections = False
+        detection_box = None
+        
+        if results and len(results) > 0:
+            result = results[0]
+            # Check if any boxes were detected
+            if hasattr(result, 'boxes') and result.boxes is not None:
+                boxes = result.boxes
+                if len(boxes) > 0:
+                    has_detections = True
+                    # Get the first (highest confidence) detection
+                    # boxes.xyxy contains [x1, y1, x2, y2] coordinates
+                    # boxes.xywh contains [x_center, y_center, width, height] coordinates
+                    if hasattr(boxes, 'xywh') and len(boxes.xywh) > 0:
+                        # Use center coordinates directly from YOLO
+                        xywh = boxes.xywh[0].cpu().numpy() if hasattr(boxes.xywh[0], 'cpu') else boxes.xywh[0]
+                        cx = int(xywh[0])
+                        cy = int(xywh[1])
+                        peak = np.array([cx, cy])
+                        return peak
+        
+        if not has_detections:
+            raise ValueError(
+                "No pith detected by YOLO model. The image might not contain a visible pith, "
+                "or the model confidence threshold might be too high. Please try manual pith selection."
+            )
+        else:
+            # Detections exist but we couldn't extract coordinates - fallback to file reading
+            # Try to find the label file by searching more thoroughly
+            all_label_files = []
+            if predict_dir.exists():
+                all_label_files = list(predict_dir.rglob('*.txt'))
+            
+            if all_label_files:
+                label_file = all_label_files[0]
+            else:
+                raise FileNotFoundError(
+                    f"YOLO made detections but could not find label file or extract coordinates. "
+                    f"Searched in: {predict_dir}"
+                )
+    
+    # Read coordinates from label file
+    cx, cy, _, _ = read_label(label_file, img_in)
     peak = np.array([cx, cy])
 
     return peak

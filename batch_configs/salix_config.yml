@@ -1,0 +1,18 @@
+physical_scale:
+  value: 0.0213  # Replace with your actual scale
+  unit: mm
+
+preprocess:
+  remove_background: true  # Remove background with U2Net
+
+pith:
+  auto: true
+  method: apd_dl
+
+rings:
+  method: deepcstrd
+  deepcstrd:
+    model: salix
+    width: 1500
+    height: 1500
+    tile_size: 256
