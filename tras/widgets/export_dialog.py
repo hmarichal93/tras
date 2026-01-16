@@ -324,12 +324,14 @@ class ExportDialog(QtWidgets.QDialog):
             )
     
     def _export_json(self, output_dir: Path) -> str | None:
-        """Export annotations as JSON."""
+        """Export annotations as JSON using shared exporter."""
         if not self.parent_window:
             logger.error("Export JSON: No parent window")
             return None
         
         try:
+            from tras.utils.annotation_export import export_annotations_json
+            
             # Use default filename based on image or sample code
             metadata = getattr(self.parent_window, 'sample_metadata', None) or {}
             if self.parent_window.filename:
@@ -345,80 +347,8 @@ class ExportDialog(QtWidgets.QDialog):
             
             logger.info(f"Export JSON: Target file is {json_file}")
             
-            # Convert shapes to dictionaries using the same format as saveLabels
-            def format_shape(s):
-                from tras import utils
-                import numpy as np
-                
-                data = s.other_data.copy() if hasattr(s, 'other_data') and s.other_data else {}
-                data.update(
-                    dict(
-                        label=s.label,
-                        points=[(p.x(), p.y()) for p in s.points],
-                        group_id=s.group_id if hasattr(s, 'group_id') else None,
-                        description=s.description if hasattr(s, 'description') else "",
-                        shape_type=s.shape_type,
-                        flags=s.flags if hasattr(s, 'flags') else {},
-                        mask=None
-                        if not hasattr(s, 'mask') or s.mask is None
-                        else utils.img_arr_to_b64(s.mask.astype(np.uint8)),
-                    )
-                )
-                return data
-            
-            shapes = [format_shape(shape) for shape in self.parent_window.canvas.shapes]
-            
-            if not shapes:
-                logger.warning("Export JSON: No shapes to export")
-                return None
-            
-            logger.info(f"Export JSON: Found {len(shapes)} shapes to export")
-            
-            # Save using LabelFile
-            # Match the logic from MainWindow.saveLabels()
-            import os.path as osp
-            
-            # Make imagePath relative to the JSON file location
-            imagePath = ""
-            if self.parent_window.imagePath:
-                try:
-                    imagePath = osp.relpath(self.parent_window.imagePath, osp.dirname(str(json_file)))
-                except ValueError:
-                    # relpath can fail if paths are on different drives (Windows)
-                    # Fall back to absolute path or just the filename
-                    logger.warning(f"Export JSON: Could not make imagePath relative, using basename")
-                    imagePath = osp.basename(self.parent_window.imagePath)
-            
-            # Respect store_data config (same as saveLabels)
-            imageData = None
-            if hasattr(self.parent_window, '_config') and self.parent_window._config.get("store_data", True):
-                imageData = self.parent_window.imageData
-            elif not hasattr(self.parent_window, '_config'):
-                # If config doesn't exist, default to storing data
-                imageData = self.parent_window.imageData
-            
-            # Prepare otherData (same as saveLabels)
-            otherData = {}
-            if self.parent_window.otherData:
-                otherData = self.parent_window.otherData.copy()
-            
-            # Ensure output directory exists
-            json_file.parent.mkdir(parents=True, exist_ok=True)
-            
-            logger.info(f"Export JSON: Saving to {json_file}")
-            logger.info(f"Export JSON: imagePath={imagePath}, imageHeight={self.parent_window.image.height()}, imageWidth={self.parent_window.image.width()}")
-            
-            label_file = LabelFile()
-            label_file.save(
-                filename=str(json_file),
-                shapes=shapes,
-                imagePath=imagePath,
-                imageHeight=self.parent_window.image.height(),
-                imageWidth=self.parent_window.image.width(),
-                imageData=imageData,
-                otherData=otherData,
-                flags={}
-            )
+            # Use shared exporter (exports even with zero shapes)
+            export_annotations_json(self.parent_window, json_file)
             
             # Verify file was created
             if json_file.exists():
