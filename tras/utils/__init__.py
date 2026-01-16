@@ -1,4 +1,5 @@
 from ._io import lblsave
+from .annotation_export import export_annotations_json
 from .image import apply_exif_orientation
 from .image import img_arr_to_b64
 from .image import img_arr_to_data

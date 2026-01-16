@@ -2357,6 +2357,27 @@ class MainWindow(QtWidgets.QMainWindow):
         self.canvas.shapes = []
         self.labelList.clear()
         
+        # Clear geometry-dependent state since image coordinates have changed
+        # (pith position, radial measurements are no longer valid)
+        if self.pith_xy is not None:
+            logger.info("Clearing pith_xy due to image replacement")
+            self.pith_xy = None
+        
+        if self.radial_line_measurements is not None:
+            logger.info("Clearing radial_line_measurements due to image replacement")
+            self.radial_line_measurements = None
+        
+        # Remove geometry-dependent data from otherData if present
+        if self.otherData is None:
+            self.otherData = {}
+        else:
+            # Remove pith_xy and radial measurements from otherData
+            # (but preserve sample_metadata and other non-geometry data)
+            if "pith_xy" in self.otherData:
+                del self.otherData["pith_xy"]
+            if "radial_line_measurements" in self.otherData:
+                del self.otherData["radial_line_measurements"]
+        
         # Convert processed image to QImage using PIL as intermediate
         # This ensures proper data handling without corruption
         from PIL import Image as PILImage
@@ -2832,78 +2853,33 @@ class MainWindow(QtWidgets.QMainWindow):
             self.flag_widget.addItem(item)  # type: ignore[union-attr]
 
     def saveLabels(self, filename):
-        lf = LabelFile()
-
-        def format_shape(s):
-            data = s.other_data.copy()
-            data.update(
-                dict(
-                    label=s.label,
-                    points=[(p.x(), p.y()) for p in s.points],
-                    group_id=s.group_id,
-                    description=s.description,
-                    shape_type=s.shape_type,
-                    flags=s.flags,
-                    mask=None
-                    if s.mask is None
-                    else utils.img_arr_to_b64(s.mask.astype(np.uint8)),
-                )
-            )
-            return data
-
-        shapes = [format_shape(item.shape()) for item in self.labelList]
-        flags = {}
-        for i in range(self.flag_widget.count()):  # type: ignore[union-attr]
-            item = self.flag_widget.item(i)  # type: ignore[union-attr]
-            assert item
-            key = item.text()
-            flag = item.checkState() == Qt.Checked
-            flags[key] = flag
+        """Save annotations to JSON file using shared exporter."""
         try:
-            assert self.imagePath
-            imagePath = osp.relpath(self.imagePath, osp.dirname(filename))
-            imageData = self.imageData if self._config["store_data"] else None
-            if osp.dirname(filename) and not osp.exists(osp.dirname(filename)):
-                os.makedirs(osp.dirname(filename))
+            from tras.utils.annotation_export import export_annotations_json
             
-            # Prepare otherData with pith, metadata, and scale
-            if self.otherData is None:
-                self.otherData = {}
+            # Use shared exporter for canonical JSON format
+            export_annotations_json(self, filename)
             
-            # Save pith position if available
-            if self.pith_xy is not None:
-                self.otherData["pith_xy"] = self.pith_xy
+            # Preserve side effects: set labelFile for compatibility
+            self.labelFile = LabelFile(filename)
             
-            # Save sample metadata if available
-            if self.sample_metadata is not None:
-                self.otherData["sample_metadata"] = self.sample_metadata
-            
-            # Save image scale if available
-            if self.image_scale is not None:
-                self.otherData["image_scale"] = self.image_scale
-            
-            lf.save(
-                filename=filename,
-                shapes=shapes,
-                imagePath=imagePath,
-                imageData=imageData,
-                imageHeight=self.image.height(),
-                imageWidth=self.image.width(),
-                otherData=self.otherData,
-                flags=flags,
-            )
-            self.labelFile = lf
+            # Update file list widget check state
             items = self.fileListWidget.findItems(self.imagePath, Qt.MatchExactly)
             if len(items) > 0:
                 if len(items) != 1:
                     raise RuntimeError("There are duplicate files.")
                 items[0].setCheckState(Qt.Checked)
-            # disable allows next and previous image to proceed
-            # self.filename = filename
+            
             return True
         except LabelFileError as e:
             self.errorMessage(
                 self.tr("Error saving label data"), self.tr("<b>%s</b>") % e
+            )
+            return False
+        except Exception as e:
+            # Catch any other errors and show user-friendly message
+            self.errorMessage(
+                self.tr("Error saving label data"), self.tr("<b>%s</b>") % str(e)
             )
             return False
 
