@@ -201,6 +201,11 @@ See [`examples/cli/process_config.yml`](examples/cli/process_config.yml) for a c
 
 **Required for batch processing:** Physical scale (`--scale-value` and `--scale-unit`) must be provided either via config file or CLI flags.
 
+## 🧠 Training Custom Models
+
+TRAS supports loading user-trained models for INBD and DeepCS-TRD to improve detection on your specific datasets.
+See the **[Training Custom Models guide](docs/training_custom_models.md)** for step-by-step instructions.
+
 ## 📖 Workflow
 
 
