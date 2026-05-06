@@ -2,6 +2,9 @@
 
 # 🌲 TRAS - Tree Ring Analyzer Suite
 
+**Accepted as Software Article at Forestry: An International Journal of Forest Research** 
+
+
 <p align="center">
   <img src="assets/tras-logo.png" alt="TRAS Logo" width="200"/>
 </p>
