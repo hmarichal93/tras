@@ -1,3 +1,4 @@
+import cv2
 import numpy as np
 from typing import List, Tuple
 import sys
@@ -50,6 +51,12 @@ def detect_rings_deepcstrd(
     """
     # Ensure RGB uint8 format
     image = normalize_to_rgb_uint8(image)
+
+    # DeepCS-TRD's U-Net consumes the array straight to the model (predict()
+    # only scales by /255, with no channel conversion or ImageNet normalization),
+    # and it was trained on the cv2/BGR pipeline. Convert RGB -> BGR so the
+    # channel order matches the training distribution.
+    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
     # Get model path (supports both model ID and filesystem path)
     model_path = _get_model_path(model_id, tile_size)
