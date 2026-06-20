@@ -20,7 +20,7 @@ class segmentation_model:
     MASK_RCNN = 3
 
 class RingSegmentationModel:
-    def __init__(self, weights_path = "/home/henry/Documents/repo/fing/cores_tree_ring_detection/src/runs/unet_experiment/latest_model.pth" ,
+    def __init__(self, weights_path,
                  tile_size=512, overlap=0.1, output_dir=None, model_type=segmentation_model.UNET, encoder='resnet18'):
         self.model_type = model_type
         self.tile_size = tile_size
@@ -57,6 +57,9 @@ class RingSegmentationModel:
         return model
 
     def load_model(self, weights_path, encoder='resnet18'):
+
+        if not Path(weights_path).is_file():
+            raise FileNotFoundError(f"DeepCS-TRD model weights not found: {weights_path}")
 
         model = self.load_architecture(self.model_type, encoder, dropout=True)
 

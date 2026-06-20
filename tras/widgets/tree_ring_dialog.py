@@ -6,7 +6,9 @@ import platform
 import shutil
 import tempfile
 import traceback
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable
 
 import cv2
 import numpy as np
@@ -19,7 +21,26 @@ from tras.utils.apd_helper import detect_pith_apd
 from tras.utils.cstrd_helper import detect_rings_cstrd
 from tras.utils.deepcstrd_helper import detect_rings_deepcstrd
 from tras.utils.inbd_helper import detect_rings_inbd
+from tras.utils.model_paths import get_deepcstrd_models_dir, get_inbd_checkpoints_dir
 from tras.utils.ring_sampling import resample_rings_by_rays
+
+
+@dataclass(frozen=True)
+class ModelUploadSpec:
+    """Per-method configuration for the shared custom-model upload workflow.
+
+    The upload steps (pick file, name, optional tile size, copy, refresh combo) are
+    identical for DeepCS-TRD and INBD; only these fields differ.
+    """
+
+    file_dialog_title: str
+    file_filter: str
+    combo: QtWidgets.QComboBox
+    dest_path: Callable[[str, str], Path]  # (model_name, tile_prefix) -> destination file
+    display_name: Callable[[str], str]  # model_name -> combo display text
+    lowercase_name: bool = False
+    ask_tile_size: bool = False
+    refresh: Callable[[], None] | None = None  # rebuild combo before re-selecting
 
 
 def _remove_background(
@@ -1293,10 +1314,9 @@ class TreeRingDialog(QtWidgets.QDialog):
         preview.exec_()
 
     def _populate_model_list(self):
-        """Populate the model dropdown with available models."""
-        # Get models directory
-        models_dir = Path(__file__).parent.parent / "tree_ring_methods" / "deepcstrd" / "models" / "deep_cstrd"
-        
+        """Populate the DeepCS-TRD model dropdown with predefined and custom models."""
+        models_dir = get_deepcstrd_models_dir()
+
         # Predefined models with friendly names
         model_names = {
             "generic": "generic (all species)",
@@ -1305,204 +1325,152 @@ class TreeRingDialog(QtWidgets.QDialog):
             "gleditsia": "gleditsia (Gleditsia triacanthos)",
             "salix": "salix (Salix glauca)"
         }
-        
-        # Scan for additional custom models
+
+        # Scan for custom models (both full-image "0_" and tiled "256_" variants)
         if models_dir.exists():
-            for model_file in models_dir.glob("0_*.pth"):
-                model_id = model_file.stem.replace("0_", "").replace("_1504", "")
-                if model_id not in model_names:
-                    # Custom model - add with generic name
-                    model_names[model_id] = f"{model_id} (custom)"
-        
+            for model_file in sorted(models_dir.glob("*_*_1504.pth")):
+                # "0_best_uru4_1504" -> drop "{tile}_" prefix and "_1504" suffix -> "best_uru4"
+                model_id = model_file.stem.split("_", 1)[1].rsplit("_1504", 1)[0]
+                if model_id == "all" or model_id in model_names:
+                    continue  # "all" is the generic model; skip predefined duplicates
+                model_names[model_id] = f"{model_id} (custom)"
+
         # Add models to dropdown
         self.deepcstrd_model.clear()
-        for model_id, display_name in model_names.items():
+        for display_name in model_names.values():
             self.deepcstrd_model.addItem(display_name)
     
     def _on_upload_inbd_model(self):
         """Handle INBD model upload button click."""
-        # File dialog to select .pt.zip file
-        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
-            self,
-            self.tr("Select INBD Model File"),
-            "",
-            self.tr("INBD Model Files (*.pt.zip);;All Files (*)")
+        checkpoints_dir = get_inbd_checkpoints_dir()
+        self._upload_custom_model(
+            ModelUploadSpec(
+                file_dialog_title=self.tr("Select INBD Model File"),
+                file_filter=self.tr("INBD Model Files (*.pt.zip);;All Files (*)"),
+                combo=self.inbd_model,
+                dest_path=lambda name, _tile: checkpoints_dir / f"INBD_{name}" / "model.pt.zip",
+                display_name=lambda name: f"INBD_{name} (custom)",
+            )
         )
-        
+
+    def _on_upload_model(self):
+        """Handle DeepCS-TRD model upload button click."""
+        self._upload_custom_model(
+            ModelUploadSpec(
+                file_dialog_title=self.tr("Select DeepCS-TRD Model File"),
+                file_filter=self.tr("PyTorch Model Files (*.pth);;All Files (*)"),
+                combo=self.deepcstrd_model,
+                dest_path=lambda name, tile: get_deepcstrd_models_dir() / f"{tile}_{name}_1504.pth",
+                display_name=lambda name: f"{name} (custom)",
+                lowercase_name=True,
+                ask_tile_size=True,
+                refresh=self._populate_model_list,
+            )
+        )
+
+    def _upload_custom_model(self, spec: ModelUploadSpec):
+        """Shared workflow to upload a custom model file into the right location.
+
+        Steps: pick file, ask for a name (validated), optionally ask the tile size,
+        confirm overwrite, copy into ``spec.dest_path``, then refresh/select the combo.
+        """
+        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self, spec.file_dialog_title, "", spec.file_filter
+        )
         if not file_path:
             return  # User cancelled
-        
-        # Ask for model name
-        model_name, ok = QtWidgets.QInputDialog.getText(
-            self,
-            self.tr("Model Name"),
-            self.tr("Enter a name for this model (e.g., 'eucalyptus', 'oak'):\n"
-                   "(Use only letters, numbers, and underscores)\n"
-                   "Will be saved as: INBD_<name>")
-        )
-        
-        if not ok or not model_name:
-            return  # User cancelled
-        
-        # Validate model name
-        model_name = model_name.strip().replace(" ", "_")
-        if not model_name.replace("_", "").isalnum():
-            QtWidgets.QMessageBox.warning(
-                self,
-                self.tr("Invalid Name"),
-                self.tr("Model name can only contain letters, numbers, and underscores.")
-            )
+
+        model_name = self._ask_model_name(lowercase=spec.lowercase_name)
+        if model_name is None:
             return
-        
-        # Create model directory name
-        model_dir_name = f"INBD_{model_name}"
-        
-        # Get destination path - store in INBD checkpoints directory
-        checkpoints_dir = Path(__file__).parent.parent / "tree_ring_methods" / "inbd" / "src" / "checkpoints"
-        dest_dir = checkpoints_dir / model_dir_name
-        dest_file = dest_dir / "model.pt.zip"
-        
-        if dest_file.exists():
-            reply = QtWidgets.QMessageBox.question(
-                self,
-                self.tr("Model Exists"),
-                self.tr(f"Model '{model_dir_name}' already exists. Overwrite?"),
-                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No
-            )
-            if reply != QtWidgets.QMessageBox.Yes:
+
+        tile_prefix = ""
+        if spec.ask_tile_size:
+            tile_prefix = self._ask_tile_size()
+            if tile_prefix is None:
                 return
-        
+
+        dest_file = spec.dest_path(model_name, tile_prefix)
+        if dest_file.exists() and not self._confirm_overwrite(model_name):
+            return
+
         try:
-            # Create directory if it doesn't exist
-            dest_dir.mkdir(parents=True, exist_ok=True)
-            
-            # Copy model file
+            dest_file.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(file_path, dest_file)
-            
-            # Add to model list if not already there
-            new_model_text = f"{model_dir_name} (custom)"
-            if self.inbd_model.findText(new_model_text) < 0:
-                self.inbd_model.addItem(new_model_text)
-            
-            # Select the newly uploaded model
-            index = self.inbd_model.findText(new_model_text)
-            if index >= 0:
-                self.inbd_model.setCurrentIndex(index)
-            
+
+            if spec.refresh is not None:
+                spec.refresh()
+            self._select_model_in_combo(spec.combo, spec.display_name(model_name))
+
             QtWidgets.QMessageBox.information(
                 self,
                 self.tr("Upload Successful"),
-                self.tr(f"Model uploaded successfully!\n\n"
-                       f"Model: {model_dir_name}\n"
-                       f"Location: {dest_file}")
+                self.tr(
+                    f"Model '{model_name}' uploaded successfully!\n\nLocation: {dest_file}"
+                ),
             )
-            
-            logger.info(f"Uploaded custom INBD model: {dest_file}")
-            
+            logger.info(f"Uploaded custom model: {dest_file}")
         except Exception as e:
             QtWidgets.QMessageBox.critical(
                 self,
                 self.tr("Upload Failed"),
-                self.tr(f"Failed to upload model:\n{str(e)}")
+                self.tr(f"Failed to upload model:\n{str(e)}"),
             )
-            logger.error(f"Failed to upload INBD model: {e}", exc_info=True)
-    
-    def _on_upload_model(self):
-        """Handle DeepCS-TRDmodel upload button click."""
-        # File dialog to select .pth file
-        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
-            self,
-            self.tr("Select DeepCS-TRD Model File"),
-            "",
-            self.tr("PyTorch Model Files (*.pth);;All Files (*)")
-        )
-        
-        if not file_path:
-            return  # User cancelled
-        
-        # Ask for model name
+            logger.error(f"Failed to upload model: {e}", exc_info=True)
+
+    def _ask_model_name(self, lowercase: bool) -> str | None:
+        """Prompt for a model name; return the validated name or None if invalid."""
         model_name, ok = QtWidgets.QInputDialog.getText(
             self,
             self.tr("Model Name"),
-            self.tr("Enter a name for this model (e.g., 'eucalyptus', 'oak'):\n"
-                   "(Use only letters, numbers, and underscores)")
+            self.tr(
+                "Enter a name for this model (e.g., 'eucalyptus', 'oak'):\n"
+                "(Use only letters, numbers, and underscores)"
+            ),
         )
-        
         if not ok or not model_name:
-            return  # User cancelled
-        
-        # Validate model name
-        model_name = model_name.strip().lower().replace(" ", "_")
+            return None
+
+        model_name = model_name.strip().replace(" ", "_")
+        if lowercase:
+            model_name = model_name.lower()
         if not model_name.replace("_", "").isalnum():
             QtWidgets.QMessageBox.warning(
                 self,
                 self.tr("Invalid Name"),
-                self.tr("Model name can only contain letters, numbers, and underscores.")
+                self.tr(
+                    "Model name can only contain letters, numbers, and underscores."
+                ),
             )
-            return
-        
-        # Ask for tile size
-        tile_size, ok = QtWidgets.QInputDialog.getItem(
+            return None
+        return model_name
+
+    def _ask_tile_size(self) -> str | None:
+        """Prompt for the tile size; return the filename prefix ("0"/"256") or None."""
+        choice, ok = QtWidgets.QInputDialog.getItem(
             self,
             self.tr("Tile Size"),
             self.tr("What tile size was this model trained with?"),
             ["0 (Full image)", "256 (Tiled)"],
             0,
-            False
+            False,
         )
-        
         if not ok:
-            return  # User cancelled
-        
-        tile_prefix = "256" if "256" in tile_size else "0"
-        
-        # Get destination path
-        models_dir = Path(__file__).parent.parent / "tree_ring_methods" / "deepcstrd" / "models" / "deep_cstrd"
-        dest_file = models_dir / f"{tile_prefix}_{model_name}_1504.pth"
-        
-        if dest_file.exists():
-            reply = QtWidgets.QMessageBox.question(
-                self,
-                self.tr("File Exists"),
-                self.tr(f"Model '{model_name}' already exists. Overwrite?"),
-                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No
-            )
-            if reply != QtWidgets.QMessageBox.Yes:
-                return
-        
-        try:
-            # Copy model file
-            shutil.copy2(file_path, dest_file)
-            
-            # Refresh model list
-            current_selection = self.deepcstrd_model.currentText()
-            self._populate_model_list()
-            
-            # Try to select the newly uploaded model
-            new_model_text = f"{model_name} (custom)"
-            index = self.deepcstrd_model.findText(new_model_text)
-            if index >= 0:
-                self.deepcstrd_model.setCurrentIndex(index)
-            else:
-                # Restore previous selection if the uploaded model isn't found in the list
-                prev_index = self.deepcstrd_model.findText(current_selection)
-                if prev_index >= 0:
-                    self.deepcstrd_model.setCurrentIndex(prev_index)
-            
-            QtWidgets.QMessageBox.information(
-                self,
-                self.tr("Upload Success"),
-                self.tr(f"Model '{model_name}' uploaded successfully!\n\n"
-                       f"File: {dest_file.name}\n"
-                       f"Location: {models_dir}")
-            )
-            
-            logger.info(f"Uploaded new DeepCS-TRD model: {dest_file}")
-            
-        except Exception as e:
-            QtWidgets.QMessageBox.critical(
-                self,
-                self.tr("Upload Failed"),
-                self.tr(f"Failed to upload model:\n{str(e)}")
-            )
-            logger.error(f"Failed to upload model: {e}")
+            return None
+        return "256" if "256" in choice else "0"
+
+    def _confirm_overwrite(self, model_name: str) -> bool:
+        """Ask the user whether to overwrite an existing model file."""
+        reply = QtWidgets.QMessageBox.question(
+            self,
+            self.tr("Model Exists"),
+            self.tr(f"Model '{model_name}' already exists. Overwrite?"),
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+        )
+        return reply == QtWidgets.QMessageBox.Yes
+
+    def _select_model_in_combo(self, combo: QtWidgets.QComboBox, display_name: str):
+        """Ensure display_name is present in the combo and select it."""
+        if combo.findText(display_name) < 0:
+            combo.addItem(display_name)
+        combo.setCurrentIndex(combo.findText(display_name))
