@@ -151,16 +151,5 @@ shortcuts:
   # Help
   show_shortcuts: F1
 
-# Tree Ring Detection settings (TRAS specific)
-tree_ring_detection:
-  # Default method
-  default_method: "DeepCS-TRD"
-  # Default species model
-  default_species: "pinus_v2"
-  # Preprocessing defaults
-  preprocessing:
-    default_scale: 700
-    auto_remove_background: false
-  # INBD defaults
-  inbd:
-    default_model: "INBD_EH"  # Default to Empetrum hermaphroditum model
+# Note: detection defaults (method/species/params for APD, CS-TRD, DeepCS-TRD, INBD)
+# live in tras/config/detection_defaults.yaml — the single source shared by GUI/API/CLI.
