@@ -23,10 +23,10 @@ cstrd:
 deepcstrd:
   model: generic
   tile_size: 0             # 0 = full image, 256 = tiled
-  alpha: 45
+  alpha: 60
   nr: 360
-  rotations: 5
-  threshold: 0.5
+  rotations: 8
+  threshold: 0.05
   width: 1504              # resize before detection (0 = no resize)
   height: 1504
 
