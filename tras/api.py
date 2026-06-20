@@ -11,6 +11,7 @@ from loguru import logger
 from PIL import Image as PILImage
 
 from tras._label_file import LabelFile
+from tras.config.detection_defaults import get_detection_defaults
 from tras.utils import img_arr_to_data
 from tras.utils.apd_helper import detect_pith_apd
 from tras.utils.cstrd_helper import detect_rings_cstrd
@@ -109,33 +110,36 @@ def _save_detection_results(
     logger.info("Saved detection results to %s", output_path)
 
 
+_DEFAULTS = get_detection_defaults()
+
+
 def detect(
     image_path: Path | str,
     *,
     output: Optional[Path] = None,
     pith_x: Optional[float] = None,
     pith_y: Optional[float] = None,
-    auto_pith: bool = True,
-    pith_method: str = "apd_dl",
-    ring_method: str = "deepcstrd",
+    auto_pith: bool = _DEFAULTS["pith"]["auto"],
+    pith_method: str = _DEFAULTS["pith"]["method"],
+    ring_method: str = _DEFAULTS["method"],
     scale: Optional[float] = None,
     remove_background: bool = False,
-    sampling_nr: int = 360,
-    cstrd_sigma: float = 3.0,
-    cstrd_th_low: float = 5.0,
-    cstrd_th_high: float = 20.0,
-    cstrd_alpha: int = 30,
-    cstrd_nr: int = 360,
-    deepcstrd_model: str = "generic",
-    deepcstrd_tile_size: int = 0,
-    deepcstrd_alpha: int = 45,
-    deepcstrd_nr: int = 360,
-    deepcstrd_rotations: int = 5,
-    deepcstrd_threshold: float = 0.5,
-    deepcstrd_width: int = 0,
-    deepcstrd_height: int = 0,
-    inbd_model: str = "INBD_EH",
-    inbd_auto_pith: bool = True,
+    sampling_nr: int = _DEFAULTS["sampling"]["nr"],
+    cstrd_sigma: float = _DEFAULTS["cstrd"]["sigma"],
+    cstrd_th_low: float = _DEFAULTS["cstrd"]["th_low"],
+    cstrd_th_high: float = _DEFAULTS["cstrd"]["th_high"],
+    cstrd_alpha: int = _DEFAULTS["cstrd"]["alpha"],
+    cstrd_nr: int = _DEFAULTS["cstrd"]["nr"],
+    deepcstrd_model: str = _DEFAULTS["deepcstrd"]["model"],
+    deepcstrd_tile_size: int = _DEFAULTS["deepcstrd"]["tile_size"],
+    deepcstrd_alpha: int = _DEFAULTS["deepcstrd"]["alpha"],
+    deepcstrd_nr: int = _DEFAULTS["deepcstrd"]["nr"],
+    deepcstrd_rotations: int = _DEFAULTS["deepcstrd"]["rotations"],
+    deepcstrd_threshold: float = _DEFAULTS["deepcstrd"]["threshold"],
+    deepcstrd_width: int = _DEFAULTS["deepcstrd"]["width"],
+    deepcstrd_height: int = _DEFAULTS["deepcstrd"]["height"],
+    inbd_model: str = _DEFAULTS["inbd"]["model"],
+    inbd_auto_pith: bool = _DEFAULTS["inbd"]["auto_pith"],
 ) -> DetectionResult:
     """
     Perform pith and ring detection for an input image.

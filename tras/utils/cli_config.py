@@ -9,6 +9,8 @@ from typing import Any, Optional
 import yaml
 from loguru import logger
 
+from tras.config.detection_defaults import get_detection_defaults
+
 
 class ConfigError(Exception):
     """Raised when configuration is invalid."""
@@ -239,6 +241,7 @@ def get_detection_params(config: dict[str, Any]) -> dict[str, Any]:
         Dictionary of parameters for tras.api.detect()
     """
     params = {}
+    defaults = get_detection_defaults()
 
     # Physical scale (required, but not passed to detect API)
     # It's used separately for CSV/PDF generation
@@ -251,51 +254,55 @@ def get_detection_params(config: dict[str, Any]) -> dict[str, Any]:
 
     # Postprocessing
     postprocess = config.get("postprocess", {})
-    params["sampling_nr"] = postprocess.get("sampling_nr", 360)
+    params["sampling_nr"] = postprocess.get("sampling_nr", defaults["sampling"]["nr"])
 
     # Pith detection
     pith = config.get("pith", {})
-    params["auto_pith"] = pith.get("auto", True)
-    params["pith_method"] = pith.get("method", "apd_dl")
+    params["auto_pith"] = pith.get("auto", defaults["pith"]["auto"])
+    params["pith_method"] = pith.get("method", defaults["pith"]["method"])
 
     # Ring detection method
     rings_config = config.get("rings", {})
-    params["ring_method"] = rings_config.get("method", "deepcstrd")
+    params["ring_method"] = rings_config.get("method", defaults["method"])
 
     # CS-TRD parameters
     if "cstrd" in rings_config:
         cstrd = rings_config["cstrd"]
-        logger.info(f"CS-TRD config values: sigma={cstrd.get('sigma', 3.0)}, th_low={cstrd.get('th_low', 5.0)}, th_high={cstrd.get('th_high', 20.0)}, alpha={cstrd.get('alpha', 30)}, nr={cstrd.get('nr', 360)}")
-        params["cstrd_sigma"] = cstrd.get("sigma", 3.0)
-        params["cstrd_th_low"] = cstrd.get("th_low", 5.0)
-        params["cstrd_th_high"] = cstrd.get("th_high", 20.0)
-        params["cstrd_alpha"] = cstrd.get("alpha", 30)
-        params["cstrd_nr"] = cstrd.get("nr", 360)
+        cstrd_defaults = defaults["cstrd"]
+        params["cstrd_sigma"] = cstrd.get("sigma", cstrd_defaults["sigma"])
+        params["cstrd_th_low"] = cstrd.get("th_low", cstrd_defaults["th_low"])
+        params["cstrd_th_high"] = cstrd.get("th_high", cstrd_defaults["th_high"])
+        params["cstrd_alpha"] = cstrd.get("alpha", cstrd_defaults["alpha"])
+        params["cstrd_nr"] = cstrd.get("nr", cstrd_defaults["nr"])
+        logger.info(f"CS-TRD config values: {[(k, v) for k, v in params.items() if k.startswith('cstrd_')]}")
 
     # DeepCS-TRD parameters
     if "deepcstrd" in rings_config:
         deepcstrd = rings_config["deepcstrd"]
+        deep_defaults = defaults["deepcstrd"]
         # Get model value - should be set after normalization in merge_config
-        model_value = deepcstrd.get("model", "generic")
-        tile_size_value = deepcstrd.get("tile_size", 0)
-        logger.info(f"DeepCS-TRD config values: model='{model_value}', tile_size={tile_size_value}, width={deepcstrd.get('width', 0)}, height={deepcstrd.get('height', 0)}, alpha={deepcstrd.get('alpha', 45)}, nr={deepcstrd.get('nr', 360)}, rotations={deepcstrd.get('rotations', 5)}, threshold={deepcstrd.get('threshold', 0.5)}")
-        if model_value == "generic" and "model" in deepcstrd:
-            logger.warning(f"DeepCS-TRD model was 'generic' but 'model' key exists in config with value: {deepcstrd.get('model')}")
+        model_value = deepcstrd.get("model", deep_defaults["model"])
         params["deepcstrd_model"] = model_value
-        params["deepcstrd_tile_size"] = tile_size_value
-        params["deepcstrd_alpha"] = deepcstrd.get("alpha", 45)
-        params["deepcstrd_nr"] = deepcstrd.get("nr", 360)
-        params["deepcstrd_rotations"] = deepcstrd.get("rotations", 5)
-        params["deepcstrd_threshold"] = deepcstrd.get("threshold", 0.5)
-        params["deepcstrd_width"] = deepcstrd.get("width", 0)
-        params["deepcstrd_height"] = deepcstrd.get("height", 0)
+        params["deepcstrd_tile_size"] = deepcstrd.get("tile_size", deep_defaults["tile_size"])
+        params["deepcstrd_alpha"] = deepcstrd.get("alpha", deep_defaults["alpha"])
+        params["deepcstrd_nr"] = deepcstrd.get("nr", deep_defaults["nr"])
+        params["deepcstrd_rotations"] = deepcstrd.get("rotations", deep_defaults["rotations"])
+        params["deepcstrd_threshold"] = deepcstrd.get("threshold", deep_defaults["threshold"])
+        params["deepcstrd_width"] = deepcstrd.get("width", deep_defaults["width"])
+        params["deepcstrd_height"] = deepcstrd.get("height", deep_defaults["height"])
+        deep_logged = {k: v for k, v in params.items() if k.startswith("deepcstrd_")}
+        logger.info(f"DeepCS-TRD config values: {deep_logged}")
 
     # INBD parameters
     if "inbd" in rings_config:
         inbd = rings_config["inbd"]
-        logger.info(f"INBD config values: model='{inbd.get('model', 'INBD_EH')}', auto_pith={inbd.get('auto_pith', True)}")
-        params["inbd_model"] = inbd.get("model", "INBD_EH")
-        params["inbd_auto_pith"] = inbd.get("auto_pith", True)
+        inbd_defaults = defaults["inbd"]
+        params["inbd_model"] = inbd.get("model", inbd_defaults["model"])
+        params["inbd_auto_pith"] = inbd.get("auto_pith", inbd_defaults["auto_pith"])
+        logger.info(
+            f"INBD config values: model='{params['inbd_model']}', "
+            f"auto_pith={params['inbd_auto_pith']}"
+        )
 
     return params
 

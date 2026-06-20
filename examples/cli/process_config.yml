@@ -41,6 +41,8 @@ rings:
     nr: 360                    # Number of radial samples
     rotations: 5               # Number of rotations for test-time augmentation
     threshold: 0.5             # Prediction threshold for binary map
+    width: 1504                # Resize width before detection (0 = no resize)
+    height: 1504               # Resize height before detection (0 = no resize)
 
   # INBD parameters (used when rings.method = 'inbd')
   inbd:

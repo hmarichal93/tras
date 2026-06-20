@@ -17,6 +17,7 @@ from PIL import Image, ImageDraw
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QApplication
 
+from tras.config.detection_defaults import get_detection_defaults
 from tras.utils.apd_helper import detect_pith_apd
 from tras.utils.cstrd_helper import detect_rings_cstrd
 from tras.utils.deepcstrd_helper import detect_rings_deepcstrd
@@ -169,6 +170,7 @@ class TreeRingDialog(QtWidgets.QDialog):
             cy_default = float(actual_height) / 2.0
 
         self._settings = QtCore.QSettings("TRAS", "TRAS")
+        self._defaults = get_detection_defaults()
 
         self.main_tabs = QtWidgets.QTabWidget()
 
@@ -263,7 +265,7 @@ class TreeRingDialog(QtWidgets.QDialog):
 
         self.apd_method = QtWidgets.QComboBox()
         self.apd_method.addItems(["apd", "apd_pcl", "apd_dl"])
-        self.apd_method.setCurrentText("apd_dl")  # Set apd_dl as default
+        self.apd_method.setCurrentText(self._defaults["pith"]["method"])
         apd_layout.addRow(self.tr("Method:"), self.apd_method)
 
         self.apd_advanced_group.setLayout(apd_layout)
@@ -296,7 +298,7 @@ class TreeRingDialog(QtWidgets.QDialog):
         sampling_label = QtWidgets.QLabel(self.tr("Sampling NR (postprocess):"))
         self.sampling_nr = QtWidgets.QSpinBox()
         self.sampling_nr.setRange(36, 720)
-        self.sampling_nr.setValue(360)
+        self.sampling_nr.setValue(self._defaults["sampling"]["nr"])
         self.sampling_nr.setSingleStep(36)
         self.sampling_nr.setToolTip(
             self.tr(
@@ -349,36 +351,36 @@ class TreeRingDialog(QtWidgets.QDialog):
 
         self.cstrd_sigma = QtWidgets.QDoubleSpinBox()
         self.cstrd_sigma.setRange(0.5, 10.0)
-        self.cstrd_sigma.setValue(3.0)
+        self.cstrd_sigma.setValue(self._defaults["cstrd"]["sigma"])
         self.cstrd_sigma.setSingleStep(0.5)
         cstrd_layout.addRow(self.tr("Gaussian Sigma:"), self.cstrd_sigma)
 
         self.cstrd_th_low = QtWidgets.QDoubleSpinBox()
         self.cstrd_th_low.setRange(0.0, 50.0)
-        self.cstrd_th_low.setValue(5.0)
+        self.cstrd_th_low.setValue(self._defaults["cstrd"]["th_low"])
         self.cstrd_th_low.setSingleStep(1.0)
         cstrd_layout.addRow(self.tr("Low Threshold:"), self.cstrd_th_low)
 
         self.cstrd_th_high = QtWidgets.QDoubleSpinBox()
         self.cstrd_th_high.setRange(0.0, 100.0)
-        self.cstrd_th_high.setValue(20.0)
+        self.cstrd_th_high.setValue(self._defaults["cstrd"]["th_high"])
         self.cstrd_th_high.setSingleStep(1.0)
         cstrd_layout.addRow(self.tr("High Threshold:"), self.cstrd_th_high)
 
         self.cstrd_alpha = QtWidgets.QSpinBox()
         self.cstrd_alpha.setRange(1, 180)
-        self.cstrd_alpha.setValue(30)
+        self.cstrd_alpha.setValue(self._defaults["cstrd"]["alpha"])
         cstrd_layout.addRow(self.tr("Alpha (deg):"), self.cstrd_alpha)
 
         self.cstrd_nr = QtWidgets.QSpinBox()
         self.cstrd_nr.setRange(36, 720)
-        self.cstrd_nr.setValue(360)
+        self.cstrd_nr.setValue(self._defaults["cstrd"]["nr"])
         self.cstrd_nr.setSingleStep(36)
         cstrd_layout.addRow(self.tr("Radial Samples:"), self.cstrd_nr)
 
         self.cstrd_width = QtWidgets.QSpinBox()
         self.cstrd_width.setRange(0, 10000)
-        self.cstrd_width.setValue(0)
+        self.cstrd_width.setValue(self._defaults["cstrd"]["width"])
         self.cstrd_width.setSingleStep(100)
         self.cstrd_width.setToolTip(
             self.tr(
@@ -391,7 +393,7 @@ class TreeRingDialog(QtWidgets.QDialog):
 
         self.cstrd_height = QtWidgets.QSpinBox()
         self.cstrd_height.setRange(0, 10000)
-        self.cstrd_height.setValue(0)
+        self.cstrd_height.setValue(self._defaults["cstrd"]["height"])
         self.cstrd_height.setSingleStep(100)
         self.cstrd_height.setToolTip(
             self.tr(
@@ -468,18 +470,18 @@ class TreeRingDialog(QtWidgets.QDialog):
 
         self.deepcstrd_alpha = QtWidgets.QSpinBox()
         self.deepcstrd_alpha.setRange(1, 180)
-        self.deepcstrd_alpha.setValue(45)
+        self.deepcstrd_alpha.setValue(self._defaults["deepcstrd"]["alpha"])
         deepcstrd_layout.addRow(self.tr("Alpha (deg):"), self.deepcstrd_alpha)
 
         self.deepcstrd_nr = QtWidgets.QSpinBox()
         self.deepcstrd_nr.setRange(36, 720)
-        self.deepcstrd_nr.setValue(360)
+        self.deepcstrd_nr.setValue(self._defaults["deepcstrd"]["nr"])
         self.deepcstrd_nr.setSingleStep(36)
         deepcstrd_layout.addRow(self.tr("Radial Samples:"), self.deepcstrd_nr)
 
         self.deepcstrd_width = QtWidgets.QSpinBox()
         self.deepcstrd_width.setRange(0, 10000)
-        self.deepcstrd_width.setValue(1504)
+        self.deepcstrd_width.setValue(self._defaults["deepcstrd"]["width"])
         self.deepcstrd_width.setSingleStep(100)
         self.deepcstrd_width.setToolTip(
             self.tr(
@@ -492,7 +494,7 @@ class TreeRingDialog(QtWidgets.QDialog):
 
         self.deepcstrd_height = QtWidgets.QSpinBox()
         self.deepcstrd_height.setRange(0, 10000)
-        self.deepcstrd_height.setValue(1504)
+        self.deepcstrd_height.setValue(self._defaults["deepcstrd"]["height"])
         self.deepcstrd_height.setSingleStep(100)
         self.deepcstrd_height.setToolTip(
             self.tr(
@@ -504,7 +506,7 @@ class TreeRingDialog(QtWidgets.QDialog):
 
         self.deepcstrd_rotations = QtWidgets.QSpinBox()
         self.deepcstrd_rotations.setRange(1, 10)
-        self.deepcstrd_rotations.setValue(5)
+        self.deepcstrd_rotations.setValue(self._defaults["deepcstrd"]["rotations"])
         self.deepcstrd_rotations.setToolTip(
             self.tr("Test-time augmentation rotations.\nHigher = more accurate but slower.")
         )
@@ -512,7 +514,7 @@ class TreeRingDialog(QtWidgets.QDialog):
 
         self.deepcstrd_threshold = QtWidgets.QDoubleSpinBox()
         self.deepcstrd_threshold.setRange(0.0, 1.0)
-        self.deepcstrd_threshold.setValue(0.5)
+        self.deepcstrd_threshold.setValue(self._defaults["deepcstrd"]["threshold"])
         self.deepcstrd_threshold.setSingleStep(0.05)
         self.deepcstrd_threshold.setToolTip(
             self.tr(

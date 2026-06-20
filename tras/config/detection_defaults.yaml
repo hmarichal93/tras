@@ -1,0 +1,35 @@
+# Single source of truth for default detection parameters.
+# Read by the GUI (tras/widgets/tree_ring_dialog.py), the API (tras/api.py),
+# and the batch CLI (tras/utils/cli_config.py). Change a default here once.
+
+method: deepcstrd          # default ring detection method
+
+sampling:
+  nr: 360                  # radial resampling points for ring properties
+
+pith:
+  method: apd_dl           # APD variant: apd, apd_pcl, apd_dl
+  auto: true               # auto-detect pith by default
+
+cstrd:
+  sigma: 3.0
+  th_low: 5.0
+  th_high: 20.0
+  alpha: 30
+  nr: 360
+  width: 0                 # GUI-only resize (0 = no resize); API does not pass these
+  height: 0
+
+deepcstrd:
+  model: generic
+  tile_size: 0             # 0 = full image, 256 = tiled
+  alpha: 45
+  nr: 360
+  rotations: 5
+  threshold: 0.5
+  width: 1504              # resize before detection (0 = no resize)
+  height: 1504
+
+inbd:
+  model: INBD_EH
+  auto_pith: true
