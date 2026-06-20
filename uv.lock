@@ -3892,7 +3892,7 @@ wheels = [
 
 [[package]]
 name = "tras"
-version = "2.1.5"
+version = "2.1.9"
 source = { editable = "." }
 dependencies = [
     { name = "imgviz" },

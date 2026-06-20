@@ -47,6 +47,7 @@ from tras.widgets import RingPropertiesDialog
 from tras.widgets import MetadataDialog
 from tras.widgets import ShortcutsDialog
 from tras.widgets import UpdateCheckDialog
+from tras.widgets import BatchProcessDialog
 
 from . import utils
 from tras.utils.qt_image import qimage_to_numpy
@@ -815,7 +816,15 @@ class MainWindow(QtWidgets.QMainWindow):
             self.tr("Step 8: Export annotations, measurements, and PDF report"),
             enabled=False,
         )
-        
+
+        # Batch processing action (works on a folder, not the open image)
+        batchProcess = action(
+            self.tr("Batch Processing..."),
+            self._action_batch_process,
+            None,
+            "objects",
+            self.tr("Detect rings over every image in a folder"),
+        )
 
         # Group zoom controls into a list for easier toggling.
         self.zoom_actions = (
@@ -905,8 +914,9 @@ class MainWindow(QtWidgets.QMainWindow):
             ),
         )
         utils.addActions(self.menus.help, (help, keyboardShortcuts, None, checkUpdates, None, about))
-        # Tools menu organized by workflow order
-        utils.addActions(self.menus.tools, (
+        # Tools menu: "Single" submenu (open-image workflow) + "Batch" entry (folder).
+        self.menus.tools_single = QtWidgets.QMenu(self.tr("Single"))
+        utils.addActions(self.menus.tools_single, (
             metadata,           # Step 1: Sample Metadata (optional, before starting)
             None,
             setScale,           # Step 2: Set Scale
@@ -918,6 +928,11 @@ class MainWindow(QtWidgets.QMainWindow):
             measureRadialWidth, # Step 6: Measure Width
             ringProperties,     # Step 7: View Properties
             exportData,         # Step 8: Export Data
+        ))
+        utils.addActions(self.menus.tools, (
+            self.menus.tools_single,
+            None,
+            batchProcess,       # Batch: process a whole folder
         ))
         utils.addActions(
             self.menus.view,
@@ -2208,6 +2223,11 @@ class MainWindow(QtWidgets.QMainWindow):
         from tras.widgets import ExportDialog
         
         dlg = ExportDialog(parent=self)
+        dlg.exec_()
+
+    def _action_batch_process(self) -> None:
+        """Detect rings over every image in a folder (batch processing)."""
+        dlg = BatchProcessDialog(parent=self)
         dlg.exec_()
 
     def _rename_open_rings_with_years(self, pith_xy: tuple[float, float] | None) -> None:

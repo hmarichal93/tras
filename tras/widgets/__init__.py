@@ -17,3 +17,4 @@ from .unique_label_qlist_widget import UniqueLabelQListWidget
 from .update_dialog import UpdateCheckDialog
 from .zoom_widget import ZoomWidget
 from .export_dialog import ExportDialog
+from .batch_dialog import BatchProcessDialog

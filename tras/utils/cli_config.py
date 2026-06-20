@@ -50,6 +50,22 @@ def load_config(config_path: Optional[Path]) -> dict[str, Any]:
         raise ConfigError(f"Failed to load config file: {e}") from e
 
 
+def dump_config(config: dict[str, Any], path: Path) -> None:
+    """Write a config dict to a YAML file in the schema ``load_config`` reads.
+
+    The output is CLI-compatible: it can be passed back to ``tras_detect`` via
+    ``--config``. ``sort_keys=False`` preserves the logical section order.
+
+    Args:
+        config: Configuration dictionary (same shape as ``process_config.yml``).
+        path: Destination YAML file path.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        yaml.safe_dump(config, f, sort_keys=False, default_flow_style=False)
+    logger.info(f"Wrote config to {path}")
+
+
 def validate_config(config: dict[str, Any]) -> None:
     """Validate that required configuration fields are present.
 
