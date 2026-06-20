@@ -1,52 +1,38 @@
 # TRAS Batch Processing Configuration Example
 # Use this file with: tras_detect /path/to/images --config process_config.yml
+#
+# Only `physical_scale` is required. Every detection parameter you omit falls back
+# to the TRAS defaults in tras/config/detection_defaults.yaml — so list a value here
+# only when you want to override the default. The blocks below show the common knobs.
 
 # REQUIRED: Physical scale for measurement outputs
 physical_scale:
   value: 0.0213  # unit per pixel (e.g., 0.0213 mm/px)
   unit: mm       # unit name (mm, cm, etc.)
 
-# Preprocessing options
+# Preprocessing options (optional)
 preprocess:
-  resize_scale: 0.7           # Optional: resize image (0.1-1.0), None to disable
-  remove_background: false     # Optional: remove background with U2Net
+  resize_scale: 0.7            # resize image (0.1-1.0); omit to disable
+  remove_background: false     # remove background with U2Net
 
-# Postprocessing options
-postprocess:
-  sampling_nr: 360             # Number of radial samples for ring resampling
-
-# Pith detection configuration
+# Pith detection (optional; defaults: auto=true, method=apd_dl)
 pith:
-  auto: true                   # Auto-detect pith with APD
-  method: apd_dl               # APD method: 'apd', 'apd_pcl', or 'apd_dl'
+  auto: true
+  method: apd_dl               # 'apd', 'apd_pcl', or 'apd_dl'
 
-# Tree ring detection configuration
+# Tree ring detection (optional; default method is deepcstrd)
 rings:
-  method: deepcstrd            # Method: 'cstrd', 'deepcstrd', or 'inbd'
+  method: deepcstrd            # 'cstrd', 'deepcstrd', or 'inbd'
 
-  # CS-TRD parameters (used when rings.method = 'cstrd')
-  cstrd:
-    sigma: 3.0                 # Gaussian sigma for smoothing
-    th_low: 5.0                # Low threshold for edge detection
-    th_high: 20.0              # High threshold for edge detection
-    alpha: 30                  # Angular sampling parameter
-    nr: 360                    # Number of radial samples
-
-  # DeepCS-TRD parameters (used when rings.method = 'deepcstrd')
+  # Per-method overrides — include only the keys you want to change.
+  # See tras/config/detection_defaults.yaml for every parameter and its default.
   deepcstrd:
-    model: generic             # Model ID ('generic', 'pinus_v1', 'pinus_v2', 'gleditsia', 'salix')
-                               # OR filesystem path to model weights (.pth file)
-    tile_size: 0               # Tile size: 0 (full image) or 256 (tiled processing)
-    alpha: 45                  # Alpha parameter for angular sampling
-    nr: 360                    # Number of radial samples
-    rotations: 5               # Number of rotations for test-time augmentation
-    threshold: 0.5             # Prediction threshold for binary map
-    width: 1504                # Resize width before detection (0 = no resize)
-    height: 1504               # Resize height before detection (0 = no resize)
+    model: generic             # model ID, or a path to a .pth weights file
+    # tile_size: 0             # 0 = full image, 256 = tiled
+    # width: 1504              # resize before detection (0 = no resize)
 
-  # INBD parameters (used when rings.method = 'inbd')
-  inbd:
-    model: INBD_EH             # Model ID ('INBD_EH', 'INBD_DO', 'INBD_VM', 'INBD_UruDendro1')
-                               # OR filesystem path to model checkpoint (.pt.zip file)
-    auto_pith: true            # Whether INBD should auto-detect pith internally
+  # cstrd:
+  #   sigma: 3.0
 
+  # inbd:
+  #   model: INBD_EH           # model ID, or a path to a .pt.zip checkpoint
