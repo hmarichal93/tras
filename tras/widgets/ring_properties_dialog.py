@@ -557,11 +557,15 @@ class RingPropertiesDialog(QtWidgets.QDialog):
 
     def _export_pdf(self):
         """Generate PDF report with ring overlays and analysis plots."""
-        default_filename = "tree_ring_report.pdf"
+        # Name the report after the sample: prefer the sample code, then the
+        # source image name, producing "<sample>_report.pdf".
+        default_filename = "report.pdf"
         if self.metadata.get("sample_code"):
             sample_code = self.metadata["sample_code"]
             safe_code = "".join(c for c in sample_code if c.isalnum() or c in ("-", "_"))
             default_filename = f"{safe_code}_report.pdf"
+        elif getattr(self.parent_window, "filename", None):
+            default_filename = f"{Path(self.parent_window.filename).stem}_report.pdf"
 
         filename, _ = QtWidgets.QFileDialog.getSaveFileName(
             self,
