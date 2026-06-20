@@ -7,6 +7,11 @@ import sys
 import os
 from pathlib import Path
 from PIL import Image
+from loguru import logger
+
+from tras.utils.image_preprocessing import normalize_to_rgb_uint8
+from tras.utils.image_preprocessing import pad_for_edge_detection
+
 
 def detect_rings_cstrd(
     image: np.ndarray,
@@ -40,46 +45,19 @@ def detect_rings_cstrd(
     Returns:
         List of ring polylines, each as Nx2 array of (x, y) points
     """
-    # Ensure RGB format (convert common OpenCV BGR to RGB)
-    if image.ndim == 2:
-        import cv2
-        image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
-    elif image.ndim == 3 and image.shape[2] == 3:
-        import cv2
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    elif image.ndim == 3 and image.shape[2] == 4:
-        image = image[..., :3]
-    
-    # Ensure uint8
-    if image.dtype != np.uint8:
-        image = (255 * (image.astype(np.float32) / image.max())).astype(np.uint8)
-    
-    cx, cy = center_xy
-    
+    # Ensure RGB uint8 format
+    image = normalize_to_rgb_uint8(image)
+
     # Check if pith is too close to edges and add padding if needed
-    h, w = image.shape[:2]
-    min_margin = 100  # CS-TRD needs margin for edge detection
-    
-    pad_top = max(0, min_margin - int(cy))
-    pad_bottom = max(0, min_margin - (h - int(cy)))
-    pad_left = max(0, min_margin - int(cx))
-    pad_right = max(0, min_margin - (w - int(cx)))
-    
+    image, (cx, cy), (pad_top, pad_bottom, pad_left, pad_right) = pad_for_edge_detection(
+        image, center_xy
+    )
     if any([pad_top, pad_bottom, pad_left, pad_right]):
-        # Add padding with white color (background)
-        import cv2
-        image = cv2.copyMakeBorder(
-            image, 
-            pad_top, pad_bottom, pad_left, pad_right,
-            cv2.BORDER_CONSTANT, 
-            value=(255, 255, 255)  # White padding
+        logger.debug(
+            "CS-TRD: Added padding - top={}, bottom={}, left={}, right={}; adjusted pith=({:.1f}, {:.1f})",
+            pad_top, pad_bottom, pad_left, pad_right, cx, cy,
         )
-        # Adjust pith coordinates
-        cx += pad_left
-        cy += pad_top
-        print(f"Added padding to image: top={pad_top}, bottom={pad_bottom}, left={pad_left}, right={pad_right}")
-        print(f"Adjusted pith: ({cx:.1f}, {cy:.1f})")
-    
+
     # Create temporary directory for CS-TRD execution
     temp_dir = Path(tempfile.mkdtemp(prefix="cstrd_"))
     temp_image = temp_dir / "input_image.png"

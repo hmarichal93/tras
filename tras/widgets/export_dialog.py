@@ -636,13 +636,17 @@ class ExportDialog(QtWidgets.QDialog):
             return None
         
         ring_properties, radial_measurements, metadata_dict = data
-        
-        # Determine filename
+
+        # Name the report after the sample: prefer the sample code, then the
+        # source image name, producing "<sample>_report.pdf".
         if metadata_dict.get('sample_code'):
             base_name = metadata_dict['sample_code']
+        elif self.parent_window.filename:
+            base_name = Path(self.parent_window.filename).stem
         else:
-            base_name = "report"
-        pdf_file = output_dir / f"{base_name}_report.pdf"
+            base_name = None
+        pdf_filename = f"{base_name}_report.pdf" if base_name else "report.pdf"
+        pdf_file = output_dir / pdf_filename
         
         # Create RingPropertiesDialog with the data (same as _action_ring_properties)
         from tras.widgets.ring_properties_dialog import RingPropertiesDialog

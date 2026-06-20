@@ -1,8 +1,13 @@
+import cv2
 import numpy as np
 from typing import List, Tuple
 import sys
 from pathlib import Path
 
+from loguru import logger
+
+from tras.utils.image_preprocessing import normalize_to_rgb_uint8
+from tras.utils.image_preprocessing import pad_for_edge_detection
 from tras.utils.model_paths import get_deepcstrd_models_dir
 
 # Add tree ring methods to path
@@ -44,49 +49,28 @@ def detect_rings_deepcstrd(
     Returns:
         List of ring polylines, each as Nx2 array of (x, y) points
     """
-    # Ensure RGB format (convert common OpenCV BGR to RGB)
-    if image.ndim == 2:
-        import cv2
-        image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
-    elif image.ndim == 3 and image.shape[2] == 3:
-        import cv2
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    elif image.ndim == 3 and image.shape[2] == 4:
-        image = image[..., :3]
-    
-    # Ensure uint8
-    if image.dtype != np.uint8:
-        image = (255 * (image.astype(np.float32) / image.max())).astype(np.uint8)
-    
+    # Ensure RGB uint8 format
+    image = normalize_to_rgb_uint8(image)
+
+    # DeepCS-TRD's U-Net consumes the array straight to the model (predict()
+    # only scales by /255, with no channel conversion or ImageNet normalization),
+    # and it was trained on the cv2/BGR pipeline. Convert RGB -> BGR so the
+    # channel order matches the training distribution.
+    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+
     # Get model path (supports both model ID and filesystem path)
     model_path = _get_model_path(model_id, tile_size)
-    
-    cx, cy = center_xy
-    
+
     # Check if pith is too close to edges and add padding if needed
-    import cv2
-    h, w = image.shape[:2]
-    min_margin = 100  # DeepCS-TRD needs margin for edge detection
-    
-    pad_top = max(0, min_margin - int(cy))
-    pad_bottom = max(0, min_margin - (h - int(cy)))
-    pad_left = max(0, min_margin - int(cx))
-    pad_right = max(0, min_margin - (w - int(cx)))
-    
+    image, (cx, cy), (pad_top, pad_bottom, pad_left, pad_right) = pad_for_edge_detection(
+        image, center_xy
+    )
     if any([pad_top, pad_bottom, pad_left, pad_right]):
-        # Add padding with white color (background)
-        image = cv2.copyMakeBorder(
-            image, 
-            pad_top, pad_bottom, pad_left, pad_right,
-            cv2.BORDER_CONSTANT, 
-            value=(255, 255, 255)  # White padding
+        logger.debug(
+            "DeepCS-TRD: Added padding - top={}, bottom={}, left={}, right={}; adjusted pith=({:.1f}, {:.1f})",
+            pad_top, pad_bottom, pad_left, pad_right, cx, cy,
         )
-        # Adjust pith coordinates
-        cx += pad_left
-        cy += pad_top
-        print(f"DeepCS-TRD: Added padding - top={pad_top}, bottom={pad_bottom}, left={pad_left}, right={pad_right}")
-        print(f"DeepCS-TRD: Adjusted pith: ({cx:.1f}, {cy:.1f})")
-    
+
     # Create temporary output directory for DeepCS-TRD
     import tempfile
     temp_dir = tempfile.mkdtemp(prefix="deepcstrd_")
@@ -144,30 +128,29 @@ def _get_model_path(model_id: str, tile_size: int = 0) -> str:
     
     # Treat as model ID and resolve from downloaded_assets
     base_path = get_deepcstrd_models_dir()
-    print(f"[DEBUG] _get_model_path called with model_id='{model_id}', tile_size={tile_size}")
-    print(f"[DEBUG] base_path: {base_path}")
+    logger.debug("_get_model_path called with model_id='{}', tile_size={}", model_id, tile_size)
+    logger.debug("base_path: {}", base_path)
 
     # Normalize tile size - preserve the value if it's 0 or 256
     original_tile_size = tile_size
     tile_size = 0 if tile_size not in [0, 256] else tile_size
     if original_tile_size != tile_size:
-        print(f"[DEBUG] Normalized tile_size from {original_tile_size} to {tile_size}")
-    
+        logger.debug("Normalized tile_size from {} to {}", original_tile_size, tile_size)
+
     # Special case: generic model is always full image
     if model_id == "generic":
         model_path = base_path / "0_all_1504.pth"
     else:
         # Try to find model file with specified tile size
         model_path = base_path / f"{tile_size}_{model_id}_1504.pth"
-        print(f"[DEBUG] Looking for model at: {model_path}")
-        print(f"[DEBUG] Model exists: {model_path.exists()}")
-        
+        logger.debug("Looking for model at: {} (exists={})", model_path, model_path.exists())
+
         # If not found and tile_size=256, fallback to tile_size=0
         if not model_path.exists() and tile_size == 256:
-            print(f"Warning: Tiled model for {model_id} not found, using full image model")
+            logger.warning("Tiled model for {} not found, using full image model", model_id)
             model_path = base_path / f"0_{model_id}_1504.pth"
-            print(f"[DEBUG] Fallback model path: {model_path}")
-    
+            logger.debug("Fallback model path: {}", model_path)
+
     # If still not found, fail with guidance instead of silently returning generic
     if not model_path.exists():
         raise FileNotFoundError(
@@ -175,7 +158,6 @@ def _get_model_path(model_id: str, tile_size: int = 0) -> str:
             "Run `python tools/download_release_assets.py` to download the models."
         )
 
-    print(f"[DEBUG] Final model_path: {model_path}")
-    print(f"[DEBUG] Model file exists: {model_path.exists()}")
+    logger.debug("Final model_path: {} (exists={})", model_path, model_path.exists())
 
     return str(model_path)

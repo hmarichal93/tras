@@ -2,9 +2,9 @@ from typing import Tuple
 from pathlib import Path
 import tempfile
 import numpy as np
-import cv2
 
 from tras.tree_ring_methods.apd.automatic_wood_pith_detector import apd, apd_dl
+from tras.utils.image_preprocessing import normalize_to_rgb_uint8
 
 
 def _get_apd_yolo_weights_path() -> Path:
@@ -48,16 +48,9 @@ def detect_pith_apd(image: np.ndarray, method: str = "apd_dl") -> Tuple[float, f
     if method not in ["apd", "apd_pcl", "apd_dl"]:
         raise ValueError(f"Unknown APD method: {method}. Must be one of: 'apd', 'apd_pcl', 'apd_dl'")
     
-    # Ensure RGB format
-    if image.ndim == 2:
-        image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
-    elif image.ndim == 3 and image.shape[2] == 4:
-        image = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
-    
-    # Ensure uint8
-    if image.dtype != np.uint8:
-        image = (255 * (image.astype(np.float32) / image.max())).astype(np.uint8)
-    
+    # Ensure RGB uint8 format
+    image = normalize_to_rgb_uint8(image)
+
     # Handle deep learning method
     if method == "apd_dl":
         weights_path = _get_apd_yolo_weights_path()
