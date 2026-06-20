@@ -113,6 +113,27 @@ def _remove_background(
         return image, str(bg_error)
 
 
+def _log_detection_call(func_name: str, image: np.ndarray, **params) -> None:
+    """Print the exact detection call (function + all parameters) to the terminal.
+
+    Callers build a single ``params`` dict that is both logged here and unpacked into
+    the detection function, so what is printed is guaranteed to match what runs. This
+    lets the user verify that the parameters selected in the dialog are exactly what
+    gets passed to the detection function.
+    """
+    lines = [
+        "=" * 70,
+        f"[TRAS] Running {func_name} with:",
+        f"  {'image':<24}= ndarray(shape={image.shape}, dtype={image.dtype})",
+    ]
+    for key, value in params.items():
+        lines.append(f"  {key:<24}= {value!r}")
+    lines.append("=" * 70)
+    message = "\n".join(lines)
+    print(message)
+    logger.info(message)
+
+
 class TreeRingDialog(QtWidgets.QDialog):
     def __init__(self, image_width: int, image_height: int, parent=None, image_np=None, initial_cx=None, initial_cy=None):
         super().__init__(parent)
@@ -872,8 +893,6 @@ class TreeRingDialog(QtWidgets.QDialog):
             width = self.cstrd_width.value()
             height = self.cstrd_height.value()
             
-            logger.info(f"CS-TRD: Parameters - sigma={sigma}, th_low={th_low}, th_high={th_high}, alpha={alpha}, nr={nr}, resize=({width}, {height})")
-            
             # Apply background removal if enabled
             image_to_process = self.image_np.copy()
             
@@ -899,9 +918,8 @@ class TreeRingDialog(QtWidgets.QDialog):
                         self.tr(f"Background removal failed: {bg_error}\n\nContinuing with original image.")
                     )
             
-            # Run CS-TRD with current parameters
-            rings = detect_rings_cstrd(
-                image_to_process, 
+            # Run CS-TRD with current parameters (one dict: logged == actually called)
+            params = dict(
                 center_xy=(cx, cy),
                 sigma=sigma,
                 th_low=th_low,
@@ -909,8 +927,10 @@ class TreeRingDialog(QtWidgets.QDialog):
                 alpha=alpha,
                 nr=nr,
                 width=width,
-                height=height
+                height=height,
             )
+            _log_detection_call("detect_rings_cstrd", image_to_process, **params)
+            rings = detect_rings_cstrd(image_to_process, **params)
             
             QApplication.restoreOverrideCursor()
             
@@ -973,21 +993,17 @@ class TreeRingDialog(QtWidgets.QDialog):
             # Get model selection and parameters from UI
             model_text = self.deepcstrd_model.currentText()
             model_id = model_text.split(" ")[0]  # Extract "generic", "pinus_v1", etc.
-            print(f"[DEBUG] UI model_text: '{model_text}'")
-            print(f"[DEBUG] Extracted model_id: '{model_id}'")
-            
+
             tile_text = self.deepcstrd_tile_size.currentText()
             tile_size = 256 if "256" in tile_text else 0
-            
+
             alpha = self.deepcstrd_alpha.value()
             nr = self.deepcstrd_nr.value()
             total_rotations = self.deepcstrd_rotations.value()
             prediction_map_threshold = self.deepcstrd_threshold.value()
             width = self.deepcstrd_width.value()
             height = self.deepcstrd_height.value()
-            
-            logger.info(f"DeepCS-TRD: Model={model_id}, tile_size={tile_size}, alpha={alpha}, nr={nr}, rotations={total_rotations}, threshold={prediction_map_threshold}, resize=({width}, {height})")
-            
+
             # Apply background removal if enabled
             image_to_process = self.image_np.copy()
             
@@ -1013,9 +1029,8 @@ class TreeRingDialog(QtWidgets.QDialog):
                         self.tr(f"Background removal failed: {bg_error}\n\nContinuing with original image.")
                     )
             
-            # Run DeepCS-TRD with current parameters
-            rings = detect_rings_deepcstrd(
-                image_to_process, 
+            # Run DeepCS-TRD with current parameters (one dict: logged == actually called)
+            params = dict(
                 center_xy=(cx, cy),
                 model_id=model_id,
                 tile_size=tile_size,
@@ -1024,8 +1039,10 @@ class TreeRingDialog(QtWidgets.QDialog):
                 total_rotations=total_rotations,
                 prediction_map_threshold=prediction_map_threshold,
                 width=width,
-                height=height
+                height=height,
             )
+            _log_detection_call("detect_rings_deepcstrd", image_to_process, **params)
+            rings = detect_rings_deepcstrd(image_to_process, **params)
             
             QApplication.restoreOverrideCursor()
             
@@ -1110,23 +1127,15 @@ class TreeRingDialog(QtWidgets.QDialog):
             pith_for_sampling = None
             if self.inbd_auto_pith.isChecked():
                 logger.info("INBD: Using auto-detection mode (no pith coordinates)")
-                rings, pith_for_sampling = detect_rings_inbd(
-                    image_to_process, 
-                    center_xy=None,  # Let INBD auto-detect
-                    model_id=model_id,
-                    return_pith=True
-                )
-                logger.info(f"INBD: Computed pith for sampling: ({pith_for_sampling[0]:.1f}, {pith_for_sampling[1]:.1f})")
+                params = dict(center_xy=None, model_id=model_id, return_pith=True)
             else:
                 logger.info(f"INBD: Using manual pith coordinates: ({cx:.1f}, {cy:.1f})")
-                rings, pith_for_sampling = detect_rings_inbd(
-                    image_to_process, 
-                    center_xy=(cx, cy),
-                    model_id=model_id,
-                    return_pith=True
-                )
-                # In manual mode, pith_for_sampling should match (cx, cy) after padding adjustment
-                logger.info(f"INBD: Using provided pith for sampling: ({pith_for_sampling[0]:.1f}, {pith_for_sampling[1]:.1f})")
+                params = dict(center_xy=(cx, cy), model_id=model_id, return_pith=True)
+
+            # One dict: logged == actually called
+            _log_detection_call("detect_rings_inbd", image_to_process, **params)
+            rings, pith_for_sampling = detect_rings_inbd(image_to_process, **params)
+            logger.info(f"INBD: Pith for sampling: ({pith_for_sampling[0]:.1f}, {pith_for_sampling[1]:.1f})")
             
             QApplication.restoreOverrideCursor()
             
@@ -1221,11 +1230,13 @@ class TreeRingDialog(QtWidgets.QDialog):
         try:
             # Get APD parameters from UI
             method = self.apd_method.currentText()
-            
-            logger.info(f"APD: Starting pith detection on image {self.image_np.shape}, method={method}")
+
             QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
-            
-            x, y = detect_pith_apd(self.image_np, method=method)
+
+            # One dict: logged == actually called
+            params = dict(method=method)
+            _log_detection_call("detect_pith_apd", self.image_np, **params)
+            x, y = detect_pith_apd(self.image_np, **params)
             
             QApplication.restoreOverrideCursor()
             logger.info(f"APD: Detected pith at ({x:.1f}, {y:.1f})")
