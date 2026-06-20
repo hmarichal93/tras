@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from loguru import logger
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtWidgets import QApplication  # type: ignore
 
