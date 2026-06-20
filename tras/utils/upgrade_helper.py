@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -11,6 +12,54 @@ import urllib.request
 from pathlib import Path
 
 from loguru import logger
+
+
+def _reinstall_editable(repo_root: Path) -> subprocess.CompletedProcess:
+    """Reinstall the package in-place after a git checkout.
+
+    Prefers ``uv sync`` (matches ``make setup`` and reconciles dependencies
+    against the checked-out tag's ``uv.lock``). Falls back to
+    ``pip install -e .`` when uv is unavailable, e.g. a pip-only install whose
+    interpreter actually ships pip. Note: uv-managed venvs have no pip, which
+    is why the bare ``python -m pip`` path was failing here.
+    """
+    if shutil.which("uv"):
+        cmd = ["uv", "sync"]
+    else:
+        cmd = [sys.executable, "-m", "pip", "install", "-e", "."]
+    return subprocess.run(
+        cmd, cwd=repo_root, capture_output=True, text=True, timeout=300, check=False
+    )
+
+
+def _install_from_source(source_dir: Path) -> subprocess.CompletedProcess:
+    """Install a downloaded source tree, upgrading the existing install.
+
+    Prefers ``uv pip install``; falls back to ``python -m pip`` when uv is
+    absent.
+    """
+    if shutil.which("uv"):
+        cmd = [
+            "uv",
+            "pip",
+            "install",
+            "--upgrade",
+            "--force-reinstall",
+            str(source_dir),
+        ]
+    else:
+        cmd = [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--upgrade",
+            "--force-reinstall",
+            str(source_dir),
+        ]
+    return subprocess.run(
+        cmd, capture_output=True, text=True, timeout=300, check=False
+    )
 
 
 def upgrade_tras(new_version: str, progress_callback=None) -> tuple[bool, str]:
@@ -108,15 +157,8 @@ def _upgrade_via_git(new_version: str, progress_callback=None) -> tuple[bool, st
         if progress_callback:
             progress_callback("Reinstalling package...")
         logger.info("Reinstalling in editable mode...")
-        result = subprocess.run(
-            [sys.executable, "-m", "pip", "install", "-e", "."],
-            cwd=repo_root,
-            capture_output=True,
-            text=True,
-            timeout=120,
-            check=False,
-        )
-        
+        result = _reinstall_editable(repo_root)
+
         if result.returncode != 0:
             error_output = result.stderr or result.stdout
             return False, f"Reinstallation failed: {error_output[:200]}"
@@ -194,15 +236,9 @@ def _upgrade_via_pip(new_version: str, progress_callback=None) -> tuple[bool, st
                 progress_callback(f"Installing TRAS {new_version}...")
             logger.info(f"Installing TRAS {new_version}...")
             try:
-                # Use --upgrade to upgrade existing installation, --force-reinstall to ensure clean install
-                result = subprocess.run(
-                    [sys.executable, "-m", "pip", "install", "--upgrade", "--force-reinstall", str(extract_dir)],
-                    capture_output=True,
-                    text=True,
-                    timeout=300,
-                    check=False,
-                )
-                
+                # Upgrade the existing install with a clean, forced reinstall.
+                result = _install_from_source(extract_dir)
+
                 if result.returncode != 0:
                     error_output = result.stderr or result.stdout
                     logger.error(f"pip install failed: {error_output}")
