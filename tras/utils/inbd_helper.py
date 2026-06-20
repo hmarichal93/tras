@@ -3,6 +3,11 @@ from typing import List, Tuple, Optional, Union
 import sys
 from pathlib import Path
 
+from loguru import logger
+
+from tras.utils.image_preprocessing import normalize_to_rgb_uint8
+from tras.utils.image_preprocessing import pad_for_edge_detection
+
 # Add INBD to path
 _inbd_path = Path(__file__).parent.parent / "tree_ring_methods" / "inbd" / "src"
 sys.path.insert(0, str(_inbd_path))
@@ -63,60 +68,33 @@ def detect_rings_inbd(
     
     # Import cv2 at the beginning
     import cv2
-    
-    # Ensure RGB format (convert common OpenCV BGR to RGB)
-    if image.ndim == 2:
-        image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
-    elif image.ndim == 3 and image.shape[2] == 3:
-        # Assume it's already RGB (TRAS typically provides RGB)
-        pass
-    elif image.ndim == 3 and image.shape[2] == 4:
-        image = image[..., :3]
-    
-    # Ensure uint8
-    if image.dtype != np.uint8:
-        if image.max() <= 1.0:
-            image = (255 * image).astype(np.uint8)
-        else:
-            image = (255 * (image.astype(np.float32) / image.max())).astype(np.uint8)
-    
+
+    # Ensure RGB uint8 format
+    image = normalize_to_rgb_uint8(image)
+
     # Get model path
     model_path = _get_model_path(model_id)
-    
+
     # Handle optional pith coordinates
     # Track the final pith used (for return_pith=True)
     final_pith_xy = None
     cx, cy = None, None
     pad_top, pad_bottom, pad_left, pad_right = 0, 0, 0, 0
-    
+
     if center_xy is not None:
-        cx, cy = center_xy
         final_pith_xy = center_xy  # Manual mode: use provided pith
-        
+
         # Check if pith is too close to edges and add padding if needed
-        h, w = image.shape[:2]
-        min_margin = 100  # INBD needs margin for edge detection
-        
-        pad_top = max(0, min_margin - int(cy))
-        pad_bottom = max(0, min_margin - (h - int(cy)))
-        pad_left = max(0, min_margin - int(cx))
-        pad_right = max(0, min_margin - (w - int(cx)))
-        
+        image, (cx, cy), (pad_top, pad_bottom, pad_left, pad_right) = pad_for_edge_detection(
+            image, center_xy
+        )
         if any([pad_top, pad_bottom, pad_left, pad_right]):
-            # Add padding with white color (background)
-            image = cv2.copyMakeBorder(
-                image, 
-                pad_top, pad_bottom, pad_left, pad_right,
-                cv2.BORDER_CONSTANT, 
-                value=(255, 255, 255)  # White padding
+            logger.debug(
+                "INBD: Added padding - top={}, bottom={}, left={}, right={}; adjusted pith=({:.1f}, {:.1f})",
+                pad_top, pad_bottom, pad_left, pad_right, cx, cy,
             )
-            # Adjust pith coordinates
-            cx += pad_left
-            cy += pad_top
-            print(f"INBD: Added padding - top={pad_top}, bottom={pad_bottom}, left={pad_left}, right={pad_right}")
-            print(f"INBD: Adjusted pith: ({cx:.1f}, {cy:.1f})")
     else:
-        print("INBD: Running without explicit pith coordinates (auto-detection mode)")
+        logger.debug("INBD: Running without explicit pith coordinates (auto-detection mode)")
     
     # Create temporary output directory for INBD
     import tempfile
@@ -149,12 +127,12 @@ def detect_rings_inbd(
         if cx is not None and cy is not None:
             cmd.extend(["--cy", str(int(cy))])
             cmd.extend(["--cx", str(int(cx))])
-            print(f"INBD: Running with pith coordinates: cx={int(cx)}, cy={int(cy)}")
+            logger.debug(f"INBD: Running with pith coordinates: cx={int(cx)}, cy={int(cy)}")
         else:
-            print("INBD: Running without pith coordinates (auto-detection)")
-        
-        print(f"INBD: Command: {' '.join(cmd)}")
-        print(f"INBD: Working directory: {_inbd_path}")
+            logger.debug("INBD: Running without pith coordinates (auto-detection)")
+
+        logger.debug(f"INBD: Command: {' '.join(cmd)}")
+        logger.debug(f"INBD: Working directory: {_inbd_path}")
         
         # Run INBD
         result = subprocess.run(
@@ -166,15 +144,15 @@ def detect_rings_inbd(
         )
         
         # Check if INBD completed (note: it may fail at contour conversion but still create labelmap)
-        print(f"INBD: Process returned with code {result.returncode}")
-        print(f"INBD stdout: {result.stdout}")
+        logger.debug(f"INBD: Process returned with code {result.returncode}")
+        logger.debug(f"INBD stdout: {result.stdout}")
         
         if result.returncode != 0:
             # INBD may fail at the contour conversion step but still create the labelmap
             # Check if it's the cy/cx NoneType error
             if "TypeError: must be real number, not NoneType" in result.stderr or "cy" in result.stderr.lower():
-                print("INBD: Process failed at contour conversion (expected with auto-detection)")
-                print("INBD: Will attempt to process labelmap directly")
+                logger.debug("INBD: Process failed at contour conversion (expected with auto-detection)")
+                logger.debug("INBD: Will attempt to process labelmap directly")
             else:
                 # Other errors should be raised
                 raise RuntimeError(
@@ -183,7 +161,7 @@ def detect_rings_inbd(
                     f"stderr: {result.stderr}"
                 )
         else:
-            print(f"INBD: Process completed successfully")
+            logger.debug("INBD: Process completed successfully")
         
         # INBD outputs labelmap PNG files, not JSON
         # Look for labelmap output in the inference directory
@@ -197,16 +175,16 @@ def detect_rings_inbd(
         if labelmap_files:
             # Use the most recent labelmap file
             labelmap_file = max(labelmap_files, key=lambda p: p.stat().st_mtime)
-            print(f"INBD: Found labelmap at {labelmap_file}")
-            
+            logger.debug(f"INBD: Found labelmap at {labelmap_file}")
+
             # If pith coordinates weren't provided, compute them from the innermost region
             if cx is None or cy is None:
-                print("INBD: Computing pith from innermost region...")
+                logger.debug("INBD: Computing pith from innermost region...")
                 computed_cx, computed_cy = _compute_pith_from_labelmap(labelmap_file)
                 if computed_cx is not None and computed_cy is not None:
                     cx, cy = computed_cx, computed_cy
                     final_pith_xy = (cx - pad_left, cy - pad_top)  # Adjust for padding
-                    print(f"INBD: Computed pith at ({cx:.1f}, {cy:.1f})")
+                    logger.debug(f"INBD: Computed pith at ({cx:.1f}, {cy:.1f})")
             else:
                 # Manual mode: use provided pith (already set above)
                 final_pith_xy = (cx - pad_left, cy - pad_top)  # Adjust for padding
@@ -229,7 +207,7 @@ def detect_rings_inbd(
                     if cx is not None and cy is not None:
                         final_pith_xy = (cx - pad_left, cy - pad_top)
             else:
-                print("INBD: No output files found")
+                logger.debug("INBD: No output files found")
                 rings = []
                 # Set final_pith_xy if not already set
                 if final_pith_xy is None:
@@ -346,7 +324,7 @@ def _extract_rings_from_inbd_result(
         ring_data = result
     else:
         # Unknown format
-        print(f"Warning: Unexpected INBD result format: {type(result)}")
+        logger.warning(f"Unexpected INBD result format: {type(result)}")
         return rings
     
     # Convert to polylines
@@ -424,15 +402,15 @@ def _compute_pith_from_labelmap(labelmap_path: Path) -> Tuple[Optional[float], O
         # Load labelmap
         labelmap = cv2.imread(str(labelmap_path), cv2.IMREAD_GRAYSCALE)
         if labelmap is None:
-            print(f"Warning: Could not load labelmap from {labelmap_path}")
+            logger.warning(f"Could not load labelmap from {labelmap_path}")
             return None, None
-        
+
         # Find the innermost region (smallest non-zero label, typically 1)
         unique_labels = np.unique(labelmap)
         unique_labels = unique_labels[unique_labels > 0]  # Exclude background (0)
-        
+
         if len(unique_labels) == 0:
-            print("Warning: No labeled regions found in labelmap")
+            logger.warning("No labeled regions found in labelmap")
             return None, None
         
         # The innermost ring should be the first label (smallest label number)
@@ -449,9 +427,7 @@ def _compute_pith_from_labelmap(labelmap_path: Path) -> Tuple[Optional[float], O
         return None, None
         
     except Exception as e:
-        print(f"Error computing pith from labelmap: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.exception(f"Error computing pith from labelmap: {e}")
         return None, None
 
 
@@ -481,7 +457,7 @@ def _extract_rings_from_labelmap(
         # Load labelmap
         labelmap = cv2.imread(str(labelmap_path), cv2.IMREAD_GRAYSCALE)
         if labelmap is None:
-            print(f"Warning: Could not load labelmap from {labelmap_path}")
+            logger.warning(f"Could not load labelmap from {labelmap_path}")
             return []
         
         rings = []
@@ -490,7 +466,7 @@ def _extract_rings_from_labelmap(
         unique_labels = np.unique(labelmap)
         unique_labels = unique_labels[unique_labels > 0]  # Exclude background
         
-        print(f"INBD: Found {len(unique_labels)} ring labels in labelmap")
+        logger.debug(f"INBD: Found {len(unique_labels)} ring labels in labelmap")
         
         # Extract contour for each ring
         for label in sorted(unique_labels):
@@ -516,12 +492,10 @@ def _extract_rings_from_labelmap(
                     
                     rings.append(pts.astype(np.float32))
         
-        print(f"INBD: Extracted {len(rings)} ring contours")
+        logger.debug(f"INBD: Extracted {len(rings)} ring contours")
         return rings
-        
+
     except Exception as e:
-        print(f"Error extracting rings from labelmap: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.exception(f"Error extracting rings from labelmap: {e}")
         return []
 

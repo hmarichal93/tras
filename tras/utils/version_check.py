@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import re
+import json
 import subprocess
 import urllib.request
-import json
-from pathlib import Path
 from typing import NamedTuple
 
 from loguru import logger
@@ -22,16 +20,15 @@ class VersionInfo(NamedTuple):
 
 
 def read_local_version() -> str:
-    """Read the current version from pyproject.toml."""
-    pyproject_path = Path(__file__).parent.parent.parent / "pyproject.toml"
-    if not pyproject_path.exists():
-        raise FileNotFoundError(f"pyproject.toml not found at {pyproject_path}")
+    """Return the running TRAS version.
 
-    content = pyproject_path.read_text()
-    match = re.search(r'version\s*=\s*["\']([^"\']+)["\']', content)
-    if not match:
-        raise ValueError("Could not find version in pyproject.toml")
-    return match.group(1)
+    Uses ``tras.__version__`` as the single source of truth. That value comes
+    from the installed package metadata (or pyproject.toml in a source checkout),
+    so it stays correct for installed users where pyproject.toml is absent.
+    """
+    from tras import __version__
+
+    return __version__
 
 
 def parse_version(version_str: str) -> tuple[int, ...]:
@@ -71,7 +68,7 @@ def get_remote_url() -> str | None:
                 return remote_name
         except Exception:
             continue
-    
+
     # If no named remote found, try to get the first remote
     try:
         result = subprocess.run(
@@ -82,12 +79,14 @@ def get_remote_url() -> str | None:
             check=False,
         )
         if result.returncode == 0:
-            remotes = [r.strip() for r in result.stdout.strip().split("\n") if r.strip()]
+            remotes = [
+                r.strip() for r in result.stdout.strip().split("\n") if r.strip()
+            ]
             if remotes:
                 return remotes[0]
     except Exception:
         pass
-    
+
     return None
 
 
@@ -151,7 +150,7 @@ def get_latest_remote_tag() -> str | None:
                     return tags[0]
     except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
         logger.debug("Git-based version check failed: {}", e)
-    
+
     # Fallback to GitHub API if git is not available (e.g., installed from release)
     logger.debug("Falling back to GitHub API for version check")
     return get_latest_release_from_github_api()
@@ -192,4 +191,3 @@ def check_version() -> VersionInfo:
         is_up_to_date=is_up_to_date,
         error=None,
     )
-

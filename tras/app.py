@@ -7,6 +7,7 @@ import math
 import os
 import os.path as osp
 import re
+import tempfile
 import types
 import webbrowser
 from datetime import datetime
@@ -16,6 +17,7 @@ import imgviz
 import natsort
 import numpy as np
 from loguru import logger
+from PIL import Image as PILImage
 from numpy.typing import NDArray
 from PyQt5 import QtCore
 from PyQt5 import QtGui
@@ -47,8 +49,8 @@ from tras.widgets import ShortcutsDialog
 from tras.widgets import UpdateCheckDialog
 
 from . import utils
+from tras.utils.qt_image import qimage_to_numpy
 
-import os
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 
@@ -268,10 +270,10 @@ class MainWindow(QtWidgets.QMainWindow):
         )
         save = action(
             self.tr("&Save"),
-            self.saveFile,
+            self._action_export_data,
             shortcuts["save"],
             "save",
-            self.tr("Step 8: Export labels and data to file"),
+            self.tr("Step 8: Export annotations, measurements, and PDF report"),
             enabled=False,
         )
         saveAs = action(
@@ -1162,25 +1164,8 @@ class MainWindow(QtWidgets.QMainWindow):
             image_np = self.imageArray
             logger.info(f"✓ Using stored preprocessed numpy array: {image_np.shape} ({image_np.dtype})")
         else:
-            # Convert QImage to numpy array using PIL (same robust method as preprocessing dialog)
-            from PIL import Image as PILImage
-            import tempfile
-            import os
-            
-            # Save QImage to temp file and reload with PIL (most robust method, avoids warping)
-            with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
-                tmp_path = tmp.name
-            
-            self.image.save(tmp_path, 'PNG')
-            pil_img = PILImage.open(tmp_path).convert('RGB')
-            image_np = np.array(pil_img, dtype=np.uint8)
-            
-            # Clean up temp file
-            try:
-                os.unlink(tmp_path)
-            except:
-                pass
-            
+            # Convert QImage to numpy array using the robust PIL round-trip
+            image_np = qimage_to_numpy(self.image)
             logger.info(f"Extracted image from QImage using PIL: {image_np.shape} ({image_np.dtype})")
         
         # Log image info
@@ -2267,31 +2252,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.errorMessage(self.tr("No image"), self.tr("Please open an image first."))
             return
         
-        # Convert current image to numpy array using PIL for robustness
-        from PIL import Image as PILImage
-        import tempfile
-        import os
-        
+        # Convert current image to numpy array using the robust PIL round-trip
         logger.info(f"Original QImage format: {self.image.format()} (RGB888={QtGui.QImage.Format_RGB888})")
-        
-        # Save QImage to temp file and reload with PIL (most robust method)
-        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
-            tmp_path = tmp.name
-        
-        self.image.save(tmp_path, 'PNG')
-        pil_img = PILImage.open(tmp_path)
-        image_np = np.array(pil_img, dtype=np.uint8)
-        
-        # Ensure RGB (not RGBA)
-        if image_np.ndim == 3 and image_np.shape[2] == 4:
-            image_np = image_np[:, :, :3]
-        
-        # Clean up
-        try:
-            os.unlink(tmp_path)
-        except:
-            pass
-        
+        image_np = qimage_to_numpy(self.image)
         logger.info(f"Image array shape: {image_np.shape}, dtype: {image_np.dtype}")
         
         # Check for crop region (last rectangle drawn)
@@ -2380,14 +2343,12 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # Convert processed image to QImage using PIL as intermediate
         # This ensures proper data handling without corruption
-        from PIL import Image as PILImage
-        
+
         # Ensure image is uint8 and contiguous
         processed_img = np.ascontiguousarray(processed_img, dtype=np.uint8)
-        
+
         # Save to temporary file and load - most reliable method
         # This ensures Qt's image loader handles everything correctly
-        import tempfile
         with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
             tmp_path = tmp.name
             PILImage.fromarray(processed_img).save(tmp_path, format='PNG')
@@ -2401,10 +2362,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.image = self.image.convertToFormat(QtGui.QImage.Format_RGB888)
         
         # Clean up temp file
-        import os
         try:
             os.unlink(tmp_path)
-        except:
+        except OSError:
             pass
         
         # CRITICAL FIX: Store the preprocessed numpy array directly
@@ -2417,9 +2377,8 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # CRITICAL: Also update imageData to match the preprocessed image
         # This ensures that everything (canvas, detection, save) uses the preprocessed version
-        from PIL import Image
         buffer = io.BytesIO()
-        Image.fromarray(processed_img).save(buffer, format='PNG')
+        PILImage.fromarray(processed_img).save(buffer, format='PNG')
         self.imageData = buffer.getvalue()
         logger.info(f"Updated self.imageData with preprocessed image ({len(self.imageData)} bytes)")
         
