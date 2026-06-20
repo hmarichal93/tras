@@ -1,9 +1,6 @@
 <div align="center">
 
-# 🌲 TRAS - Tree Ring Analyzer Suite
-
-**Accepted as Software Article at Forestry: An International Journal of Forest Research** 
-
+# 🌲 TRAS — Tree Ring Analyzer Suite
 
 <p align="center">
   <img src="assets/tras-logo.png" alt="TRAS Logo" width="200"/>
@@ -11,11 +8,15 @@
 
 **Professional dendrochronology software for automatic tree ring detection and measurement**
 
+*Accepted as a Software Article at Forestry: An International Journal of Forest Research*
+
 [![Release](https://img.shields.io/github/v/release/hmarichal93/tras?color=green&label=Release)](https://github.com/hmarichal93/tras/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/hmarichal93/tras/total?color=blue&label=Downloads)](https://github.com/hmarichal93/tras/releases)
 [![License](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue)](https://www.python.org)
 [![arXiv](https://img.shields.io/badge/arXiv-2605.08025-b31b1b.svg)](https://arxiv.org/abs/2605.08025)
+
+[Overview](#-overview) • [Features](#-key-features) • [Installation](#-installation) • [Quick Start](#-quick-start) • [Workflow](#-workflow) • [Citations](#-citations)
 
 </div>
 
@@ -23,62 +24,21 @@
 
 ## 🎯 Overview
 
-TRAS integrates **state-of-the-art computer vision** and **deep learning methods** for dendrochronology research. Automatically detect tree rings, measure ring widths, and export data in standard formats—all through an intuitive graphical interface.
+TRAS integrates **state-of-the-art computer vision** and **deep learning** methods for dendrochronology research. Automatically detect tree rings, measure ring widths, and export data in standard formats — all through an intuitive graphical interface, a programmatic Python API, or a command-line tool for batch jobs.
 
 <p align="center">
   <img src="assets/screenshot-main.png" alt="TRAS Main Interface" width="800"/>
 </p>
 
-## Installation
-### 1. Python
-#### Conda
-##### 1. Download Anaconda
-> **Windows users**: [Video tutorial for installing Anaconda on Windows](https://youtu.be/4DQGBQMvwZo)
+**Three ways to use TRAS:**
 
-##### 2. Download TRAS
+| Interface | Command | Best for |
+|-----------|---------|----------|
+| 🖥️ **GUI** | `tras` | Interactive annotation, single samples, batch folders |
+| ⌨️ **CLI** | `tras_detect` | Scripting, reproducible batch pipelines |
+| 🐍 **Python API** | `from tras.api import detect` | Custom workflows and integration |
 
-**Linux/macOS:**
-```bash
-export TRAS_VERSION=2.0.2  # Change this value when updating to a newer release
-wget https://github.com/hmarichal93/tras/archive/refs/tags/v${TRAS_VERSION}.tar.gz
-tar -xzf v${TRAS_VERSION}.tar.gz
-cd tras-${TRAS_VERSION}
-```
-
-> **Alternative**: Download manually from [Releases](https://github.com/hmarichal93/tras/releases/latest) and extract
-
-> **🪟 Important for Windows Users:**
-> After downloading and extracting TRAS:
-> 1. Open **Anaconda Prompt** (not regular Command Prompt - search for "Anaconda Prompt" in the Start menu)
-> 2. Navigate to the extracted directory: `cd path\to\tras-$version`
-> 3. Then follow the installation commands below
-
-##### 3. Install
-```bash
-conda env create -f environment.yml
-conda activate tras
-pip install -e . 
-python tools/download_release_assets.py 
-```
-> **Note**: The download script automatically fetches all required model weights, including APD YOLO weights (`downloaded_assets/apd/yolo/all_best_yolov8.pt`) for the `apd_dl` method.
-
-### 2. Compile Devernay Edge Detector (for CS-TRD, Linux/macOS only)
-```bash
-# From the tras-${TRAS_VERSION} directory
-cd tras/tree_ring_methods/cstrd/devernay
-make
-cd ../../../..  # Return to tras-${TRAS_VERSION} directory
-```
-> **Note**: CS-TRD is not available on Windows. Windows users should use DeepCS-TRD instead.
-
-### 3. Install INBD Tree-Ring Detection Method (Optional)
-```bash
-mkdir -p tras/tree_ring_methods/inbd && cd tras/tree_ring_methods/inbd
-git clone https://github.com/hmarichal93/INBD.git src
-./download_models.sh
-```
-
-
+---
 
 ## ✨ Key Features
 
@@ -86,20 +46,20 @@ git clone https://github.com/hmarichal93/INBD.git src
 <tr>
 <td width="50%" valign="top">
 
-### 🔬 **Automatic Detection**
-- **APD**: Automatic Pith Detection (~1s, CPU) - includes `apd`, `apd_pcl`, and `apd_dl` (YOLO) methods
-- **CS-TRD**: Classical edge detection (~73s, CPU) *[Linux/macOS only]*
-- **DeepCS-TRD**: Deep learning U-Net (~101s, GPU)
-- **INBD**: Iterative Next Boundary Detection (CVPR 2023, GPU)
+### 🔬 Automatic Detection
+- **APD** — Automatic Pith Detection (~1 s, CPU); methods `apd`, `apd_pcl`, `apd_dl` (YOLO)
+- **CS-TRD** — Classical edge detection (~73 s, CPU) *[Linux/macOS only]*
+- **DeepCS-TRD** — Deep learning U-Net (~101 s, GPU)
+- **INBD** — Iterative Next Boundary Detection (CVPR 2023, GPU)
 
 <img src="assets/detection-methods.png" alt="Detection Methods" width="100%"/>
 
 </td>
 <td width="50%" valign="top">
 
-### 🖼️ **Preprocessing**
+### 🖼️ Preprocessing
 - Smart crop with edge warnings
-- Resize (10-100% scaling)
+- Resize (10–100 % scaling)
 - U2Net background removal
 - Full parameter tracking
 
@@ -110,22 +70,22 @@ git clone https://github.com/hmarichal93/INBD.git src
 <tr>
 <td width="50%" valign="top">
 
-### 📏 **Scale Calibration**
-- Draw known-length segment
+### 📏 Scale Calibration
+- Draw a known-length segment
 - Direct μm/cm/mm input
 - Auto-adjust on resize
-- Physical unit exports
+- Physical-unit exports
 
 <img src="assets/scale-calibration.png" alt="Scale Calibration" width="100%"/>
 
 </td>
 <td width="50%" valign="top">
 
-### 📊 **Analysis & Export**
+### 📊 Analysis & Export
 - Ring properties (area, perimeter)
 - Radial width measurements
 - Year-based labeling
-- CSV & .POS formats
+- JSON, CSV & .POS formats
 
 <img src="assets/analysis-export.png" alt="Analysis" width="100%"/>
 
@@ -133,9 +93,10 @@ git clone https://github.com/hmarichal93/INBD.git src
 </tr>
 </table>
 
-### 📄 **Professional PDF Reports**
+### 📄 Professional PDF Reports
 
-Generate comprehensive reports with a single click, including:
+Generate comprehensive reports with a single click:
+
 - Sample metadata and summary statistics
 - Ring overlay with detected boundaries
 - Multi-panel analysis plots (area, growth rate, radial width)
@@ -160,21 +121,100 @@ Generate comprehensive reports with a single click, including:
 </table>
 </p>
 
+---
+
+## 📦 Installation
+
+> **Windows users:** run every command below from the **Anaconda Prompt** (search "Anaconda Prompt" in the Start menu), **not** the regular Command Prompt. CS-TRD is unavailable on Windows — use DeepCS-TRD instead.
+
+### Prerequisites
+
+- [Anaconda / Miniconda](https://www.anaconda.com/download) — [Windows video tutorial](https://youtu.be/4DQGBQMvwZo)
+- Python ≥ 3.9 (provided by the conda environment)
+
+### 1. Download TRAS
+
+**Linux / macOS:**
+```bash
+export TRAS_VERSION=2.1.9          # update when a newer release is available
+wget https://github.com/hmarichal93/tras/archive/refs/tags/v${TRAS_VERSION}.tar.gz
+tar -xzf v${TRAS_VERSION}.tar.gz
+cd tras-${TRAS_VERSION}
+```
+
+> **Alternative:** download manually from [Releases](https://github.com/hmarichal93/tras/releases/latest) and extract, then `cd` into the extracted folder.
+
+### 2. Create the Environment
+
+```bash
+conda env create -f environment.yml
+conda activate tras
+pip install -e .
+```
+
+### 3. Download Model Weights
+
+```bash
+python tools/download_release_assets.py
+```
+
+> Fetches all required model weights, including the APD YOLO weights (`downloaded_assets/apd/yolo/all_best_yolov8.pt`) used by the `apd_dl` method.
+
+### 4. Compile the Devernay Edge Detector *(CS-TRD — Linux/macOS only, optional)*
+
+```bash
+cd tras/tree_ring_methods/cstrd/devernay
+make
+cd ../../../..                      # back to the project root
+```
+
+### 5. Install the INBD Method *(optional)*
+
+```bash
+mkdir -p tras/tree_ring_methods/inbd && cd tras/tree_ring_methods/inbd
+git clone https://github.com/hmarichal93/INBD.git src
+./download_models.sh
+cd ../../..                         # back to the project root
+```
+
+---
 
 ## 🚀 Quick Start
 
-### GUI Mode
+### 🖥️ GUI
+
 ```bash
-tras                              # Launch GUI
-tras /path/to/image.jpg          # Open with image
-tras --version                    # Check version
+tras                               # launch the GUI
+tras /path/to/image.jpg            # launch with an image open
+tras --version                     # print the version
 ```
 
-### CLI Mode
+The **Tools** menu has two groups:
 
-TRAS provides a unified command-line tool that automatically detects whether the input is a single image or a folder:
+- **Single** — the step-by-step workflow for the currently open image (set scale → preprocess → detect → measure → export).
+- **Batch Processing…** — run detection over an entire folder (see below).
 
-**Single Image Mode:**
+### 📁 GUI Batch Processing
+
+**`Tools → Batch Processing…`** opens a dialog where you pick an input folder and configure the
+detection settings inline — optional physical scale, preprocessing, pith method, and ring method
+with its parameters. Detection runs in the background with a live progress bar.
+
+For every image, TRAS writes a `.json` label file. When the batch finishes it also produces:
+
+| Output | Description |
+|--------|-------------|
+| `summary.pdf` | One page per image — detected rings overlaid on the image, with the filename as the page title |
+| `batch_config.yml` | The exact settings used, re-loadable by the CLI (`tras_detect --config`) |
+
+> 💡 All outputs are written **into the input folder itself**, alongside the images. Images that
+> already have a `.json` are skipped, so an interrupted batch resumes simply by running it again.
+
+### ⌨️ CLI
+
+`tras_detect` automatically detects whether the input is a single image or a folder.
+
+**Single image:**
 ```bash
 # Auto-detect pith and rings
 tras_detect image.jpg -o output.json
@@ -183,76 +223,95 @@ tras_detect image.jpg -o output.json
 tras_detect image.jpg --ring-method deepcstrd --pith-method apd_dl
 ```
 
-**Batch Folder Processing Mode:**
+**Batch folder:**
 ```bash
-# With YAML config file (recommended)
+# With a YAML config file (recommended)
 tras_detect /path/to/images --config config.yml
 
 # With CLI flags only
 tras_detect /path/to/images --scale-value 0.0213 --scale-unit mm --ring-method deepcstrd
 
-# Override config with CLI flags
+# Config file overridden by CLI flags
 tras_detect /path/to/images --config config.yml --scale-value 0.025 --ring-method cstrd
 ```
 
 **Outputs:**
-- **Single image**: Generates `<stem>_detected.json` (or custom output path)
-- **Batch processing**: For each image generates `<stem>.json`, `<stem>.csv`, and `<stem>.pdf`
+- **Single image** → `<stem>_detected.json` (or your custom `-o` path)
+- **Batch folder** → `tras_out/<stem>.json`, `<stem>.csv`, and `<stem>.pdf` per image
 
-**Configuration File:**
-See [`examples/cli/process_config.yml`](examples/cli/process_config.yml) for a complete YAML configuration template.
+> **Required for CLI batch processing:** a physical scale must be provided, either via the config
+> file or via `--scale-value` and `--scale-unit`.
 
-**Required for batch processing:** Physical scale (`--scale-value` and `--scale-unit`) must be provided either via config file or CLI flags.
+See [`examples/cli/process_config.yml`](examples/cli/process_config.yml) for a complete configuration template.
 
-## 🧠 Training Custom Models
-
-TRAS supports loading user-trained models for INBD and DeepCS-TRD to improve detection on your specific datasets.
-See the **[Training Custom Models guide](docs/training_custom_models.md)** for step-by-step instructions.
+---
 
 ## 📖 Workflow
 
-
 <details>
-<summary><b>📋 Step-by-step guide</b></summary>
+<summary><b>📋 Step-by-step guide (single image)</b></summary>
 
-1. **📁 Load Image**
-   - `File > Open` or drag-and-drop wood cross-section image
+<br/>
 
-2. **📏 Set Scale** *(optional)*
-   - `Tools > Set Image Scale`
-   - Draw known-length line or enter directly
+> These per-image tools live under the **`Tools → Single`** submenu. To process a whole folder at
+> once, use **`Tools → Batch Processing…`** instead (see [GUI Batch Processing](#-gui-batch-processing)).
 
-3. **🖼️ Preprocess** *(optional)*
-   - `Tools > Preprocess Image`
-   - Crop, resize, or remove background
-
-4. **🎯 Detect Rings**
-   - `Tools > Tree Ring Detection`
-   - Choose pith: APD (auto, with methods: `apd`, `apd_pcl`, or `apd_dl`) or manual click
-   - Select method: CS-TRD (Linux/macOS), DeepCS-TRD, or INBD (all platforms)
-
-5. **📝 Add Metadata**
-   - `Tools > Sample Metadata`
-   - Harvested year, sample code, notes
-
-6. **📐 Measure Width** *(optional)*
-   - `Tools > Measure Ring Width`
-   - Define radial transect
-
-7. **📊 View Properties**
-   - `Tools > Ring Properties`
-   - Review measurements
-
-8. **💾 Export**
-   - CSV (all data) or .POS (CooRecorder format)
+1. **📁 Load Image** — `File → Open` or drag-and-drop a wood cross-section image
+2. **📏 Set Scale** *(optional)* — `Tools → Single → Set Image Scale`; draw a known-length line or enter it directly
+3. **🖼️ Preprocess** *(optional)* — `Tools → Single → Preprocess Image`; crop, resize, or remove background
+4. **🎯 Detect Rings** — `Tools → Single → Tree Ring Detection`
+   - Pith: APD auto (`apd`, `apd_pcl`, `apd_dl`) or manual click
+   - Method: CS-TRD (Linux/macOS), DeepCS-TRD, or INBD
+5. **📝 Add Metadata** — `Tools → Single → Sample Metadata`; harvested year, sample code, notes
+6. **📐 Measure Width** *(optional)* — `Tools → Single → Measure Ring Width`; define a radial transect
+7. **📊 View Properties** — `Tools → Single → Ring Properties`; review measurements
+8. **💾 Export** — JSON, CSV (all data), or .POS (CooRecorder format)
 
 </details>
 
-## Citations
+---
 
-If you use TRAS in your research, please cite the following papers:
+## 🧠 Training Custom Models
 
-### UruDendro
+TRAS supports loading user-trained models for **INBD** and **DeepCS-TRD** to improve detection on
+your specific datasets. See the **[Training Custom Models guide](docs/training_custom_models.md)**
+for step-by-step instructions.
+
+---
+
+## ⚙️ Configuration
+
+TRAS stores its configuration in `~/.trasrc`. You can customize:
+
+- Default shape colors (wood theme)
+- Keyboard shortcuts
+- Detection method defaults
+- UI preferences
+
+---
+
+## 📋 Requirements
+
+- Python ≥ 3.9
+- PyQt5
+- OpenCV
+- PyTorch (for DeepCS-TRD)
+- Shapely 1.7.0
+
+See [`pyproject.toml`](pyproject.toml) for the complete dependency list.
+
+---
+
+## 📚 Citations
+
+If you use TRAS in your research, please cite the relevant papers below.
+
+<details>
+<summary><b>📖 BibTeX entries</b></summary>
+
+<br/>
+
+**UruDendro**
 ```bibtex
 @article{UruDendro,
   author    = {Henry Marichal and Diego Passarella and Christine Lucas and Ludmila Profumo and Verónica Casaravilla and María Noel Rocha Galli and Serrana Ambite and Gregory Randall},
@@ -268,7 +327,7 @@ If you use TRAS in your research, please cite the following papers:
 }
 ```
 
-### APD (Automatic Pith Detection)
+**APD — Automatic Pith Detection**
 ```bibtex
 @inproceedings{apd,
   isbn = {978-3-031-78447-7},
@@ -280,7 +339,7 @@ If you use TRAS in your research, please cite the following papers:
 }
 ```
 
-### CS-TRD (Cross-Section Tree Ring Detection)
+**CS-TRD — Cross-Section Tree Ring Detection**
 ```bibtex
 @article{ipol.2025.485,
     title   = {{CS-TRD: a Cross-Section Tree Ring Detection Method}},
@@ -293,7 +352,7 @@ If you use TRAS in your research, please cite the following papers:
 }
 ```
 
-### DeepCS-TRD (Deep Learning Tree Ring Detection)
+**DeepCS-TRD — Deep Learning Tree Ring Detection**
 ```bibtex
 @InProceedings{10.1007/978-3-032-10185-3_3,
 author="Marichal, Henry
@@ -308,7 +367,7 @@ and Randall, Gregory",
 editor="Rodol{\`a}, Emanuele
 and Galasso, Fabio
 and Masi, Iacopo",
-title="DeepCS-TRD, a Deep Learning-Based Cross-Section Tree Ring Detector",
+title="DeepCS-TRD, a Deep Learning-Based Cross-Section Tree Ring Detector",
 booktitle="Image Analysis and Processing -- ICIAP 2025",
 year="2026",
 publisher="Springer Nature Switzerland",
@@ -318,36 +377,24 @@ isbn="978-3-032-10185-3"
 }
 ```
 
-## Requirements
+</details>
 
-- Python ≥ 3.9
-- PyQt5
-- OpenCV
-- PyTorch (for DeepCS-TRD)
-- Shapely 1.7.0
-- See `pyproject.toml` for complete list
-
-## Configuration
-
-TRAS stores its configuration in `~/.trasrc`. You can customize:
-- Default shape colors (wood theme)
-- Keyboard shortcuts
-- Detection method defaults
-- UI preferences
-
-## License
-
-GPL-3.0-only
+---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+Contributions are welcome! Feel free to submit a Pull Request. For major changes, please open an
+issue first to discuss what you would like to change.
+
+## 📄 License
+
+[GPL-3.0-only](LICENSE)
 
 ## 📧 Contact
 
-- **Author**: Henry Marichal ([@hmarichal93](https://github.com/hmarichal93))
-- **Email**: hmarichal93@gmail.com
-- **Website**: [https://hmarichal93.github.io/tras/](https://hmarichal93.github.io/tras/)
+- **Author:** Henry Marichal ([@hmarichal93](https://github.com/hmarichal93))
+- **Email:** hmarichal93@gmail.com
+- **Website:** [https://hmarichal93.github.io/tras/](https://hmarichal93.github.io/tras/)
 
 ## 🙏 Acknowledgments
 
@@ -358,7 +405,7 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 
 <div align="center">
 
-**TRAS v2.0.2** - Tree Ring Analyzer Suite
+**TRAS** — Tree Ring Analyzer Suite
 
 *Advancing dendrochronology research through intelligent automation*
 

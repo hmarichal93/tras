@@ -70,6 +70,49 @@ def generate_pdf_report(
     logger.info(f"Generated PDF report: {output_path}")
 
 
+def generate_summary_pdf(
+    output_path: Path,
+    results: list[dict[str, Any]],
+    scale_value: Optional[float] = None,
+    scale_unit: Optional[str] = None,
+) -> None:
+    """Generate a combined batch summary PDF, one image per page.
+
+    Each page shows the image with its detected ring boundaries overlaid and the
+    image filename as the page title. Used by GUI batch processing.
+
+    Args:
+        output_path: Path to the output ``summary.pdf``.
+        results: One dict per processed image, each with keys ``name`` (str,
+            shown as the page title), ``image`` (H x W x 3 uint8 array),
+            ``pith_xy`` (x, y), and ``rings`` (list of ring polygons).
+        scale_value: Optional physical scale (unit per pixel); reserved for future
+            per-page statistics. Pixel units are used when omitted.
+        scale_unit: Optional physical unit name accompanying ``scale_value``.
+    """
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with PdfPages(str(output_path)) as pdf:
+        for result in results:
+            _create_ring_overlay_page(
+                pdf,
+                result["image"],
+                result["rings"],
+                result["pith_xy"],
+                show_labels=True,
+                title=result["name"],
+            )
+
+        pdf_metadata = pdf.infodict()
+        pdf_metadata["Title"] = "Tree Ring Batch Summary"
+        pdf_metadata["Author"] = "TRAS - Tree Ring Analyzer Suite"
+        pdf_metadata["Subject"] = f"Batch of {len(results)} image(s)"
+        pdf_metadata["Keywords"] = "Dendrochronology, Tree Rings, Wood Analysis"
+        pdf_metadata["CreationDate"] = datetime.now()
+
+    logger.info(f"Generated batch summary PDF: {output_path} ({len(results)} pages)")
+
+
 def _create_cover_page(
     pdf: PdfPages,
     ring_properties: list[dict[str, Any]],
@@ -172,10 +215,21 @@ def _create_ring_overlay_page(
     rings: list[npt.NDArray[np.float32]],
     pith_xy: tuple[float, float],
     show_labels: bool = True,
+    title: Optional[str] = None,
 ) -> None:
-    """Create page with image and ring overlays."""
+    """Create page with image and ring overlays.
+
+    Args:
+        title: Optional page title. If omitted, a default title is used based on
+            ``show_labels`` (existing single-report behaviour).
+    """
     fig, ax = plt.subplots(figsize=(8.5, 11))
-    title = "Tree Rings with Detected Boundaries" if show_labels else "Tree Rings (Overlay)"
+    if title is None:
+        title = (
+            "Tree Rings with Detected Boundaries"
+            if show_labels
+            else "Tree Rings (Overlay)"
+        )
     ax.imshow(image)
     ax.set_title(title, fontsize=16, fontweight="bold", pad=20)
     img_height, img_width = image.shape[:2]
