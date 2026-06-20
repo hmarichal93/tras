@@ -41,3 +41,4 @@ echo "  - INBD_UruDendro1: Pinus taeda (tree)"
 echo ""
 echo "Models are stored in: $(pwd)/checkpoints/"
 
+
