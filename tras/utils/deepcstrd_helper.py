@@ -3,6 +3,8 @@ from typing import List, Tuple
 import sys
 from pathlib import Path
 
+from tras.utils.model_paths import get_deepcstrd_models_dir
+
 # Add tree ring methods to path
 _deepcstrd_path = Path(__file__).parent.parent / "tree_ring_methods" / "deepcstrd"
 _cstrd_path = Path(__file__).parent.parent / "tree_ring_methods" / "cstrd"
@@ -141,7 +143,7 @@ def _get_model_path(model_id: str, tile_size: int = 0) -> str:
         return str(model_path_obj.resolve())
     
     # Treat as model ID and resolve from downloaded_assets
-    base_path = Path(__file__).parent.parent.parent / "downloaded_assets"
+    base_path = get_deepcstrd_models_dir()
     print(f"[DEBUG] _get_model_path called with model_id='{model_id}', tile_size={tile_size}")
     print(f"[DEBUG] base_path: {base_path}")
 

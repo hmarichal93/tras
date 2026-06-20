@@ -16,6 +16,8 @@ from typing import Any, Optional
 
 from loguru import logger
 
+from tras.utils.model_paths import get_deepcstrd_models_dir
+
 
 @lru_cache(maxsize=None)
 def _check_python_package_cached(
@@ -114,13 +116,7 @@ def _check_deepcstrd_models_cached() -> dict[str, Any]:
     Returns:
         Dictionary with keys: available (bool), models_found (list[str]), models_required (list[str]), path (str | None), error (str | None)
     """
-    models_dir = (
-        Path(__file__).parent.parent
-        / "tree_ring_methods"
-        / "deepcstrd"
-        / "models"
-        / "deep_cstrd"
-    )
+    models_dir = get_deepcstrd_models_dir()
 
     required_models = ["0_all_1504.pth"]  # Minimum required: generic model
     optional_models = [
@@ -144,7 +140,7 @@ def _check_deepcstrd_models_cached() -> dict[str, Any]:
             "models_found": models_found,
             "models_required": required_models,
             "path": str(models_dir),
-            "error": f"DeepCS-TRD models not found. Download with: cd tras/tree_ring_methods/deepcstrd && ./download_models.sh",
+            "error": "DeepCS-TRD models not found. Download with: python tools/download_release_assets.py",
         }
 
     return {
