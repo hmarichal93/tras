@@ -54,6 +54,7 @@ CLI `--help` texts, GUI tooltips that describe workflow, PR descriptions.
    | Output files | the writer functions | run and `ls` the output |
    | Links / images | repo tree | every relative link resolves |
    | Test count, Python versions | `pytest -q`, `pyproject.toml` | run |
+   | Citation (BibTeX, `CITATION.cff`, paper links) | The publisher / arXiv record | arXiv MCP `get_abstract` or web search: title, authors, year, venue, pages, DOI must match; DOI resolves. Never invent a DOI: omit it and flag it |
 
 3. **Run every code block** that can run without private data (use
    `tras/cores/synthetic.py` images in the scratchpad). Commands needing datasets: check the

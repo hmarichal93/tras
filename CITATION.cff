@@ -1,0 +1,38 @@
+cff-version: 1.2.0
+message: "If you use TRAS, please cite the TRAS article below and the papers of the detection methods you used (see README, Citations)."
+title: "TRAS: Tree Ring Analyzer Suite"
+type: software
+authors:
+  - family-names: Marichal
+    given-names: Henry
+  - family-names: Passarella
+    given-names: Diego
+  - family-names: Randall
+    given-names: Gregory
+license: GPL-3.0
+repository-code: "https://github.com/hmarichal93/tras"
+url: "https://hmarichal93.github.io/tras"
+keywords:
+  - dendrochronology
+  - tree rings
+  - computer vision
+  - increment cores
+preferred-citation:
+  type: article
+  title: "TRAS: An Interactive Software for Tracing Tree Ring Cross Sections"
+  authors:
+    - family-names: Marichal
+      given-names: Henry
+    - family-names: Passarella
+      given-names: Diego
+    - family-names: Randall
+      given-names: Gregory
+  year: 2026
+  month: 5
+  journal: "arXiv preprint"
+  identifiers:
+    - type: other
+      value: "arXiv:2605.08025"
+    - type: doi
+      value: "10.48550/arXiv.2605.08025"
+  url: "https://arxiv.org/abs/2605.08025"

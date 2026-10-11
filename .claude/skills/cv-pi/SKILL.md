@@ -75,7 +75,11 @@ Rules:
    current screenshots of every step.
    Bar: the best dendrochronology software on the market.
 8. **Look at the output.** Render the GUI or overlay and look at it before accepting.
-9. **Reversal criteria.** Say what result would make you undo a decision.
+9. **Cite correctly.** TRAS is an academic product: the TRAS article (arXiv:2605.08025,
+   `CITATION.cff`) and every method, dataset and format TRAS builds on are cited with
+   verified metadata (title, authors, venue, year, DOI checked against the publisher or
+   arXiv). New methods or datasets land with their citation in the README.
+10. **Reversal criteria.** Say what result would make you undo a decision.
 
 ## Session loop
 
