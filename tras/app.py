@@ -13,7 +13,6 @@ import webbrowser
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
-import imgviz
 import natsort
 import numpy as np
 from loguru import logger
@@ -69,7 +68,48 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 # - Zoom is too "steppy".
 
 
-LABEL_COLORMAP: NDArray[np.uint8] = imgviz.label_colormap()
+# Ring outline palette: Okabe & Ito (2008) colour-blind-safe set without black, orange
+# and vermillion (they vanish on wood). Cycled by label order so neighbouring rings
+# differ. Overridden by config ``shape.ring_palette``.
+DEFAULT_RING_PALETTE: NDArray[np.uint8] = np.array(
+    [[86, 180, 233], [240, 228, 66], [0, 158, 115], [204, 121, 167], [0, 114, 178]],
+    dtype=np.uint8,
+)
+DEFAULT_LINE_WIDTH_PX = 2  # idle ring stroke in screen px
+DEFAULT_HALO_RGBA = (0, 0, 0, 150)  # dark halo under every stroke
+SELECTED_RING_RGB = (255, 255, 255)  # selected outline is white
+
+# Exclusion areas: red outline and a light red fill (stronger when selected).
+EXCLUSION_LABEL = "exclusion"
+EXCLUSION_LINE_RGBA = (255, 0, 0, 200)
+EXCLUSION_FILL_RGBA = (255, 0, 0, 50)
+EXCLUSION_SELECT_FILL_RGBA = (255, 0, 0, 155)
+
+
+def style_shape(shape: Shape, rgb: tuple[int, int, int]) -> None:
+    """Set the colours of ``shape`` from its label colour ``rgb``.
+
+    Rings and lines are outlines only (alpha-0 fills, white when selected); exclusion
+    areas are red and keep their fill.
+    """
+    shape.hvertex_fill_color = QtGui.QColor(*SELECTED_RING_RGB)
+    shape.select_line_color = QtGui.QColor(*SELECTED_RING_RGB)
+    if shape.label == EXCLUSION_LABEL:
+        shape.line_color = QtGui.QColor(*EXCLUSION_LINE_RGBA)
+        shape.vertex_fill_color = QtGui.QColor(*EXCLUSION_LINE_RGBA[:3])
+        shape.fill_color = QtGui.QColor(*EXCLUSION_FILL_RGBA)
+        shape.select_fill_color = QtGui.QColor(*EXCLUSION_SELECT_FILL_RGBA)
+        return
+    shape.line_color = QtGui.QColor(*rgb)
+    shape.vertex_fill_color = QtGui.QColor(*rgb)
+    shape.fill_color = QtGui.QColor(*rgb, 0)
+    shape.select_fill_color = QtGui.QColor(*rgb, 0)
+
+
+def load_ring_palette(shape_config: dict) -> NDArray[np.uint8]:
+    """Palette from config ``shape.ring_palette``; the default when missing or empty."""
+    palette = shape_config.get("ring_palette") or DEFAULT_RING_PALETTE
+    return np.asarray(palette, dtype=np.uint8).reshape(-1, 3)
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -116,6 +156,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Set point size from config file
         Shape.point_size = self._config["shape"]["point_size"]
+        # Ring overlay (T10); older ~/.trasrc files may lack these keys
+        shape_config = self._config["shape"]
+        Shape.line_width = shape_config.get("line_width", DEFAULT_LINE_WIDTH_PX)
+        Shape.halo_color = QtGui.QColor(*shape_config.get("halo_color", DEFAULT_HALO_RGBA))
+        self._ring_palette = load_ring_palette(shape_config)
 
         super().__init__()
         self.setWindowTitle(f"{__appname__} - Tree Ring Analyzer Suite")
@@ -2841,22 +2886,7 @@ class MainWindow(QtWidgets.QMainWindow):
         )
 
     def _update_shape_color(self, shape):
-        # Exclusion areas always use red color
-        if shape.label == "exclusion":
-            shape.line_color = QtGui.QColor(255, 0, 0, 200)  # Red with transparency
-            shape.vertex_fill_color = QtGui.QColor(255, 0, 0, 255)
-            shape.hvertex_fill_color = QtGui.QColor(255, 255, 255)
-            shape.fill_color = QtGui.QColor(255, 0, 0, 50)   # Light red fill
-            shape.select_line_color = QtGui.QColor(255, 255, 255)
-            shape.select_fill_color = QtGui.QColor(255, 0, 0, 155)
-        else:
-            r, g, b = self._get_rgb_by_label(shape.label)
-            shape.line_color = QtGui.QColor(r, g, b)
-            shape.vertex_fill_color = QtGui.QColor(r, g, b)
-            shape.hvertex_fill_color = QtGui.QColor(255, 255, 255)
-            shape.fill_color = QtGui.QColor(r, g, b, 128)
-            shape.select_line_color = QtGui.QColor(255, 255, 255)
-            shape.select_fill_color = QtGui.QColor(r, g, b, 155)
+        style_shape(shape, self._get_rgb_by_label(shape.label))
 
     def _get_rgb_by_label(self, label: str) -> tuple[int, int, int]:
         if self._config["shape_color"] == "auto":
@@ -2866,14 +2896,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 if item
                 else self.uniqLabelList.count()
             )
-            label_id: int = (
-                1  # skip black color by default
-                + item_index
-                + self._config["shift_auto_shape_color"]
-            )
-            rgb: tuple[int, int, int] = tuple(
-                LABEL_COLORMAP[label_id % len(LABEL_COLORMAP)].tolist()
-            )
+            label_id: int = item_index + self._config["shift_auto_shape_color"]
+            palette = self._ring_palette
+            rgb: tuple[int, int, int] = tuple(palette[label_id % len(palette)].tolist())
             return rgb
         elif (
             self._config["shape_color"] == "manual"
@@ -3071,11 +3096,7 @@ class MainWindow(QtWidgets.QMainWindow):
             shape = self.canvas.setLastLabel(text, flags)
             shape.group_id = group_id
             shape.description = description
-            # Set visual style for exclusion areas (red color)
-            if text == "exclusion":
-                shape.line_color = QtGui.QColor(255, 0, 0, 200)  # Red with transparency
-                shape.fill_color = QtGui.QColor(255, 0, 0, 50)   # Light red fill
-            self.addLabel(shape)
+            self.addLabel(shape)  # styles the shape via _update_shape_color
             self.actions.editMode.setEnabled(True)
             self.actions.undoLastPoint.setEnabled(False)
             self.actions.undo.setEnabled(True)
