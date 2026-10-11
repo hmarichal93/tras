@@ -16,7 +16,7 @@
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue)](https://www.python.org)
 [![arXiv](https://img.shields.io/badge/arXiv-2605.08025-b31b1b.svg)](https://arxiv.org/abs/2605.08025)
 
-[Overview](#-overview) • [Features](#-key-features) • [Installation](#-installation) • [Quick Start](#-quick-start) • [Workflow](#-workflow) • [Citations](#-citations)
+[Overview](#-overview) • [Features](#-key-features) • [Installation](#-installation) • [Quick Start](#-quick-start) • [Increment Cores](#-increment-cores) • [Accuracy](#-accuracy) • [Workflow](#-workflow) • [Citations](#-citations)
 
 </div>
 
@@ -24,7 +24,7 @@
 
 ## 🎯 Overview
 
-TRAS integrates **state-of-the-art computer vision** and **deep learning** methods for dendrochronology research. Automatically detect tree rings, measure ring widths, and export data in standard formats — all through an intuitive graphical interface, a programmatic Python API, or a command-line tool for batch jobs.
+TRAS integrates **state-of-the-art computer vision** and **deep learning** methods for dendrochronology research. Automatically detect tree rings on **wood cross-sections** and **increment cores**, measure ring widths, check the dating, and export data in standard formats (CooRecorder `.pos`, Tucson `.rwl`, CSV, PDF) — through a graphical interface, a Python API, or command-line tools for batch jobs.
 
 <p align="center">
   <img src="assets/screenshot-main.png" alt="TRAS Main Interface" width="800"/>
@@ -35,8 +35,10 @@ TRAS integrates **state-of-the-art computer vision** and **deep learning** metho
 | Interface | Command | Best for |
 |-----------|---------|----------|
 | 🖥️ **GUI** | `tras` | Interactive annotation, single samples, batch folders |
-| ⌨️ **CLI** | `tras_detect` | Scripting, reproducible batch pipelines |
-| 🐍 **Python API** | `from tras.api import detect` | Custom workflows and integration |
+| ⌨️ **CLI — cross-sections** | `tras_detect` | Scripting, reproducible batch pipelines |
+| ⌨️ **CLI — increment cores** | `tras_core` | CooRecorder-style automatic core measurement |
+| 📈 **Benchmarks** | `tras_benchmark` | Reproducing accuracy numbers on annotated data |
+| 🐍 **Python API** | `from tras.api import detect`, `from tras.cores import analyze_core_image` | Custom workflows and integration |
 
 ---
 
@@ -82,10 +84,11 @@ TRAS integrates **state-of-the-art computer vision** and **deep learning** metho
 <td width="50%" valign="top">
 
 ### 📊 Analysis & Export
-- Ring properties (area, perimeter)
-- Radial width measurements
-- Year-based labeling
-- JSON, CSV & .POS formats
+- Ring properties: area, perimeter, mean/min/max width over 360 directions, eccentricity
+- Exclusion zones (cracks, knots) subtracted from areas
+- Quality-control flags for rings worth reviewing
+- Crossdating statistics: t-value, Gleichläufigkeit, COFECHA-style segment checks
+- JSON, CSV, PDF, CooRecorder `.pos` and Tucson `.rwl`
 
 <img src="assets/analysis-export.png" alt="Analysis" width="100%"/>
 
@@ -237,12 +240,37 @@ tras_detect /path/to/images --config config.yml --scale-value 0.025 --ring-metho
 
 **Outputs:**
 - **Single image** → `<stem>_detected.json` (or your custom `-o` path)
-- **Batch folder** → `tras_out/<stem>.json`, `<stem>.csv`, and `<stem>.pdf` per image
+- **Batch folder** → `tras_out/<stem>.json`, `<stem>.csv`, and `<stem>.pdf` per image, plus a
+  combined `summary.pdf` and the `batch_config.yml` actually used
 
-> **Required for CLI batch processing:** a physical scale must be provided, either via the config
-> file or via `--scale-value` and `--scale-unit`.
+> A physical scale (config file or `--scale-value`/`--scale-unit`) gives CSV and PDF values in
+> physical units; without it they are in pixels. Defaults for every parameter come from
+> [`tras/config/detection_defaults.yaml`](tras/config/detection_defaults.yaml), shared with the GUI.
 
 See [`examples/cli/process_config.yml`](examples/cli/process_config.yml) for a complete configuration template.
+
+---
+
+## 🪵 Increment Cores
+
+TRAS measures increment cores the way CooRecorder does, but automatically: it finds the cores
+in a scan, detects every ring boundary along each core, measures widths perpendicular to the
+rings, dates them from the outermost year and writes CooRecorder `.pos` and Tucson `.rwl` files.
+
+```bash
+tras_core scan.tif --outer-year 2023              # find cores automatically
+tras_core disc.jpg --path "120,40;3900,85"         # measure along a given path
+```
+
+In the GUI: **Tools → Single → Core Analysis…** (detected boundaries are editable shapes).
+Full guide: **[docs/cores.md](docs/cores.md)**.
+
+---
+
+## 🎯 Accuracy
+
+Measured with `tras_benchmark` on annotated data; full protocol and numbers in
+**[docs/benchmarks.md](docs/benchmarks.md)**.
 
 ---
 
@@ -385,6 +413,9 @@ isbn="978-3-032-10185-3"
 
 Contributions are welcome! Feel free to submit a Pull Request. For major changes, please open an
 issue first to discuss what you would like to change.
+
+- Code map and design rules: [docs/architecture.md](docs/architecture.md)
+- Before a PR: `make test` and `make lint_strict` (both run in CI)
 
 ## 📄 License
 
