@@ -16,6 +16,7 @@ the team executes. Copied from the `polar-tree-ring-tracking` repo and adapted f
 |------------|------|---------------|
 | `senior-product-engineer` | Problem framing, metric, options, MVP, definition of done | A goal is fuzzy or several features compete |
 | `dendro-domain-expert` | Scientific correctness: dating, units, formats, what dendrochronologists expect | Anything touching years, widths, .pos/.rwl, crossdating, or "would a lab trust this?" |
+| `senior-researcher` | Citations, state of the art, comparability of numbers, claims, licences, paper material | Any citation, comparison with other tools/papers, or public accuracy claim |
 | `senior-gui-designer` | Screens, menus, workflow, mockups, visual check | Any user-facing change |
 | `senior-python-engineer` | Code, API design, refactors, performance | Building or reviewing code in `tras/` |
 | `senior-qa-engineer` | Test plan, edge cases, regression tests, exploratory and GUI testing, release gate | Before merging any feature; after any bug |
@@ -39,6 +40,7 @@ in `.claude/agents/` (it preloads the role skills):
 | `qa-engineer` | senior-qa-engineer, dendro-formats |
 | `benchmark-analyst` | tras-benchmark |
 | `docs-writer` | docs-accuracy, technical-writing |
+| `researcher` | senior-researcher, technical-writing |
 
 If the agents are not loaded (new session needed), use `general-purpose` and start the
 prompt with "First invoke the Skill `<role-skill>` and follow it." The prompt must contain:
@@ -78,7 +80,8 @@ Rules:
 9. **Cite correctly.** TRAS is an academic product: the TRAS article (arXiv:2605.08025,
    `CITATION.cff`) and every method, dataset and format TRAS builds on are cited with
    verified metadata (title, authors, venue, year, DOI checked against the publisher or
-   arXiv). New methods or datasets land with their citation in the README.
+   arXiv). New methods or datasets land with their citation in the README. Delegate this
+   to `researcher`; the PI does not do specialist work itself.
 10. **Reversal criteria.** Say what result would make you undo a decision.
 
 ## Session loop
