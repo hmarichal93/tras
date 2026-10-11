@@ -55,10 +55,11 @@ def test_config_round_trip():
     assert DetectionParams.from_config(params.to_config()) == params
 
 
-def test_from_config_ignores_gui_only_keys():
-    config = {"rings": {"method": "cstrd", "cstrd": {"sigma": 4.0, "width": 0, "height": 0}}}
+def test_from_config_reads_method_sections():
+    config = {"rings": {"method": "cstrd", "cstrd": {"sigma": 4.0, "width": 800, "height": 800}}}
     params = DetectionParams.from_config(config)
     assert params.cstrd.sigma == 4.0
+    assert params.cstrd.width == 800
 
 
 def test_flat_names_cover_every_method_field():

@@ -17,7 +17,7 @@ cstrd:
   th_high: 20.0
   alpha: 30
   nr: 360
-  width: 0                 # GUI-only resize (0 = no resize); API does not pass these
+  width: 0                 # resize before detection (0 = no resize)
   height: 0
 
 deepcstrd:

@@ -37,6 +37,8 @@ class CstrdParams:
     th_high: float = field(default_factory=lambda: float(_section("cstrd")["th_high"]))
     alpha: int = field(default_factory=lambda: int(_section("cstrd")["alpha"]))
     nr: int = field(default_factory=lambda: int(_section("cstrd")["nr"]))
+    width: int = field(default_factory=lambda: int(_section("cstrd")["width"]))
+    height: int = field(default_factory=lambda: int(_section("cstrd")["height"]))
 
 
 @dataclass(frozen=True)

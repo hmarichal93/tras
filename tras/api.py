@@ -197,6 +197,8 @@ def _detect_rings_cstrd(
         th_high=p.th_high,
         alpha=p.alpha,
         nr=p.nr,
+        width=p.width,
+        height=p.height,
     )
 
 

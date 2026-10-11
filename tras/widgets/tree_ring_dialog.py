@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import importlib
 import io
+import os
 import platform
 import shutil
 import tempfile
 import traceback
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 from typing import Callable
 
 import cv2
@@ -19,9 +21,8 @@ from PyQt5.QtWidgets import QApplication
 
 from tras.config.detection_defaults import get_detection_defaults
 from tras.utils.apd_helper import detect_pith_apd
-from tras.utils.cstrd_helper import detect_rings_cstrd
-from tras.utils.deepcstrd_helper import detect_rings_deepcstrd
-from tras.utils.inbd_helper import detect_rings_inbd
+from tras.api import detect_rings
+from tras.params import DetectionParams
 from tras.utils.model_paths import get_deepcstrd_models_dir, get_inbd_checkpoints_dir
 from tras.utils.ring_sampling import resample_rings_by_rays
 
@@ -133,6 +134,42 @@ def _log_detection_call(func_name: str, image: np.ndarray, **params) -> None:
     message = "\n".join(lines)
     print(message)
     logger.info(message)
+
+
+def _debug_dir() -> Path | None:
+    """``~/.tras_debug`` when ``TRAS_DEBUG`` is set, else None (no debug images)."""
+    if not os.environ.get("TRAS_DEBUG"):
+        return None
+    path = Path.home() / ".tras_debug"
+    path.mkdir(exist_ok=True)
+    return path
+
+
+def _detect_and_resample(
+    image: np.ndarray, pith_xy: tuple[float, float], params: DetectionParams
+) -> tuple[list[np.ndarray], tuple[float, float]]:
+    """The API's ring detection + resampling (identical to ``tras_detect``)."""
+    rings, pith = detect_rings(image, pith_xy, params)
+    return resample_rings_by_rays(rings, pith, params.sampling_nr), pith
+
+
+class _CallWorker(QtCore.QObject):
+    """Runs a callable in a worker thread and keeps its result or exception."""
+
+    done = QtCore.pyqtSignal()
+
+    def __init__(self, compute: Callable[[], Any]):
+        super().__init__()
+        self._compute = compute
+        self.result: Any = None
+        self.error: BaseException | None = None
+
+    def run(self) -> None:
+        try:
+            self.result = self._compute()
+        except BaseException as exc:  # re-raised on the GUI thread
+            self.error = exc
+        self.done.emit()
 
 
 class TreeRingDialog(QtWidgets.QDialog):
@@ -862,362 +899,155 @@ class TreeRingDialog(QtWidgets.QDialog):
         self._settings.sync()
 
     def _on_cstrd(self):
-        if self.image_np is None:
-            QtWidgets.QMessageBox.warning(self, self.tr("No image"), self.tr("No image data available for CS-TRD."))
-            return
-        try:
-            # Get current center coordinates
-            cx = float(self.cx.value())
-            cy = float(self.cy.value())
-            
-            # DEBUG: Check image properties
-            logger.info(f"CS-TRD: Image check - shape={self.image_np.shape}, dtype={self.image_np.dtype}")
-            logger.info(f"CS-TRD: Image stats - min={self.image_np.min()}, max={self.image_np.max()}, mean={self.image_np.mean():.2f}")
-            logger.info(f"CS-TRD: Image memory - contiguous={self.image_np.flags['C_CONTIGUOUS']}, writable={self.image_np.flags['WRITEABLE']}")
-            
-            # Show progress message
-            QtWidgets.QMessageBox.information(
-                self, 
-                self.tr("CS-TRD Running"), 
-                self.tr("CS-TRD is running. This may take 1-2 minutes. Click OK and wait...")
-            )
-            
-            # Set wait cursor and log
-            logger.info(f"CS-TRD: Starting ring detection on image {self.image_np.shape}, center=({cx:.1f}, {cy:.1f})")
-            QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
-            
-            # Get parameters from UI
-            sigma = self.cstrd_sigma.value()
-            th_low = self.cstrd_th_low.value()
-            th_high = self.cstrd_th_high.value()
-            alpha = self.cstrd_alpha.value()
-            nr = self.cstrd_nr.value()
-            width = self.cstrd_width.value()
-            height = self.cstrd_height.value()
-            
-            # Apply background removal if enabled
-            image_to_process = self.image_np.copy()
-            
-            # Ensure image is in RGB format and contiguous (exactly like preprocessing dialog)
-            # Ensure image is in RGB format (OpenCV-safe copy)
-            image_to_process = np.ascontiguousarray(image_to_process, dtype=np.uint8)
-            
-            # Save original image for debugging
-            debug_dir = Path.home() / ".tras_debug"
-            debug_dir.mkdir(exist_ok=True)
-            original_debug_path = debug_dir / "cstrd_original.png"
-            cv2.imwrite(str(original_debug_path), cv2.cvtColor(image_to_process, cv2.COLOR_RGB2BGR))
-            logger.info(f"CS-TRD: Saved original image to {original_debug_path}")
-            
-            if self.remove_bg_checkbox.isChecked():
-                image_to_process, bg_error = _remove_background(
-                    image_to_process, "CS-TRD", debug_dir, "cstrd_bg_removed.png"
-                )
-                if bg_error:
-                    QtWidgets.QMessageBox.warning(
-                        self,
-                        self.tr("Background Removal Failed"),
-                        self.tr(f"Background removal failed: {bg_error}\n\nContinuing with original image.")
-                    )
-            
-            # Run CS-TRD with current parameters (one dict: logged == actually called)
-            params = dict(
-                center_xy=(cx, cy),
-                sigma=sigma,
-                th_low=th_low,
-                th_high=th_high,
-                alpha=alpha,
-                nr=nr,
-                width=width,
-                height=height,
-            )
-            _log_detection_call("detect_rings_cstrd", image_to_process, **params)
-            rings = detect_rings_cstrd(image_to_process, **params)
-            
-            QApplication.restoreOverrideCursor()
-            
-            if not rings:
-                logger.warning("CS-TRD: No rings detected")
-                QtWidgets.QMessageBox.information(self, self.tr("No rings found"), self.tr("CS-TRD did not detect any rings."))
-                return
-            
-            logger.info(f"CS-TRD: Detected {len(rings)} rings")
-            
-            # Apply postprocess resampling
-            sampling_nr = self.sampling_nr.value()
-            logger.info(f"CS-TRD: Resampling rings to {sampling_nr} points")
-            rings = resample_rings_by_rays(rings, (cx, cy), sampling_nr)
-            logger.info(f"CS-TRD: Resampled to {len(rings)} rings")
-            
-            self.cstrd_rings = rings
-            self.detected_pith_xy = (cx, cy)  # Store pith coordinates
-            QtWidgets.QMessageBox.information(
-                self, 
-                self.tr("CS-TRD Success"), 
-                self.tr(f"Detected {len(rings)} rings. Click OK to insert them.")
-            )
-            self.accept()  # Close dialog and signal to use these rings
-        except Exception as e:
-            QApplication.restoreOverrideCursor()
-            error_details = traceback.format_exc()
-            logger.error(f"CS-TRD Error: {error_details}")
-            QtWidgets.QMessageBox.critical(
-                self, 
-                self.tr("CS-TRD Error"), 
-                self.tr(f"Failed to detect rings:\n{str(e)}\n\nCheck console for details.")
-            )
-    
+        self._run_detection("cstrd", "CS-TRD")
+
     def _on_deepcstrd(self):
-        if self.image_np is None:
-            QtWidgets.QMessageBox.warning(self, self.tr("No image"), self.tr("No image data available for DeepCS-TRD."))
-            return
-        try:
-            # Get current center coordinates
-            cx = float(self.cx.value())
-            cy = float(self.cy.value())
-            
-            # DEBUG: Check image properties
-            logger.info(f"DeepCS-TRD: Image check - shape={self.image_np.shape}, dtype={self.image_np.dtype}")
-            logger.info(f"DeepCS-TRD: Image stats - min={self.image_np.min()}, max={self.image_np.max()}, mean={self.image_np.mean():.2f}")
-            logger.info(f"DeepCS-TRD: Image memory - contiguous={self.image_np.flags['C_CONTIGUOUS']}, writable={self.image_np.flags['WRITEABLE']}")
-            
-            # Show progress message
-            QtWidgets.QMessageBox.information(
-                self, 
-                self.tr("DeepCS-TRD Running"), 
-                self.tr("DeepCS-TRD is running. This may take 1-2 minutes. Click OK and wait...")
-            )
-            
-            # Set wait cursor and log
-            logger.info(f"DeepCS-TRD: Starting ring detection on image {self.image_np.shape}, center=({cx:.1f}, {cy:.1f})")
-            QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
-            
-            # Get model selection and parameters from UI
-            model_text = self.deepcstrd_model.currentText()
-            model_id = model_text.split(" ")[0]  # Extract "generic", "pinus_v1", etc.
+        self._run_detection("deepcstrd", "DeepCS-TRD")
 
-            tile_text = self.deepcstrd_tile_size.currentText()
-            tile_size = 256 if "256" in tile_text else 0
-
-            alpha = self.deepcstrd_alpha.value()
-            nr = self.deepcstrd_nr.value()
-            total_rotations = self.deepcstrd_rotations.value()
-            prediction_map_threshold = self.deepcstrd_threshold.value()
-            width = self.deepcstrd_width.value()
-            height = self.deepcstrd_height.value()
-
-            # Apply background removal if enabled
-            image_to_process = self.image_np.copy()
-            
-            # Ensure image is in RGB format and contiguous (exactly like preprocessing dialog)
-            # Ensure image is in RGB format (OpenCV-safe copy)
-            image_to_process = np.ascontiguousarray(image_to_process, dtype=np.uint8)
-            
-            # Save original image for debugging
-            debug_dir = Path.home() / ".tras_debug"
-            debug_dir.mkdir(exist_ok=True)
-            original_debug_path = debug_dir / "deepcstrd_original.png"
-            cv2.imwrite(str(original_debug_path), cv2.cvtColor(image_to_process, cv2.COLOR_RGB2BGR))
-            logger.info(f"DeepCS-TRD: Saved original image to {original_debug_path}")
-            
-            if self.remove_bg_checkbox.isChecked():
-                image_to_process, bg_error = _remove_background(
-                    image_to_process, "DeepCS-TRD", debug_dir, "deepcstrd_bg_removed.png"
-                )
-                if bg_error:
-                    QtWidgets.QMessageBox.warning(
-                        self,
-                        self.tr("Background Removal Failed"),
-                        self.tr(f"Background removal failed: {bg_error}\n\nContinuing with original image.")
-                    )
-            
-            # Run DeepCS-TRD with current parameters (one dict: logged == actually called)
-            params = dict(
-                center_xy=(cx, cy),
-                model_id=model_id,
-                tile_size=tile_size,
-                alpha=alpha,
-                nr=nr,
-                total_rotations=total_rotations,
-                prediction_map_threshold=prediction_map_threshold,
-                width=width,
-                height=height,
-            )
-            _log_detection_call("detect_rings_deepcstrd", image_to_process, **params)
-            rings = detect_rings_deepcstrd(image_to_process, **params)
-            
-            QApplication.restoreOverrideCursor()
-            
-            if not rings:
-                logger.warning("DeepCS-TRD: No rings detected")
-                QtWidgets.QMessageBox.information(self, self.tr("No rings found"), self.tr("DeepCS-TRD did not detect any rings."))
-                return
-            
-            logger.info(f"DeepCS-TRD: Detected {len(rings)} rings")
-            
-            # Apply postprocess resampling
-            sampling_nr = self.sampling_nr.value()
-            logger.info(f"DeepCS-TRD: Resampling rings to {sampling_nr} points")
-            rings = resample_rings_by_rays(rings, (cx, cy), sampling_nr)
-            logger.info(f"DeepCS-TRD: Resampled to {len(rings)} rings")
-            
-            self.deepcstrd_rings = rings
-            self.detected_pith_xy = (cx, cy)  # Store pith coordinates
-            QtWidgets.QMessageBox.information(
-                self, 
-                self.tr("DeepCS-TRD Success"), 
-                self.tr(f"Detected {len(rings)} rings. Click OK to insert them.")
-            )
-            self.accept()  # Close dialog and signal to use these rings
-        except Exception as e:
-            QApplication.restoreOverrideCursor()
-            error_details = traceback.format_exc()
-            logger.error(f"DeepCS-TRD Error: {error_details}")
-            QtWidgets.QMessageBox.critical(
-                self, 
-                self.tr("DeepCS-TRD Error"), 
-                self.tr(f"Failed to detect rings:\n{str(e)}\n\nCheck console for details.")
-            )
-    
     def _on_inbd(self):
-        """Handle INBD tree ring detection."""
-        if self.image_np is None:
-            QtWidgets.QMessageBox.warning(self, self.tr("No image"), self.tr("No image data available for INBD."))
-            return
+        """Handle INBD tree ring detection (with setup help if INBD is missing)."""
         try:
-            # Get current center coordinates
-            cx = float(self.cx.value())
-            cy = float(self.cy.value())
-            
-            # DEBUG: Check image properties
-            logger.info(f"INBD: Image check - shape={self.image_np.shape}, dtype={self.image_np.dtype}")
-            logger.info(f"INBD: Image stats - min={self.image_np.min()}, max={self.image_np.max()}, mean={self.image_np.mean():.2f}")
-            
-            # Show progress message
-            QtWidgets.QMessageBox.information(
-                self, 
-                self.tr("INBD Running"), 
-                self.tr("INBD is running. This may take 1-2 minutes. Click OK and wait...")
-            )
-            
-            # Set wait cursor and log
-            logger.info(f"INBD: Starting ring detection on image {self.image_np.shape}, center=({cx:.1f}, {cy:.1f})")
-            QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
-            
-            # Get model selection from UI
-            model_text = self.inbd_model.currentText()
-            # Extract model ID (e.g., "INBD_EH" from "INBD_EH (Empetrum hermaphroditum)")
-            model_id = model_text.split(" ")[0]
-            
-            logger.info(f"INBD: Model={model_id}")
-            
-            # Apply background removal if enabled
-            image_to_process = self.image_np.copy()
-            image_to_process = np.ascontiguousarray(image_to_process, dtype=np.uint8)
-            
-            if self.remove_bg_checkbox.isChecked():
-                image_to_process, bg_error = _remove_background(image_to_process, "INBD")
-                if bg_error:
-                    QtWidgets.QMessageBox.warning(
-                        self,
-                        self.tr("Background Removal Failed"),
-                        self.tr(f"Background removal failed: {bg_error}\n\nContinuing with original image.")
-                    )
-            
-            # Run INBD with current parameters
-            # Check if user wants to use auto-detection
-            pith_for_sampling = None
-            if self.inbd_auto_pith.isChecked():
-                logger.info("INBD: Using auto-detection mode (no pith coordinates)")
-                params = dict(center_xy=None, model_id=model_id, return_pith=True)
-            else:
-                logger.info(f"INBD: Using manual pith coordinates: ({cx:.1f}, {cy:.1f})")
-                params = dict(center_xy=(cx, cy), model_id=model_id, return_pith=True)
-
-            # One dict: logged == actually called
-            _log_detection_call("detect_rings_inbd", image_to_process, **params)
-            rings, pith_for_sampling = detect_rings_inbd(image_to_process, **params)
-            logger.info(f"INBD: Pith for sampling: ({pith_for_sampling[0]:.1f}, {pith_for_sampling[1]:.1f})")
-            
-            QApplication.restoreOverrideCursor()
-            
-            if not rings:
-                logger.warning("INBD: No rings detected")
-                QtWidgets.QMessageBox.information(self, self.tr("No rings found"), self.tr("INBD did not detect any rings."))
-                return
-            
-            logger.info(f"INBD: Detected {len(rings)} rings")
-            
-            # Apply postprocess resampling using the appropriate pith
-            sampling_nr = self.sampling_nr.value()
-            logger.info(f"INBD: Resampling rings to {sampling_nr} points using pith ({pith_for_sampling[0]:.1f}, {pith_for_sampling[1]:.1f})")
-            rings = resample_rings_by_rays(rings, pith_for_sampling, sampling_nr)
-            logger.info(f"INBD: Resampled to {len(rings)} rings")
-            
-            self.inbd_rings = rings
-            self.detected_pith_xy = pith_for_sampling  # Store pith coordinates (computed or provided)
-            QtWidgets.QMessageBox.information(
-                self, 
-                self.tr("INBD Success"), 
-                self.tr(f"Detected {len(rings)} rings. Click OK to insert them.")
-            )
-            self.accept()  # Close dialog and signal to use these rings
+            self._run_detection("inbd", "INBD", reraise_setup_errors=True)
         except FileNotFoundError as e:
-            QApplication.restoreOverrideCursor()
-            # Handle missing INBD setup with helpful instructions
-            error_msg = str(e)
-            if "INBD model" in error_msg or "not found" in error_msg:
+            self._show_inbd_setup_help(str(e))
+        except ImportError as e:
+            self._show_inbd_setup_help(f"INBD source code is not installed: {e}")
+
+    # ----- shared detection path (same code as the CLI and API) ----------------
+
+    def detection_params(self, method: str) -> DetectionParams:
+        """Typed parameters for ``method`` from the dialog's widgets."""
+        return DetectionParams().with_flat_overrides(
+            ring_method=method,
+            sampling_nr=int(self.sampling_nr.value()),
+            cstrd_sigma=float(self.cstrd_sigma.value()),
+            cstrd_th_low=float(self.cstrd_th_low.value()),
+            cstrd_th_high=float(self.cstrd_th_high.value()),
+            cstrd_alpha=int(self.cstrd_alpha.value()),
+            cstrd_nr=int(self.cstrd_nr.value()),
+            cstrd_width=int(self.cstrd_width.value()),
+            cstrd_height=int(self.cstrd_height.value()),
+            deepcstrd_model=self.deepcstrd_model.currentText().split(" ")[0],
+            deepcstrd_tile_size=256 if "256" in self.deepcstrd_tile_size.currentText() else 0,
+            deepcstrd_alpha=int(self.deepcstrd_alpha.value()),
+            deepcstrd_nr=int(self.deepcstrd_nr.value()),
+            deepcstrd_rotations=int(self.deepcstrd_rotations.value()),
+            deepcstrd_threshold=float(self.deepcstrd_threshold.value()),
+            deepcstrd_width=int(self.deepcstrd_width.value()),
+            deepcstrd_height=int(self.deepcstrd_height.value()),
+            inbd_model=self.inbd_model.currentText().split(" ")[0],
+            inbd_auto_pith=self.inbd_auto_pith.isChecked(),
+        )
+
+    def _run_detection(self, method: str, title: str, reraise_setup_errors: bool = False) -> None:
+        """Detect rings with ``method`` off the GUI thread, then store them and accept."""
+        if self.image_np is None:
+            QtWidgets.QMessageBox.warning(
+                self, self.tr("No image"), self.tr("No image data available for %s.") % title
+            )
+            return
+        params = self.detection_params(method)
+        pith = (float(self.cx.value()), float(self.cy.value()))
+        image = self._prepared_image(title)
+        logger.info(f"{title}: running with {params}")
+        try:
+            rings, pith = self._run_in_worker(
+                title, lambda: _detect_and_resample(image, pith, params)
+            )
+        except (FileNotFoundError, ImportError):
+            if reraise_setup_errors:
+                raise
+            self._show_detection_error(title)
+            return
+        except Exception:
+            self._show_detection_error(title)
+            return
+
+        if not rings:
+            QtWidgets.QMessageBox.information(
+                self, self.tr("No rings found"), self.tr("%s did not detect any rings.") % title
+            )
+            return
+        setattr(self, f"{method}_rings", rings)
+        self.detected_pith_xy = pith
+        QtWidgets.QMessageBox.information(
+            self,
+            self.tr("%s Success") % title,
+            self.tr("Detected %d rings. Click OK to insert them.") % len(rings),
+        )
+        self.accept()
+
+    def _prepared_image(self, title: str) -> np.ndarray:
+        """Contiguous RGB copy of the image, background removed if requested."""
+        image = np.ascontiguousarray(self.image_np, dtype=np.uint8).copy()
+        debug_dir = _debug_dir()
+        if debug_dir is not None:
+            name = f"{title.lower().replace('-', '')}_original.png"
+            cv2.imwrite(str(debug_dir / name), cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
+        if self.remove_bg_checkbox.isChecked():
+            image, bg_error = _remove_background(
+                image, title, debug_dir, f"{title.lower().replace('-', '')}_bg_removed.png"
+            )
+            if bg_error:
                 QtWidgets.QMessageBox.warning(
                     self,
-                    self.tr("INBD Not Set Up"),
-                    self.tr(
-                        "INBD models are not installed. Please follow these steps:\n\n"
-                        "1. Clone INBD repository:\n"
-                        "   cd tras/tree_ring_methods/inbd\n"
-                        "   git clone https://github.com/hmarichal93/INBD.git src\n\n"
-                        "2. Download models:\n"
-                        "   cd src\n"
-                        "   python fetch_pretrained_models.py\n\n"
-                        "Or use the download script:\n"
-                        "   cd tras/tree_ring_methods/inbd\n"
-                        "   ./download_models.sh\n\n"
-                        "After setup, models will be available at:\n"
-                        "   tras/tree_ring_methods/inbd/src/checkpoints/\n\n"
-                        "See tras/tree_ring_methods/inbd/README.md for details."
-                    )
+                    self.tr("Background Removal Failed"),
+                    self.tr("Background removal failed: %s\n\nContinuing with original image.")
+                    % bg_error,
                 )
-            else:
-                QtWidgets.QMessageBox.critical(
-                    self,
-                    self.tr("File Not Found"),
-                    self.tr(f"File not found:\n{str(e)}")
-                )
-        except ImportError as e:
-            QApplication.restoreOverrideCursor()
-            # Handle missing INBD source code
-            QtWidgets.QMessageBox.warning(
-                self,
-                self.tr("INBD Not Installed"),
-                self.tr(
-                    "INBD source code is not installed.\n\n"
-                    "Please clone the INBD repository:\n"
-                    "   cd tras/tree_ring_methods/inbd\n"
-                    "   git clone https://github.com/hmarichal93/INBD.git src\n\n"
-                    "Then download the models:\n"
-                    "   cd src\n"
-                    "   python fetch_pretrained_models.py\n\n"
-                    f"Error details: {str(e)}"
-                )
+        return image
+
+    def _run_in_worker(self, title: str, compute: Callable[[], Any]) -> Any:
+        """Run ``compute`` in a worker thread behind a progress dialog; return or raise."""
+        progress = QtWidgets.QProgressDialog(
+            self.tr("%s is detecting rings. This can take a few minutes...") % title, "", 0, 0, self
+        )
+        progress.setCancelButton(None)
+        progress.setWindowModality(QtCore.Qt.WindowModal)
+        progress.setMinimumDuration(0)
+        progress.show()
+
+        worker = _CallWorker(compute)
+        thread = QtCore.QThread(self)
+        worker.moveToThread(thread)
+        loop = QtCore.QEventLoop()
+        thread.started.connect(worker.run)
+        worker.done.connect(loop.quit)
+        thread.start()
+        loop.exec_()
+        thread.quit()
+        thread.wait()
+        progress.close()
+        if worker.error is not None:
+            raise worker.error
+        return worker.result
+
+    def _show_detection_error(self, title: str) -> None:
+        logger.error(f"{title} Error: {traceback.format_exc()}")
+        QtWidgets.QMessageBox.critical(
+            self,
+            self.tr("%s Error") % title,
+            self.tr("Failed to detect rings:\n%s\n\nCheck console for details.")
+            % traceback.format_exc(limit=1).strip().splitlines()[-1],
+        )
+
+    def _show_inbd_setup_help(self, details: str) -> None:
+        QtWidgets.QMessageBox.warning(
+            self,
+            self.tr("INBD Not Set Up"),
+            self.tr(
+                "INBD is not installed. Please follow these steps:\n\n"
+                "1. Clone INBD repository:\n"
+                "   cd tras/tree_ring_methods/inbd\n"
+                "   git clone https://github.com/hmarichal93/INBD.git src\n\n"
+                "2. Download models:\n"
+                "   cd tras/tree_ring_methods/inbd\n"
+                "   ./download_models.sh\n\n"
+                "See tras/tree_ring_methods/inbd/README.md for details.\n\n"
+                "Details: %s"
             )
-        except Exception as e:
-            QApplication.restoreOverrideCursor()
-            error_details = traceback.format_exc()
-            logger.error(f"INBD Error: {error_details}")
-            QtWidgets.QMessageBox.critical(
-                self, 
-                self.tr("INBD Error"), 
-                self.tr(f"Failed to detect rings:\n{str(e)}\n\nCheck console for details.")
-            )
+            % details,
+        )
 
     def _on_click_pith(self):
         """Request to click on image to set pith - closes dialog and signals parent"""
