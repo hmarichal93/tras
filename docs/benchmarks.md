@@ -37,7 +37,7 @@ one-to-one (4 px for virtual cores, 6 px for CooRecorder clicks).
 | Data | Evidence | Precision | Recall | F1 | Position error (px) | Width error (MdAPE) | Pith end correct |
 |------|----------|-----------|--------|----|---------------------|---------------------|------------------|
 | Virtual cores, test split (256) | classical | 0.843 | 0.808 | 0.825 | 1.02 | 2.1 % | 96.1 % |
-| Virtual cores, test split (256) | deep | **0.961** | **0.849** | **0.901** | 0.99 | 2.5 % | 96.1 % |
+| Virtual cores, test split (256) | deep | **0.958** | **0.849** | **0.900** | 0.99 | 2.5 % | 96.9 % |
 | CooRecorder paths (16) | classical | 0.823 | 0.855 | 0.839 | 1.37 | 2.5 % | 100 % |
 | CooRecorder paths (16) | deep | **0.965** | **0.896** | **0.929** | 1.43 | 3.3 % | 100 % |
 
@@ -89,8 +89,8 @@ the UruDendro protocol (a detection must fall in one ring's influence zone on �
 
 | Method | Precision | Recall | F1 | Time per disc |
 |--------|-----------|--------|----|---------------|
-| DeepCS-TRD (generic) | 0.993 | 0.905 | **0.947** | ~54 s (GTX 1650) |
-| CS-TRD | — | — | — | — |
+| DeepCS-TRD (generic) | 0.993 | 0.905 | **0.947** | 45 s (GTX 1650) |
+| CS-TRD | 0.938 | 0.872 | 0.904 | 131 s (CPU) |
 
 ## Quality-control flags
 
