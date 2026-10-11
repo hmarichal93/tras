@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
+import pytest
 from typer.testing import CliRunner
 
 from tras.cli.detect import _config_overrides
@@ -150,3 +151,26 @@ def test_outer_year_flag_reaches_batch_config(tmp_path):
     assert result.exit_code == 0, result.output
     config = mock_batch.call_args.args[2]
     assert config["dating"] == {"outer_year": 2021}
+
+
+# Regression: --pith-x/--pith-y were silently ignored in folder mode.
+def test_pith_flags_are_rejected_in_folder_mode(tmp_path, monkeypatch):
+    from tras.utils import batch_helper
+
+    (tmp_path / "a.jpg").write_bytes(b"fake")
+    monkeypatch.setattr(batch_helper, "detect", lambda *a, **k: pytest.fail("detect ran"))
+    result = CliRunner().invoke(app, [str(tmp_path), "--pith-x", "10", "--pith-y", "20"])
+    assert result.exit_code == 1
+    assert not (tmp_path / "tras_out").exists()
+
+
+# Regression: a misspelled key in --config (rings.deepcstrd.treshold) was silently dropped.
+def test_unknown_config_key_exits_with_error_in_folder_mode(tmp_path, monkeypatch):
+    from tras.utils import batch_helper
+
+    (tmp_path / "a.jpg").write_bytes(b"fake")
+    config = tmp_path / "config.yml"
+    config.write_text("rings:\n  deepcstrd:\n    treshold: 0.3\n", encoding="utf-8")
+    monkeypatch.setattr(batch_helper, "detect", lambda *a, **k: pytest.fail("detect ran"))
+    result = CliRunner().invoke(app, [str(tmp_path), "--config", str(config)])
+    assert result.exit_code == 1

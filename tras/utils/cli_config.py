@@ -9,13 +9,20 @@ from typing import Any
 import yaml
 from loguru import logger
 
+from tras.params import DETECTION_CONFIG_KEYS
 from tras.params import DetectionParams
+from tras.params import check_section_keys
+
+# Config sections that are not detection parameters: section -> valid keys.
+# Detection sections and their keys are owned by ``tras.params.DETECTION_CONFIG_KEYS``.
+NON_DETECTION_CONFIG_KEYS: dict[str, tuple[str, ...]] = {
+    "physical_scale": ("value", "unit"),
+    "dating": ("outer_year",),
+}
 
 
-class ConfigError(Exception):
+class ConfigError(ValueError):
     """Raised when configuration is invalid."""
-
-    pass
 
 
 def load_config(config_path: Path | None) -> dict[str, Any]:
@@ -171,11 +178,24 @@ def _normalize_model_paths(rings_config: dict[str, Any]) -> None:
             method_config["model"] = normalize_model_path(method_config["model"], method)
 
 
+def check_config_keys(config: dict[str, Any]) -> None:
+    """Raise ``ValueError`` on an unknown top-level section or non-detection key.
+
+    Keys inside the detection sections are checked by ``DetectionParams.from_config``.
+    """
+    detection_sections = tuple(s for s in DETECTION_CONFIG_KEYS if "." not in s)
+    check_section_keys("<top level>", config, (*NON_DETECTION_CONFIG_KEYS, *detection_sections))
+    for section, valid in NON_DETECTION_CONFIG_KEYS.items():
+        check_section_keys(section, config.get(section), valid)
+
+
 def get_detection_params(config: dict[str, Any]) -> DetectionParams:
     """Build typed detection parameters from a merged config dict.
 
-    Missing values fall back to ``tras/config/detection_defaults.yaml``.
+    Missing values fall back to ``tras/config/detection_defaults.yaml``. Unknown keys
+    anywhere in the config raise ``ValueError`` (a typo must not silently change results).
     """
+    check_config_keys(config)
     params = DetectionParams.from_config(config)
     logger.info("Detection parameters: {}", params)
     return params

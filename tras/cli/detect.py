@@ -119,8 +119,12 @@ def main(
     output: Optional[Path] = typer.Option(
         None, "-o", "--output", help="Output JSON file path (single image mode only)"
     ),
-    pith_x: Optional[float] = typer.Option(None, "--pith-x", help="Manual pith X coordinate"),
-    pith_y: Optional[float] = typer.Option(None, "--pith-y", help="Manual pith Y coordinate"),
+    pith_x: Optional[float] = typer.Option(
+        None, "--pith-x", help="Manual pith X coordinate (px, single image only)"
+    ),
+    pith_y: Optional[float] = typer.Option(
+        None, "--pith-y", help="Manual pith Y coordinate (px, single image only)"
+    ),
     auto_pith: Optional[bool] = typer.Option(
         None, "--auto-pith/--no-auto-pith", help="Auto-detect pith with APD"
     ),

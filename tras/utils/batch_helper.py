@@ -199,6 +199,22 @@ def write_image_reports(
     )
 
 
+def batch_detection_params(config: dict[str, Any]) -> DetectionParams:
+    """Detection parameters for a folder run; rejects a fixed manual pith.
+
+    A pith is a pixel position in one image: applied to every image of a folder it would
+    silently anchor the ring search at the wrong place on all the others.
+    """
+    params = get_detection_params(config)
+    if params.pith.manual_xy is not None:
+        raise ValueError(
+            f"A manual pith ({params.pith.x}, {params.pith.y}) cannot be used for a folder: "
+            "each image has its own pith. Remove pith.x/pith.y (--pith-x/--pith-y) to "
+            "auto-detect it, or process images one at a time."
+        )
+    return params
+
+
 def run_batch(
     input_dir: Path | str,
     output_dir: Path | str,
@@ -217,12 +233,14 @@ def run_batch(
     With ``per_image_reports=True`` (the CLI folder mode) each newly processed image also
     gets a ``<stem>.csv`` of ring properties and a ``<stem>.pdf`` report. Without a
     physical scale in ``config`` those are written in pixel units.
+
+    Raises ``ValueError`` before writing anything if ``config`` has an unknown key or a
+    manual pith (see ``batch_detection_params``).
     """
+    params = batch_detection_params(config)
     input_dir = Path(input_dir)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-
-    params = get_detection_params(config)
     scale_value, scale_unit = _scale_from_config(config)
 
     images = find_images(input_dir)

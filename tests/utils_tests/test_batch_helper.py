@@ -174,3 +174,24 @@ def test_radii_rwl_with_colliding_names_and_resize(tmp_path: Path):
     assert (tmp_path / "radii_ids.csv").read_text().splitlines()[1] == "R0001,disc_001"
     # 0.5 mm per original px, image halved: 1 mm per processed px; first ring 10 px.
     assert series[0].widths_mm[0] == pytest.approx(10.0, abs=0.05)
+
+
+# Regression: --pith-x/--pith-y (pith.x/y) were silently ignored in folder mode. One pixel
+# position cannot be the pith of every image, so a batch now refuses it up front.
+def test_run_batch_rejects_manual_pith(input_dir: Path, tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(batch_helper, "detect", lambda *a, **k: pytest.fail("detect ran"))
+    out = tmp_path / "out"
+    config = {**CONFIG, "pith": {"x": 8.0, "y": 8.0}}
+
+    with pytest.raises(ValueError, match="manual pith"):
+        batch_helper.run_batch(input_dir, out, config)
+    assert not out.exists()
+
+
+# Regression: unknown YAML keys were silently ignored by the batch runner.
+def test_run_batch_rejects_unknown_config_key(input_dir: Path, tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(batch_helper, "detect", lambda *a, **k: pytest.fail("detect ran"))
+    config = {"rings": {"method": "deepcstrd", "deepcstrd": {"treshold": 0.3}}}
+
+    with pytest.raises(ValueError, match="treshold"):
+        batch_helper.run_batch(input_dir, tmp_path / "out", config)

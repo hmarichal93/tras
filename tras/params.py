@@ -16,6 +16,7 @@ This module is Qt- and torch-free so it can be imported anywhere.
 from __future__ import annotations
 
 import dataclasses
+import difflib
 from dataclasses import dataclass
 from dataclasses import field
 from typing import Any
@@ -102,7 +103,11 @@ class DetectionParams:
 
     @classmethod
     def from_config(cls, config: dict[str, Any]) -> DetectionParams:
-        """Build parameters from the YAML config schema (``process_config.yml``)."""
+        """Build parameters from the YAML config schema (``process_config.yml``).
+
+        Raises ``ValueError`` naming any unknown key in the detection sections
+        (``DETECTION_CONFIG_KEYS``); missing keys keep their defaults.
+        """
         return _params_from_config(cls(), config)
 
     def to_config(self) -> dict[str, Any]:
@@ -124,6 +129,10 @@ def validate_params(params: DetectionParams) -> None:
         raise ValueError(f"sampling_nr must be >= 3, got {params.sampling_nr}.")
     if params.resize_scale is not None and not 0 < params.resize_scale <= 1:
         raise ValueError(f"resize_scale must be in (0, 1], got {params.resize_scale}.")
+    if (params.pith.x is None) != (params.pith.y is None):
+        raise ValueError(
+            f"Manual pith needs both x and y, got x={params.pith.x}, y={params.pith.y}."
+        )
 
 
 # Flat keyword -> (nested section or None for top level, field name).
@@ -170,7 +179,68 @@ def _apply_flat_overrides(params: DetectionParams, flat: dict[str, Any]) -> Dete
     return dataclasses.replace(params, **top_level)
 
 
+def _method_keys(params_class: type) -> tuple[str, ...]:
+    return tuple(f.name for f in dataclasses.fields(params_class))
+
+
+# The detection part of the YAML config schema (``process_config.yml``): section -> keys.
+# The single list of valid keys; ``from_config`` rejects anything else.
+DETECTION_CONFIG_KEYS: dict[str, tuple[str, ...]] = {
+    "preprocess": ("resize_scale", "remove_background"),
+    "postprocess": ("sampling_nr",),
+    "pith": ("auto", "method", "x", "y"),
+    "rings": ("method", *RING_METHODS),
+    "rings.cstrd": _method_keys(CstrdParams),
+    "rings.deepcstrd": _method_keys(DeepCstrdParams),
+    "rings.inbd": _method_keys(InbdParams),
+}
+
+
+def check_section_keys(section: str, values: Any, valid: tuple[str, ...]) -> None:
+    """Raise ``ValueError`` if mapping ``values`` has a key not in ``valid``.
+
+    The message names the key, its section, the closest valid key and every valid key,
+    so a typo such as ``treshold`` cannot silently fall back to the default.
+    """
+    if values is None:
+        return
+    if not isinstance(values, dict):
+        raise ValueError(f"Config section '{section}' must be a mapping, got {values!r}.")
+    for key in values:
+        if key not in valid:
+            raise ValueError(_unknown_key_message(str(key), section, valid))
+
+
+def _unknown_key_message(key: str, section: str, valid: tuple[str, ...]) -> str:
+    close = difflib.get_close_matches(key, valid, n=1)
+    hint = f" Did you mean '{close[0]}'?" if close else ""
+    return (
+        f"Unknown key '{key}' in config section '{section}'.{hint} Valid keys: {', '.join(valid)}."
+    )
+
+
+def check_detection_config_keys(config: dict[str, Any]) -> None:
+    """Reject unknown keys in the detection sections of a config dict.
+
+    Other top-level sections (``physical_scale``, ``dating``) are not detection
+    parameters and are left to their own readers.
+    """
+    for section, valid in DETECTION_CONFIG_KEYS.items():
+        check_section_keys(section, _config_section(config, section), valid)
+
+
+def _config_section(config: dict[str, Any], dotted: str) -> Any:
+    """Value at a dotted section path (``rings.cstrd``), ``None`` if any level is missing."""
+    value: Any = config
+    for part in dotted.split("."):
+        if not isinstance(value, dict):
+            return None
+        value = value.get(part)
+    return value
+
+
 def _params_from_config(base: DetectionParams, config: dict[str, Any]) -> DetectionParams:
+    check_detection_config_keys(config)
     preprocess = config.get("preprocess") or {}
     postprocess = config.get("postprocess") or {}
     pith = config.get("pith") or {}
@@ -182,13 +252,14 @@ def _params_from_config(base: DetectionParams, config: dict[str, Any]) -> Detect
         "sampling_nr": postprocess.get("sampling_nr"),
         "auto_pith": pith.get("auto"),
         "pith_method": pith.get("method"),
+        "pith_x": pith.get("x"),
+        "pith_y": pith.get("y"),
         "ring_method": rings.get("method"),
     }
-    for method in ("cstrd", "deepcstrd", "inbd"):
+    for method in RING_METHODS:
         for name, value in (rings.get(method) or {}).items():
             flat[f"{method}_{name}"] = value
-    known = {k: v for k, v in flat.items() if k in _FLAT_KEYS}
-    return base.with_flat_overrides(**known)
+    return base.with_flat_overrides(**flat)
 
 
 def _params_to_config(params: DetectionParams) -> dict[str, Any]:
@@ -205,4 +276,6 @@ def _params_to_config(params: DetectionParams) -> dict[str, Any]:
     }
     if params.resize_scale is not None:
         config["preprocess"]["resize_scale"] = params.resize_scale
+    if params.pith.manual_xy is not None:
+        config["pith"]["x"], config["pith"]["y"] = params.pith.manual_xy
     return config
