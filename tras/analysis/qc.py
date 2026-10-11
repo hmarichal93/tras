@@ -85,10 +85,10 @@ def flag_width_outliers(measurements: Sequence[RingMeasurement]) -> list[QCFlag]
             continue
         if score < -WIDTH_OUTLIER_Z:
             flags.append(
-                QCFlag(m.index, "narrow", f"{m.label} is unusually narrow (z={score:.1f})")
+                QCFlag(m.index, "narrow", f"{_name(m)} is unusually narrow (z={score:.1f})")
             )
         elif score > WIDTH_OUTLIER_Z:
-            flags.append(QCFlag(m.index, "wide", f"{m.label} is unusually wide (z={score:.1f})"))
+            flags.append(QCFlag(m.index, "wide", f"{_name(m)} is unusually wide (z={score:.1f})"))
     return flags
 
 
@@ -105,7 +105,7 @@ def flag_geometry(
                 QCFlag(
                     m.index,
                     "crossing",
-                    f"{m.label} crosses the inner ring on {crossing:.0%} of rays",
+                    f"{_name(m)} crosses the inner ring on {crossing:.0%} of rays",
                 )
             )
         if collapsed > MAX_COLLAPSED_FRACTION:
@@ -113,10 +113,14 @@ def flag_geometry(
                 QCFlag(
                     m.index,
                     "partial",
-                    f"{m.label} touches the inner ring on {collapsed:.0%} of rays",
+                    f"{_name(m)} touches the inner ring on {collapsed:.0%} of rays",
                 )
             )
     return flags
+
+
+def _name(m: RingMeasurement) -> str:
+    return f"{m.label} ({m.year})" if m.year is not None and str(m.year) != m.label else m.label
 
 
 def _moving_median_excluding_self(
