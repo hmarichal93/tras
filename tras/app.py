@@ -49,6 +49,7 @@ from tras.widgets import ShortcutsDialog
 from tras.widgets import UpdateCheckDialog
 from tras.widgets import BatchProcessDialog
 from tras.widgets import CoreDialog
+from tras.cores.export import CORE_PATH_LABEL
 
 from . import utils
 from tras.utils.qt_image import qimage_to_numpy
@@ -390,6 +391,18 @@ class MainWindow(QtWidgets.QMainWindow):
             self.tr("Draw an open ring (line strip). Ctrl+LeftClick ends creation."),
             enabled=False,
         )
+        drawCorePath = action(
+            self.tr("Draw Core Path"),
+            lambda: self.toggleDrawMode(False, createMode="linestrip", core_path_mode=True),
+            None,
+            "objects",
+            self.tr(
+                "Draw the measurement path along a core, from pith to bark. "
+                "Ctrl+LeftClick ends creation."
+            ),
+            enabled=False,
+        )
+        self.actions_draw_core_path = drawCorePath
         createExclusionMode = action(
             self.tr("Draw Exclusion Area"),
             lambda: self.toggleDrawMode(False, createMode="polygon", exclusion_mode=True),
@@ -834,7 +847,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Batch processing action (works on a folder, not the open image)
         batchProcess = action(
-            self.tr("Batch Processing..."),
+            self.tr("Batch Processing (Cross-sections)..."),
             self._action_batch_process,
             None,
             "objects",
@@ -860,6 +873,7 @@ class MainWindow(QtWidgets.QMainWindow):
             brightnessContrast,
             detectTreeRings,  # Keep enabled but not in toolbar
             coreAnalysis,
+            drawCorePath,
             preprocessImage,
             clearAllRings,
             ringProperties,
@@ -931,14 +945,15 @@ class MainWindow(QtWidgets.QMainWindow):
         )
         utils.addActions(self.menus.help, (help, keyboardShortcuts, None, checkUpdates, None, about))
         # Tools menu: "Single" submenu (open-image workflow) + "Batch" entry (folder).
-        self.menus.tools_single = QtWidgets.QMenu(self.tr("Single"))
-        utils.addActions(self.menus.tools_single, (
+        # Tools menu: one submenu per sample type (each lists its workflow in order), then
+        # batch. Metadata and scale are shared, so they appear in both submenus.
+        self.menus.tools_cross_section = QtWidgets.QMenu(self.tr("Cross-section"))
+        utils.addActions(self.menus.tools_cross_section, (
             metadata,           # Step 1: Sample Metadata (optional, before starting)
             None,
             setScale,           # Step 2: Set Scale
             preprocessImage,    # Step 3: Preprocess
             detectTreeRings,    # Step 4: Detect Rings
-            coreAnalysis,       # Step 4 (cores): Detect rings along a core / path
             None,
             self.actions.createExclusionMode,  # Draw Exclusion Areas
             None,
@@ -946,10 +961,19 @@ class MainWindow(QtWidgets.QMainWindow):
             ringProperties,     # Step 7: View Properties
             exportData,         # Step 8: Export Data
         ))
-        utils.addActions(self.menus.tools, (
-            self.menus.tools_single,
+        self.menus.tools_core = QtWidgets.QMenu(self.tr("Increment Core"))
+        utils.addActions(self.menus.tools_core, (
+            metadata,           # Step 1: Sample Metadata (outer year for dating)
+            setScale,           # Step 2: Set Scale (or DPI)
             None,
-            batchProcess,       # Batch: process a whole folder
+            drawCorePath,       # Step 3 (optional): draw the path pith → bark
+            coreAnalysis,       # Step 4: detect, review, export .pos/.rwl/.csv
+        ))
+        utils.addActions(self.menus.tools, (
+            self.menus.tools_cross_section,
+            self.menus.tools_core,
+            None,
+            batchProcess,       # Batch: process a whole folder of cross-sections
         ))
         utils.addActions(
             self.menus.view,
@@ -2131,21 +2155,20 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _action_core_analysis(self) -> None:
         """Detect ring boundaries along increment cores or drawn linestrip paths."""
-        from tras.cores.export import CORE_PATH_LABEL
-        from tras.cores.export import is_core_result_label
         from tras.utils.pos_exporter import mm_per_pixel
 
         if self.image.isNull():
             self.errorMessage(self.tr("No image"), self.tr("Please open an image first."))
             return
         image_np = self.imageArray if self.imageArray is not None else qimage_to_numpy(self.image)
-        # User-drawn paths only: earlier results (core_path_<k>) are replaced, not re-measured.
+        # Paths drawn with "Draw Core Path" (label core_path). Open rings are linestrips too,
+        # and earlier results (core_path_<k>) are replaced, not re-measured.
         drawn_paths = [
             np.array([(p.x(), p.y()) for p in shape.points], dtype=np.float64)
             for shape in self.canvas.shapes
             if shape.shape_type == "linestrip"
             and len(shape.points) >= 2
-            and not is_core_result_label(shape.label)
+            and shape.label == CORE_PATH_LABEL
         ]
         outer_year = (self.sample_metadata or {}).get("harvested_year")
         stem = osp.splitext(osp.basename(self.filename))[0] if self.filename else "core"
@@ -2474,11 +2497,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.actions.undo.setEnabled(not drawing)
         self.actions.delete.setEnabled(not drawing)
 
-    def toggleDrawMode(self, edit=True, createMode="polygon", exclusion_mode=False):
+    def toggleDrawMode(
+        self, edit=True, createMode="polygon", exclusion_mode=False, core_path_mode=False
+    ):
         self.canvas.setEditing(edit)
         self.canvas.createMode = createMode
         # Store exclusion mode state
         self._exclusion_mode = exclusion_mode
+        # Linestrips drawn in core-path mode are labelled "core_path", not open rings.
+        self._core_path_mode = core_path_mode and not edit
         if edit:
             for _, draw_action in self.draw_actions:
                 draw_action.setEnabled(True)
@@ -2868,6 +2895,12 @@ class MainWindow(QtWidgets.QMainWindow):
             flags = {}
             group_id = None
             description = ""
+        elif getattr(self, '_core_path_mode', False):
+            # Core path mode: the measurement path for Core Analysis
+            text = CORE_PATH_LABEL
+            flags = {}
+            group_id = None
+            description = "Core measurement path (pith → bark)"
         elif getattr(self, '_exclusion_mode', False):
             # Exclusion mode: automatically set label to "exclusion"
             text = "exclusion"

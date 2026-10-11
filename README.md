@@ -192,10 +192,11 @@ tras /path/to/image.jpg            # launch with an image open
 tras --version                     # print the version
 ```
 
-The **Tools** menu has two groups:
+The **Tools** menu has three entries:
 
-- **Single** — the step-by-step workflow for the currently open image (set scale → preprocess → detect → measure → export).
-- **Batch Processing…** — run detection over an entire folder (see below).
+- **Cross-section** — the step-by-step workflow for an open disc image (set scale → preprocess → detect → measure → export).
+- **Increment Core** — measure cores (set scale → draw core path → Core Analysis → export `.pos`/`.rwl`).
+- **Batch Processing (Cross-sections)…** — run detection over an entire folder (see below).
 
 ### 📁 GUI Batch Processing
 
@@ -262,7 +263,7 @@ tras_core scan.tif --outer-year 2023              # find cores automatically
 tras_core disc.jpg --path "120,40;3900,85"         # measure along a given path
 ```
 
-In the GUI: **Tools → Single → Core Analysis…** (detected boundaries are editable shapes).
+In the GUI: **Tools → Increment Core → Core Analysis…** (detected boundaries are editable shapes).
 Full guide: **[docs/cores.md](docs/cores.md)**.
 
 ---
@@ -290,18 +291,18 @@ Core ring widths differ from the CooRecorder expert by a median of 3.3 %.
 
 <br/>
 
-> These per-image tools live under the **`Tools → Single`** submenu. To process a whole folder at
+> These per-image tools live under the **`Tools → Cross-section`** submenu. To process a whole folder at
 > once, use **`Tools → Batch Processing…`** instead (see [GUI Batch Processing](#-gui-batch-processing)).
 
 1. **📁 Load Image** — `File → Open` or drag-and-drop a wood cross-section image
-2. **📏 Set Scale** *(optional)* — `Tools → Single → Set Image Scale`; draw a known-length line or enter it directly
-3. **🖼️ Preprocess** *(optional)* — `Tools → Single → Preprocess Image`; crop, resize, or remove background
-4. **🎯 Detect Rings** — `Tools → Single → Tree Ring Detection`
+2. **📏 Set Scale** *(optional)* — `Tools → Cross-section → Set Image Scale`; draw a known-length line or enter it directly
+3. **🖼️ Preprocess** *(optional)* — `Tools → Cross-section → Preprocess Image`; crop, resize, or remove background
+4. **🎯 Detect Rings** — `Tools → Cross-section → Tree Ring Detection`
    - Pith: APD auto (`apd`, `apd_pcl`, `apd_dl`) or manual click
    - Method: CS-TRD (Linux/macOS), DeepCS-TRD, or INBD
-5. **📝 Add Metadata** — `Tools → Single → Sample Metadata`; harvested year, sample code, notes
-6. **📐 Measure Width** *(optional)* — `Tools → Single → Measure Ring Width`; define a radial transect
-7. **📊 View Properties** — `Tools → Single → Ring Properties`; review measurements
+5. **📝 Add Metadata** — `Tools → Cross-section → Sample Metadata`; harvested year, sample code, notes
+6. **📐 Measure Width** *(optional)* — `Tools → Cross-section → Measure Ring Width`; define a radial transect
+7. **📊 View Properties** — `Tools → Cross-section → Ring Properties`; review measurements
 8. **💾 Export** — JSON, CSV (all data), or .POS (CooRecorder format)
 
 </details>

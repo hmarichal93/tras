@@ -94,12 +94,12 @@ class CoreDialog(QtWidgets.QDialog):
         form = QtWidgets.QVBoxLayout(group)
         self.auto_paths = QtWidgets.QRadioButton(self.tr("Find cores automatically"))
         self.drawn = QtWidgets.QRadioButton(
-            self.tr("Use drawn paths (%d linestrip shape(s))") % len(self._drawn_paths)
+            self.tr("Use drawn core paths (%d)") % len(self._drawn_paths)
         )
         self.drawn.setEnabled(bool(self._drawn_paths))
         (self.drawn if self._drawn_paths else self.auto_paths).setChecked(True)
         hint = QtWidgets.QLabel(
-            self.tr("Tip: draw a path with Edit → Create LineStrip, from pith to bark.")
+            self.tr("Tip: draw paths with Tools → Increment Core → Draw Core Path (pith → bark).")
         )
         hint.setStyleSheet("color: gray")
         for widget in (self.auto_paths, self.drawn, hint):

@@ -202,3 +202,57 @@ def test_export_dialog_writes_rwl(qtbot: QtBot, data_dir, tmp_path) -> None:
     assert series[0].widths_mm == pytest.approx((2.0, 2.0, 2.0), abs=0.05)
     win.setClean()
     win.close()
+
+
+@pytest.mark.gui
+def test_tools_menu_separates_cross_sections_and_cores(qtbot: QtBot, data_dir, monkeypatch) -> None:
+    from PyQt5.QtCore import QPointF
+
+    from tras.shape import Shape
+
+    win = tras.app.MainWindow(filename=osp.join(data_dir, "raw/2011_000003.jpg"))
+    qtbot.addWidget(win)
+    _show_window_and_wait_for_imagedata(qtbot=qtbot, win=win)
+
+    def texts(menu):
+        return [a.text() for a in menu.actions() if not a.isSeparator()]
+
+    tools = [a.text() for a in win.menus.tools.actions() if not a.isSeparator()]
+    assert tools == ["Cross-section", "Increment Core", "Batch Processing (Cross-sections)..."]
+    assert "Core Analysis..." not in texts(win.menus.tools_cross_section)
+    assert texts(win.menus.tools_core) == [
+        "Sample Metadata",
+        "Set Image Scale",
+        "Draw Core Path",
+        "Core Analysis...",
+    ]
+
+    # Only core paths (not open rings drawn as linestrips) are offered to Core Analysis.
+    def linestrip(label):
+        shape = Shape(label=label, shape_type="linestrip")
+        for x, y in [(10, 50), (300, 60)]:
+            shape.addPoint(QPointF(x, y))
+        return shape
+
+    win.loadShapes([linestrip("ring_1"), linestrip("core_path")], replace=False)
+    captured = {}
+
+    class FakeDialog:
+        def __init__(self, image, drawn_paths, *args, **kwargs):
+            captured["paths"] = drawn_paths
+            self.results = []
+
+        def exec_(self):
+            return 0
+
+    monkeypatch.setattr(tras.app, "CoreDialog", FakeDialog)
+    win._action_core_analysis()
+    assert len(captured["paths"]) == 1
+
+    # Core-path draw mode labels new linestrips automatically.
+    win.toggleDrawMode(False, createMode="linestrip", core_path_mode=True)
+    assert win._core_path_mode
+    win.toggleDrawMode(True)
+    assert not win._core_path_mode
+    win.setClean()
+    win.close()

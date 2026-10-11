@@ -20,8 +20,11 @@ def main():
         diagnose=False,
     )
 
-    labelme_path: pathlib.Path = here / ".." / "labelme"
-    labelme_files: list[pathlib.Path] = list(labelme_path.rglob("*.py"))
+    labelme_path: pathlib.Path = here / ".." / "tras"
+    # Vendored research code has no user-facing Qt strings.
+    labelme_files: list[pathlib.Path] = [
+        p for p in labelme_path.rglob("*.py") if "tree_ring_methods" not in p.parts
+    ]
 
     LANGUAGES: list[str] = ["zh_CN"]
     labelme_translate_path: pathlib.Path = labelme_path / "translate"

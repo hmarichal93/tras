@@ -14,7 +14,7 @@ description: Add or change a PyQt5 dialog or menu action in the TRAS GUI followi
    (`finished`/`error` signals), and tears the thread down in `closeEvent`.
    Export it from `tras/widgets/__init__.py`.
 3. **Action** in `tras/app.py`: create it with `action(...)`, add it to the
-   `Tools → Single` menu list and to `self.on_load_active_actions` if it needs an image.
+   `Tools → Cross-section` or `Tools → Increment Core` menu list and to `self.on_load_active_actions` if it needs an image.
    The handler takes `self.imageArray` (or `qimage_to_numpy(self.image)`), opens the dialog,
    and on accept converts shape dicts to `Shape` objects and calls
    `self.loadShapes(shapes, replace=False)` + `self.setDirty()`.

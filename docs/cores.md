@@ -37,10 +37,11 @@ The scale comes from the image's DPI metadata, which flatbed scanners write. Oth
 
 ## In the GUI
 
-1. Open the image. Set the scale (**Tools → Single → Set Scale**) and, for dating, the
-   harvest year (**Sample Metadata**).
-2. Optional: draw one path per core with **Edit → Create LineStrip**, from pith to bark.
-3. **Tools → Single → Core Analysis…** → choose *Find cores automatically* or *Use drawn
+1. Open the image. Set the scale (**Tools → Increment Core → Set Image Scale**) and, for
+   dating, the harvest year (**Sample Metadata**).
+2. Optional: draw one path per core with **Tools → Increment Core → Draw Core Path**, from
+   pith to bark (Ctrl+click ends the path).
+3. **Tools → Increment Core → Core Analysis…** → choose *Find cores automatically* or *Use drawn
    paths* → **Detect rings**.
 4. **Add to image** places the path and one line per boundary on the canvas. Drag, delete
    or add boundaries as usual.
