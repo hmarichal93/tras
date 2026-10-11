@@ -69,7 +69,7 @@ parallel boundaries. The same engine also measures a path drawn on a cross-secti
 
 ## Task board
 
-Managed by the `cv-pi` orchestrator (see `CLAUDE.md`, "How work is organized").
+Managed by the `tras-pi` orchestrator (see `CLAUDE.md`, "How work is organized").
 
 | # | Task | User job | Metric / done when | State |
 |---|------|----------|--------------------|-------|
@@ -81,7 +81,7 @@ Managed by the `cv-pi` orchestrator (see `CLAUDE.md`, "How work is organized").
 | T6 | Missing rings (0-width) and crack/gap pairs, written as CooRecorder gap markers in .pos | Lab researcher with damaged cores | Round-trip with CooRecorder conventions; domain review | Next |
 | T7 | Provenance: boundaries dragged by hand marked user-edited (not detector strength) | QA of corrected series | Edited lines carry no `strength=` | Next |
 | T8 | **User manual** for non-programmers (`docs/manual/`): install, first disc, correcting rings, cores, batch, exports explained, troubleshooting, glossary; real screenshots from `tools/manual_screenshots.py` | Dendro student / lab technician | A novice follows it start to finish without help; every menu path matches the GUI | Next (after T2) |
-| T9 | **Installer without terminal**. Decision (2026-10-11): conda `constructor` installer per OS built in GitHub Actions, CPU-only torch, weights downloaded in-app on first use. Prerequisites: T9a user-writable model store + download dialog (`tras/utils/model_store.py`, replaces labelme `widgets/download.py`); T9b bundled-install update path (link, not git); T9c `packaging/constructor/` + `installers.yml` with silent-install smoke test | Dendro student on Windows | Clean Windows 11 VM: download → DeepCS-TRD result with 0 terminal commands, ≤ 5 clicks, ≤ 15 min | T9a next; T9c waits on user answers (code signing, CPU-only, ~1 GB size, shapely 2) |
+| T9 | **Installer without terminal**. Decision (2026-10-11): conda `constructor` installer per OS built in GitHub Actions, CPU-only torch, weights downloaded in-app on first use. Prerequisites: T9a user-writable model store + download dialog (`tras/utils/model_store.py`, replaces labelme `widgets/download.py`); T9b bundled-install update path (link, not git); T9c `packaging/constructor/` + `installers.yml` with silent-install smoke test | Dendro student on Windows | Clean Windows 11 VM: download → DeepCS-TRD result with 0 terminal commands, ≤ 5 clicks, ≤ 15 min | T9a next. PI decisions 2026-10-11: v1 CPU-only (GPU build later); offline installer (~1 GB) accepted, students often have poor lab internet; move to shapely 2 if `tras_benchmark` is unchanged (reverse if F1 drops > 0.005); ship unsigned v1 with "More info → Run anyway" steps + screenshot in the manual. Escalated to Henry: code-signing certificate (SignPath Foundation, free for OSS, needs his application) |
 | T10 | Ring overlay readability: thick filled ring strokes hide the wood at fit-to-window zoom, so corrections are hard; scale line width with zoom, thin outlines by default | Anyone correcting rings | Wood visible between rings at 25 % zoom; GUI-designer review with screenshots | Next |
 
 ## How progress is checked
