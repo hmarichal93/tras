@@ -22,7 +22,7 @@ One task = one branch = one PR. The task board lives in `docs/product-roadmap.md
 |------|----|
 | 1. Branch | From fresh `main` (or the current integration branch the user named): `git checkout -b <type>/<slug>` (`feat/`, `fix/`, `docs/`, `refactor/`) |
 | 2. Pre-register | Add a row to the task board: task, user job, metric, done-when. Commit it first |
-| 3. Build | Delegated by the PI (`cv-pi`) to the role skills |
+| 3. Build | Delegated by the PI (`tras-pi`) to the role skills |
 | 4. Verify | `uv run ruff format <changed>`; `make lint_strict`; `uv run pytest tests/ -q`; benchmark if detection changed (`tras-benchmark`) |
 | 5. Commit | Small commits, imperative subject ≤ 72 chars (`Cores: export edited boundaries`), body says why. Stage files by name, never `git add -A` (keeps `uv.lock`, scratch and data out) |
 | 6. PR | `gh pr create` with the template below (written with `technical-writing`) |

@@ -98,20 +98,21 @@ The Tools menu has **Cross-section** and **Increment Core** submenus (per-image 
 
 ## How work is organized (team of skills)
 
-The `cv-pi` skill is the orchestrator: it decides what to build, delegates each job to a
+The `tras-pi` skill is the orchestrator: it decides what to build, delegates each job to a
 **fresh subagent** of the matching role, judges the results and lands them. Start every
-autonomous session by invoking `cv-pi`.
+autonomous session by invoking `tras-pi`.
 
 | Role agent (`.claude/agents/`) | Skill (`.claude/skills/`) | Job |
 |--------------------------------|---------------------------|-----|
-| — (main session) | `cv-pi` | Plan, decide, delegate, judge, land |
+| — (main session) | `tras-pi` | Plan, decide, delegate, judge, land |
 | `product-engineer` | `senior-product-engineer` | Problem, metric, options, MVP, done-when |
 | `domain-expert` | `dendro-domain-expert` | Dating, units, formats, lab practice |
 | `gui-designer` | `senior-gui-designer` | Screens, menus, workflow, screenshots |
 | `python-engineer` | `senior-python-engineer` | Code, API, refactors, tests |
 | `qa-engineer` | `senior-qa-engineer` | Test plan, edge cases, merge gate |
 | `benchmark-analyst` | `tras-benchmark` | Accuracy numbers |
-| `docs-writer` | `docs-accuracy`, `technical-writing` | Docs match the code; commands run |
+| `docs-writer` | `docs-accuracy`, `technical-writing` | Docs match the code; user manual with screenshots |
+| `researcher` | `senior-researcher` | Citations, state of the art, comparable numbers, claims |
 | — | `github-workflow` | Branch → PR → CI → merge, task board |
 
 The task board is in `docs/product-roadmap.md`. Push/PR/merge need the user's authorization
