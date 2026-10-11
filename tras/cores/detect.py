@@ -83,6 +83,9 @@ class CoreParams:
             (``half_width``, ``min_ring_width``, ...) are in grid samples.
         end_margin: The path is analysed this many minimum ring widths beyond both ends,
             so a boundary exactly at a path end is still found (0 disables).
+        gap_fill_ratio: With deep evidence, gaps longer than this × the neighbouring ring
+            widths are searched for a classical edge (0 disables; see ``fill_gaps``).
+        gap_fill_sensitivity: Robust z-score a recovered classical edge must reach.
     """
 
     half_width: int = 25
@@ -103,6 +106,8 @@ class CoreParams:
     snap_px: int = 0
     sampling_step: float | None = None
     end_margin: float = 0.0
+    gap_fill_ratio: float = 0.0
+    gap_fill_sensitivity: float = 3.0
 
     def __post_init__(self) -> None:
         if self.evidence not in EVIDENCE_SOURCES:
@@ -379,12 +384,68 @@ def _boundaries_for(
     peaks, strengths = pick_boundaries(
         evidence.score, params.min_ring_width, _threshold(params), params.deep_threshold
     )
+    if deep is not None and params.gap_fill_ratio > 0:
+        peaks, strengths = fill_gaps(
+            peaks,
+            evidence.score,
+            classical.score,
+            params.min_ring_width,
+            params.gap_fill_ratio,
+            params.gap_fill_sensitivity,
+        )
     if deep is not None and params.snap_px > 0:
         # The learned map decides *where* boundaries are; the sharp classical edge
         # localizes them more precisely.
         peaks = snap_to_local_maxima(classical.score, peaks, params.snap_px)
         return evidence, refine_peaks(classical.score, peaks), strengths
     return evidence, refine_peaks(evidence.score, peaks), strengths
+
+
+def fill_gaps(
+    peaks: npt.NDArray[np.intp],
+    score: FloatArray,
+    classical_score: FloatArray,
+    min_distance: float,
+    ratio: float,
+    sensitivity: float,
+    max_rounds: int = 3,
+) -> tuple[npt.NDArray[np.intp], FloatArray]:
+    """Recover boundaries the learned map missed, using ring-width continuity.
+
+    A gap between consecutive boundaries (or a path end) longer than ``ratio`` × the median
+    width of its neighbouring rings probably hides a ring. The strongest classical edge
+    inside it, at least ``min_distance`` from both sides, is added if its robust z-score
+    reaches ``sensitivity``. Repeats while boundaries are added (a gap may hide several).
+
+    Returns all peaks (sorted) and their ``score`` values (low for recovered ones).
+    """
+    z = _robust_z(classical_score)
+    found = sorted(int(p) for p in peaks)
+    margin = max(1, int(round(min_distance)))
+    for _ in range(max_rounds):
+        anchors = [0, *found, len(score) - 1]
+        widths = np.diff(anchors)
+        added = []
+        for k, (a, b) in enumerate(zip(anchors[:-1], anchors[1:])):
+            if b - a <= ratio * _neighbour_median(widths, k):
+                continue
+            lo, hi = a + margin, b - margin
+            if hi <= lo:
+                continue
+            candidate = lo + int(np.argmax(z[lo:hi]))
+            if z[candidate] >= sensitivity:
+                added.append(candidate)
+        if not added:
+            break
+        found = sorted(found + added)
+    result = np.array(found, dtype=np.intp)
+    return result, score[result]
+
+
+def _neighbour_median(widths: npt.NDArray[np.intp], k: int, half: int = 3) -> float:
+    """Median width of up to ``half`` rings on each side of ring ``k`` (excluding it)."""
+    neighbours = np.concatenate([widths[max(0, k - half) : k], widths[k + 1 : k + 1 + half]])
+    return float(np.median(neighbours)) if len(neighbours) else float("inf")
 
 
 def snap_to_local_maxima(

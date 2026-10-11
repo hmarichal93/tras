@@ -274,11 +274,11 @@ Measured with `tras_benchmark` on held-out annotated data; full protocol, datase
 
 | Task | Data | Precision | Recall | F1 |
 |------|------|-----------|--------|----|
-| Increment cores (deep evidence) | 16 expert CooRecorder radii | 0.967 | 0.874 | 0.918 |
+| Increment cores (deep evidence) | 16 expert CooRecorder radii | 0.965 | 0.896 | 0.929 |
 | Increment cores (deep evidence) | 256 virtual cores (UruDendro test split) | 0.961 | 0.849 | 0.901 |
 | Cross-sections (DeepCS-TRD) | 32 UruDendro test discs | 0.993 | 0.905 | 0.947 |
 
-Core ring widths differ from the CooRecorder expert by a median of 3.2 %.
+Core ring widths differ from the CooRecorder expert by a median of 3.3 %.
 
 ---
 

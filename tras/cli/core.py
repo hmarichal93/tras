@@ -27,6 +27,9 @@ from tras.utils.batch_helper import IMAGE_EXTENSIONS
 
 app = typer.Typer(name="core", help="Detect tree rings on increment-core images")
 
+# Gap length (× neighbouring ring widths) searched by --fill-gaps (docs/benchmarks.md).
+GAP_FILL_RATIO = 2.2
+
 
 def mm_per_px_from_dpi(image_path: Path) -> Optional[float]:
     """Pixel size from the DPI scanners store in TIFF/JPEG/PNG metadata."""
@@ -117,6 +120,12 @@ def main(
     deep_threshold: Optional[float] = typer.Option(
         None, "--deep-threshold", help="Deep probability threshold"
     ),
+    fill_gaps: bool = typer.Option(
+        False,
+        "--fill-gaps",
+        help="Recover rings the deep model missed from ring-width continuity "
+        "(closer ring counts, slightly lower precision)",
+    ),
 ) -> None:
     """Detect ring boundaries on increment cores and export CooRecorder/Tucson files.
 
@@ -132,6 +141,7 @@ def main(
         "min_ring_width": min_ring_width,
         "sensitivity": sensitivity,
         "deep_threshold": deep_threshold,
+        "gap_fill_ratio": GAP_FILL_RATIO if fill_gaps else None,
     }
     params = default_core_params(**{k: v for k, v in overrides.items() if v is not None})
     paths = None

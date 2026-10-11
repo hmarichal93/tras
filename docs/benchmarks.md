@@ -6,9 +6,9 @@ Every number below is reproducible with `tras_benchmark` (commands at the end).
 **Summary.**
 
 - **Increment cores:** on 16 real radii measured by an expert in CooRecorder, the automatic
-  core detector finds boundaries with **precision 0.97, recall 0.87 (F1 0.92)**. Its
+  core detector finds boundaries with **precision 0.97, recall 0.90 (F1 0.93)**. Its
   boundaries are within **1.4 px** of the expert's clicks, and ring widths differ by a
-  median **3.2 %**.
+  median **3.3 %**.
 - **Cross-sections:** DeepCS-TRD reaches **F1 0.947** on held-out UruDendro discs.
 
 ## Datasets
@@ -39,7 +39,7 @@ one-to-one (4 px for virtual cores, 6 px for CooRecorder clicks).
 | Virtual cores, test split (256) | classical | 0.843 | 0.808 | 0.825 | 1.02 | 2.1 % | 96.1 % |
 | Virtual cores, test split (256) | deep | **0.961** | **0.849** | **0.901** | 0.99 | 2.5 % | 96.1 % |
 | CooRecorder paths (16) | classical | 0.823 | 0.855 | 0.839 | 1.37 | 2.5 % | 100 % |
-| CooRecorder paths (16) | deep | **0.967** | **0.874** | **0.918** | 1.42 | 3.2 % | 100 % |
+| CooRecorder paths (16) | deep | **0.965** | **0.896** | **0.929** | 1.43 | 3.3 % | 100 % |
 
 - *Width error* is the median absolute percentage difference of ring widths, over rings
   whose two boundaries were both found. The expert's own click scatter (~1.4 px on
@@ -63,6 +63,19 @@ Tuned on the tune split only, then confirmed on the test split and the CooRecord
 | U-Net on the straightened ribbon | 0.723 | — |
 | U-Net on the natural image crop, `half_width=10` | 0.880 | 0.902 |
 | U-Net on the crop, `half_width=5`, threshold 0.15 (default) | 0.918 | 0.918 |
+
+Two later changes, A/B-tested the same way:
+
+| Change (deep evidence) | Virtual F1 (tune) | CooRecorder F1 | CooRecorder ring-count error |
+|------------------------|-------------------|----------------|------------------------------|
+| Without end margin | 0.904 | 0.918 | 2.19 |
+| **Analyse 2 min-ring-widths past both path ends (default)** | **0.906** | **0.929** | 1.75 |
+| + gap filling (`--fill-gaps`, ratio 2.2) | 0.901 | 0.923 | **1.31** |
+
+Gap filling recovers rings the U-Net missed (it is blind within ~100 px of the pith) but
+adds about as many misplaced ones, so it is opt-in: use it when a complete ring count
+matters more than boundary precision. The end margin hurts classical evidence (F1 0.839 →
+0.827 on CooRecorder), so it is a deep-only default.
 
 The U-Net is pre-trained for cross-sections. Running it on the natural image around the
 path, not on a straightened strip, raised F1 from 0.72 to 0.88: the network sees what it

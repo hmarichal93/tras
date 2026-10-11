@@ -3,8 +3,8 @@
 TRAS detects annual ring boundaries along increment cores (or along any path you draw on a
 cross-section) and exports ring widths to CooRecorder `.pos`, Tucson `.rwl` and CSV.
 On 16 held-out radii measured by an expert in CooRecorder, 97 % of the boundaries it reports
-are correct and it finds 87 % of the expert's boundaries; ring widths differ from the expert
-by a median of 3.2 %. See [benchmarks](benchmarks.md).
+are correct and it finds 90 % of the expert's boundaries; ring widths differ from the expert
+by a median of 3.3 %. See [benchmarks](benchmarks.md).
 
 ## Quick start
 
@@ -70,6 +70,7 @@ The scale comes from the image's DPI metadata, which flatbed scanners write. Oth
 | Extra boundaries inside latewood bands | Raise `--min-ring-width` (px) |
 | Faint rings missed (classical) | Lower `--sensitivity` (default 2.5) |
 | Faint rings missed (deep) | Lower `--deep-threshold` (default 0.15) |
+| Ring count must be complete (dating) | `--fill-gaps`: recovers rings from width continuity (slightly lower precision) |
 | Pith detected at the wrong end | `--pith-side start` or `end` (start = first path point) |
 | Ring-porous wood (dark earlywood vessels) | `--evidence classical` and, in Python, `CoreParams(boundary_step="light_to_dark")` |
 | Very narrow rings (< 1 mm) | `--evidence classical`: the U-Net works at ~0.3 mm per model pixel |

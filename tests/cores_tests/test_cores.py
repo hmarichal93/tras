@@ -159,3 +159,19 @@ def test_high_resolution_scan_uses_coarser_grid():
     found = np.array([b.s for b in result.boundaries]) / factor
     assert len(found) == len(BOUNDARIES)
     np.testing.assert_allclose(found, BOUNDARIES, atol=2)
+
+
+def test_fill_gaps_recovers_missing_boundary():
+    from tras.cores.detect import fill_gaps
+
+    n = 400
+    classical = np.random.default_rng(0).normal(0, 1, n)
+    peaks = np.array([50, 100, 150, 250, 300, 350])  # the boundary at 200 is missing
+    classical[200] = 12.0  # but the classical edge is clearly there
+    classical[120] = 12.0  # a strong edge inside a normal-width gap must be ignored
+    score = np.zeros(n)
+    found, strengths = fill_gaps(peaks, score, classical, min_distance=5, ratio=1.8, sensitivity=3.0)
+    assert 200 in found
+    assert 120 not in found
+    assert len(found) == len(peaks) + 1
+    assert strengths[list(found).index(200)] == 0.0
