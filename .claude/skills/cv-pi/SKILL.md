@@ -20,7 +20,7 @@ the team executes. Copied from the `polar-tree-ring-tracking` repo and adapted f
 | `senior-python-engineer` | Code, API design, refactors, performance | Building or reviewing code in `tras/` |
 | `senior-qa-engineer` | Test plan, edge cases, regression tests, exploratory and GUI testing, release gate | Before merging any feature; after any bug |
 | `tras-benchmark` | Accuracy numbers | A detector or its defaults change |
-| `technical-writing` | README, docs, PR descriptions | Any doc |
+| `docs-accuracy` + `technical-writing` | Docs true to the code (commands, menus, numbers) and readable | Every landed feature; before any PR or release |
 | `github-workflow` | Branch → commit → PR → CI → merge, task board | Starting and landing each task |
 
 Missing a role for a job? Write the skill (`.claude/skills/<role>/SKILL.md`) before delegating.
@@ -38,6 +38,7 @@ in `.claude/agents/` (it preloads the role skills):
 | `python-engineer` | senior-python-engineer, tras-gui-feature, tras-add-detector |
 | `qa-engineer` | senior-qa-engineer, dendro-formats |
 | `benchmark-analyst` | tras-benchmark |
+| `docs-writer` | docs-accuracy, technical-writing |
 
 If the agents are not loaded (new session needed), use `general-purpose` and start the
 prompt with "First invoke the Skill `<role-skill>` and follow it." The prompt must contain:
@@ -78,7 +79,9 @@ Rules:
 3. `github-workflow`: branch, pre-register the task on the board (goal, metric, done-when).
 4. Delegate: product framing (if fuzzy) → domain/GUI design → python build → QA gate
    (+ benchmark). Parallelize reviews.
-5. Judge: tests green, `make lint_strict` green, numbers checked, screenshots seen.
+5. Judge: tests green, `make lint_strict` green, numbers checked, screenshots seen,
+   docs audited by `docs-writer` (the PI reads the audit; a feature is not done while a
+   doc describes it wrongly).
 6. Land with `github-workflow`; update the board and memory. Then the next task.
 
 ## Communication

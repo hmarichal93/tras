@@ -111,6 +111,7 @@ autonomous session by invoking `cv-pi`.
 | `python-engineer` | `senior-python-engineer` | Code, API, refactors, tests |
 | `qa-engineer` | `senior-qa-engineer` | Test plan, edge cases, merge gate |
 | `benchmark-analyst` | `tras-benchmark` | Accuracy numbers |
+| `docs-writer` | `docs-accuracy`, `technical-writing` | Docs match the code; commands run |
 | — | `github-workflow` | Branch → PR → CI → merge, task board |
 
 The task board is in `docs/product-roadmap.md`. Push/PR/merge need the user's authorization
