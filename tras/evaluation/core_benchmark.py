@@ -92,12 +92,22 @@ def evaluate_path(
     image: np.ndarray, case: AnnotatedPath, params: CoreParams, tolerance_px: float
 ) -> CaseResult:
     """Detect with the pith side given, then check automatic orientation."""
-    given = detect_core_rings(image, case.path_xy, dataclasses.replace(params, pith_side="start"))
+    given = detect_core_rings(
+        image,
+        case.path_xy,
+        dataclasses.replace(params, pith_side="start"),
+        mm_per_px=case.mm_per_px,
+    )
     detected = [b.s for b in given.boundaries]
     score = score_boundaries(detected, list(case.boundaries_px), tolerance_px)
     pairs = dict(match_boundaries(detected, list(case.boundaries_px), tolerance_px))
 
-    auto = detect_core_rings(image, case.path_xy, dataclasses.replace(params, pith_side="auto"))
+    auto = detect_core_rings(
+        image,
+        case.path_xy,
+        dataclasses.replace(params, pith_side="auto"),
+        mm_per_px=case.mm_per_px,
+    )
     orientation_ok = bool(np.allclose(auto.path.xy[0], given.path.xy[0]))
     return CaseResult(
         name=case.name,

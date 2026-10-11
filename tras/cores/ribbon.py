@@ -62,7 +62,7 @@ class Ribbon:
 
     values: FloatArray  # (n_offsets, n_s) or (n_offsets, n_s, channels)
     valid: npt.NDArray[np.bool_]  # (n_offsets, n_s) inside the image
-    offsets: FloatArray
+    offsets: FloatArray  # across-path positions in samples (× path.step = px)
     path: SampledPath
 
     @property
@@ -99,18 +99,45 @@ def sample_path(
 def extract_ribbon(
     image: npt.NDArray, polyline: npt.ArrayLike, half_width: int, step: float = 1.0
 ) -> Ribbon:
-    """Sample ``image`` on a ``(2·half_width+1) × path_length`` grid along ``polyline``.
+    """Sample ``image`` on a ``(2·half_width+1) × n_samples`` grid along ``polyline``.
 
+    ``step`` is the grid spacing in pixels, both along and across the path; ``half_width``
+    and the ribbon ``offsets`` are in samples. With ``step > 1`` the image is low-pass
+    filtered first so the coarser grid does not alias fine texture.
     Works on grayscale or multi-channel images; values are bilinear-interpolated floats.
     """
-    path = sample_path(polyline, step=step, smoothing_px=_TANGENT_SMOOTHING * half_width)
+    path = sample_path(polyline, step=step, smoothing_px=_TANGENT_SMOOTHING * half_width * step)
     offsets = np.arange(-half_width, half_width + 1, dtype=np.float64)
-    grid = path.xy[None, :, :] + offsets[:, None, None] * path.normal[None, :, :]
-    map_x = grid[..., 0].astype(np.float32)
-    map_y = grid[..., 1].astype(np.float32)
+    grid = path.xy[None, :, :] + (offsets * step)[:, None, None] * path.normal[None, :, :]
+    source, origin = _source_for_step(np.asarray(image, dtype=np.float32), grid, step)
+    map_x = (grid[..., 0] - origin[0]).astype(np.float32)
+    map_y = (grid[..., 1] - origin[1]).astype(np.float32)
 
-    source = np.asarray(image, dtype=np.float32)
     values = cv2.remap(source, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
-    h, w = source.shape[:2]
-    valid = (map_x >= 0) & (map_x <= w - 1) & (map_y >= 0) & (map_y <= h - 1)
+    h, w = image.shape[:2]
+    gx, gy = grid[..., 0], grid[..., 1]
+    valid = (gx >= 0) & (gx <= w - 1) & (gy >= 0) & (gy <= h - 1)
     return Ribbon(values=values.astype(np.float64), valid=valid, offsets=offsets, path=path)
+
+
+# Anti-aliasing blur (sigma, in grid steps) applied before sampling on a coarse grid.
+_ANTI_ALIAS_SIGMA = 0.4
+
+
+def _source_for_step(
+    image: npt.NDArray[np.float32], grid: FloatArray, step: float
+) -> tuple[npt.NDArray[np.float32], tuple[int, int]]:
+    """The image (cropped to the grid and low-passed when ``step > 1``) and its origin."""
+    if step <= 1.0:
+        return image, (0, 0)
+    sigma = _ANTI_ALIAS_SIGMA * step
+    margin = int(np.ceil(3 * sigma)) + 2
+    h, w = image.shape[:2]
+    x0 = max(int(np.floor(grid[..., 0].min())) - margin, 0)
+    y0 = max(int(np.floor(grid[..., 1].min())) - margin, 0)
+    x1 = min(int(np.ceil(grid[..., 0].max())) + margin + 1, w)
+    y1 = min(int(np.ceil(grid[..., 1].max())) + margin + 1, h)
+    if x1 <= x0 or y1 <= y0:
+        return image, (0, 0)
+    crop = np.ascontiguousarray(image[y0:y1, x0:x1])
+    return cv2.GaussianBlur(crop, (0, 0), sigmaX=sigma, sigmaY=sigma), (x0, y0)

@@ -17,6 +17,7 @@ from typing import Any
 import cv2
 import numpy as np
 import numpy.typing as npt
+from loguru import logger
 
 from tras.cores.ribbon import Ribbon
 
@@ -58,6 +59,7 @@ def boundary_probability_along_path(
     model_id: str = "generic",
     scale: float = 1.0,
     context_px: int = 96,
+    step: float = 1.0,
 ) -> Ribbon:
     """Run the U-Net on the image crop around the path, then straighten the result.
 
@@ -69,7 +71,7 @@ def boundary_probability_along_path(
     from tras.cores.ribbon import extract_ribbon
 
     path = np.asarray(path_xy, dtype=np.float64)
-    margin = half_width + int(round(context_px / scale))
+    margin = int(round(half_width * step)) + int(round(context_px / scale))
     h, w = image.shape[:2]
     x0, y0 = np.maximum(np.floor(path.min(axis=0)) - margin, 0).astype(int)
     x1, y1 = np.minimum(np.ceil(path.max(axis=0)) + margin + 1, [w, h]).astype(int)
@@ -84,7 +86,7 @@ def boundary_probability_along_path(
     probability = cv2.resize(
         probability.astype(np.float32), (cw, ch), interpolation=cv2.INTER_LINEAR
     )
-    return extract_ribbon(probability, path - [x0, y0], half_width)
+    return extract_ribbon(probability, path - [x0, y0], half_width, step)
 
 
 def _pad_to_multiple(
@@ -99,23 +101,40 @@ def _pad_to_multiple(
 
 
 def _predict(image_bgr: npt.NDArray[np.uint8], model_id: str) -> npt.NDArray[np.float32]:
+    """Boundary probability; falls back to the CPU if the GPU runs out of memory."""
     import torch
 
-    model, device = _load_model(model_id)
+    try:
+        return _forward(image_bgr, *_load_model(model_id, _default_device()))
+    except torch.cuda.OutOfMemoryError:
+        logger.warning("GPU out of memory: running the U-Net on the CPU (slower)")
+        torch.cuda.empty_cache()
+        return _forward(image_bgr, *_load_model(model_id, "cpu"))
+
+
+def _forward(image_bgr: npt.NDArray[np.uint8], model: Any, device: Any) -> npt.NDArray[np.float32]:
+    import torch
+
     tensor = torch.from_numpy(image_bgr).permute(2, 0, 1)[None].float().to(device) / 255.0
     with torch.no_grad():
         logits = model(tensor)
     return torch.sigmoid(logits)[0, 0].cpu().numpy()
 
 
-@lru_cache(maxsize=2)
-def _load_model(model_id: str) -> tuple[Any, Any]:
+def _default_device() -> str:
+    import torch
+
+    return "cuda" if torch.cuda.is_available() else "cpu"
+
+
+@lru_cache(maxsize=4)
+def _load_model(model_id: str, device_name: str) -> tuple[Any, Any]:
     import segmentation_models_pytorch as smp
     import torch
 
     from tras.utils.deepcstrd_helper import _get_model_path
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device(device_name)
     model = smp.Unet(encoder_name="resnet18", encoder_weights=None, in_channels=3, classes=1)
     state = torch.load(_get_model_path(model_id, tile_size=0), map_location=device)
     model.load_state_dict(state)

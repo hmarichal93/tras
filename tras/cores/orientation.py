@@ -46,20 +46,24 @@ def curvature_vote(
     edge_sigma: float = 1.5,
     background: float = 81.0,
     half_width: int = CURVATURE_HALF_WIDTH,
+    step: float = 1.0,
 ) -> bool | None:
     """True if curvature says the pith is at the path start, False if at the end.
+
+    ``boundaries_s`` are arc lengths in px; ``half_width`` is in grid samples of ``step`` px.
 
     ``half_width`` must stay inside the wood (on a core: below half its diameter).
     """
     if half_width < 5:
         return None
-    ribbon = extract_ribbon(image, path, half_width)
+    ribbon = extract_ribbon(image, path, half_width, step)
     response = np.abs(
         edge_response(normalize_lanes(ribbon_intensity(ribbon, channel), background), edge_sigma)
     )
     offsets = ribbon.offsets
     signs = []
-    for s0, tilt in zip(np.asarray(boundaries_s, dtype=float), np.asarray(tilts, dtype=float)):
+    samples = np.asarray(boundaries_s, dtype=float) / step
+    for s0, tilt in zip(samples, np.asarray(tilts, dtype=float)):
         b = _fit_curvature(response, offsets, s0, tilt)
         if b is not None and abs(b) * half_width**2 >= MIN_SAG_PX:
             signs.append(b < 0)

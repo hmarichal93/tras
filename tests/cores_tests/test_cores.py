@@ -112,7 +112,7 @@ def test_exports_round_trip(tmp_path: Path):
         image,
         horizontal_path(image),
         CoreParams(evidence="classical", half_width=20),
-        mm_per_px=0.01,
+        mm_per_px=0.05,
         outer_year=2020,
     )
 
@@ -121,8 +121,9 @@ def test_exports_round_trip(tmp_path: Path):
     pos = read_pos(pos_path)
     assert pos.dated_year == 2020
     # CooRecorder recomputes the same perpendicular widths from the double points.
+    # .pos stores mm with 3 decimals (as CooRecorder does): allow a few micrometres.
     np.testing.assert_allclose(
-        pos.chronological_widths_mm(pith_first=False), result.widths_mm, atol=1e-3
+        pos.chronological_widths_mm(pith_first=False), result.widths_mm, atol=3e-3
     )
 
     series = to_series(result, "CORE1")
@@ -139,3 +140,22 @@ def test_exports_round_trip(tmp_path: Path):
     assert shapes[0]["shape_type"] == "linestrip"
     assert shapes[-1]["label"] == "core1_2020"
     assert all(len(s["points"]) == 2 for s in shapes[1:])
+
+
+def test_high_resolution_scan_uses_coarser_grid():
+    """A 4x upscaled core (as from a ~2400 dpi scan) gives the same boundaries."""
+    import cv2
+
+    from tras.cores.detect import sampling_step
+
+    factor = 4
+    small = synthetic_core(height=40)
+    big = cv2.resize(small, None, fx=factor, fy=factor, interpolation=cv2.INTER_CUBIC)
+    mm_per_px = 0.04 / factor  # 0.01 mm/px → grid step 2 px
+    params = CoreParams(evidence="classical", half_width=8, pith_side="start")
+    assert sampling_step(params, mm_per_px) == pytest.approx(2.0)
+
+    result = detect_core_rings(big, horizontal_path(big), params, mm_per_px=mm_per_px)
+    found = np.array([b.s for b in result.boundaries]) / factor
+    assert len(found) == len(BOUNDARIES)
+    np.testing.assert_allclose(found, BOUNDARIES, atol=2)

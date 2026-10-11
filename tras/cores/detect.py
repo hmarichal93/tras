@@ -38,12 +38,18 @@ PITH_SIDES = ("auto", "start", "end")
 EVIDENCE_SOURCES = ("classical", "deep", "hybrid")
 # Context the U-Net sees on each side of the path, in model pixels (after resizing).
 DEEP_CONTEXT_PX = 96
+# Effective resolution of the DeepCS-TRD training images (mm per model pixel): UruDendro
+# and the ForestScience discs at 0.16–0.2 mm/px, resized to 1504 px, give 0.31–0.33.
+DEEP_MODEL_MM_PER_PX = 0.3
+# Finest analysis grid (mm per sample) of the classical detector, ≈ 1270 dpi.
+MIN_MM_PER_SAMPLE = 0.02
 BOUNDARY_STEPS = ("dark_to_light", "light_to_dark")
 
 
 @dataclass(frozen=True)
 class CoreParams:
-    """Parameters of the core boundary detector. Lengths are in pixels.
+    """Parameters of the core boundary detector. Lengths are in grid samples (= px for
+    typical photos; see ``sampling_step``).
 
     Attributes:
         half_width: Ribbon half-width across the path. Wider = more lanes for the median
@@ -69,6 +75,9 @@ class CoreParams:
             stay inside the wood (0 disables the cue).
         snap_px: With deep/hybrid evidence, move each boundary to the sharpest classical
             edge within this distance (0 disables).
+        sampling_step: Analysis grid spacing in px. ``None``: 1 px, or coarser for scans
+            finer than ``MIN_MM_PER_SAMPLE`` mm/px when the scale is known. Lengths above
+            (``half_width``, ``min_ring_width``, ...) are in grid samples.
     """
 
     half_width: int = 25
@@ -87,6 +96,7 @@ class CoreParams:
     deep_threshold: float = 0.3
     curvature_half_width: int = 30
     snap_px: int = 0
+    sampling_step: float | None = None
 
     def __post_init__(self) -> None:
         if self.evidence not in EVIDENCE_SOURCES:
@@ -162,9 +172,12 @@ def detect_core_rings(
         mm_per_px: Physical pixel size, used for ``widths_mm``.
         outer_year: Calendar year of the outermost measured ring.
     """
-    ribbon = extract_ribbon(image, path, params.half_width)
+    step = sampling_step(params, mm_per_px)
+    ribbon = extract_ribbon(image, path, params.half_width, step)
     positive, negative = boundary_evidence(ribbon, params)
-    deep = deep_evidence(image, path, params) if params.evidence != "classical" else None
+    deep = None
+    if params.evidence != "classical":
+        deep = deep_evidence(image, path, params, step, deep_scale(params, image.shape, mm_per_px))
 
     pith_at_start = initial_orientation(positive, negative, params)
     evidence, peaks, strengths = _boundaries_for(pith_at_start, positive, negative, deep, params)
@@ -180,6 +193,7 @@ def detect_core_rings(
             params.edge_sigma,
             params.background,
             params.curvature_half_width,
+            step,
         )
         if vote is not None and vote != pith_at_start:
             pith_at_start = vote
@@ -202,7 +216,7 @@ def detect_core_rings(
     return CoreResult(
         path=path_obj,
         boundaries=tuple(boundaries),
-        half_width=params.half_width,
+        half_width=int(round(params.half_width * step)),
         mm_per_px=mm_per_px,
         outer_year=outer_year,
         evidence=score,
@@ -219,14 +233,42 @@ def boundary_evidence(ribbon: Ribbon, params: CoreParams) -> tuple[Evidence, Evi
         return tilt_search(response, *args), tilt_search(-response, *args)
 
 
-def deep_evidence(image: npt.NDArray, path: npt.ArrayLike, params: CoreParams) -> Evidence:
-    """U-Net boundary probability along the path, combined over lanes with tilt search."""
-    from tras.cores.deep import boundary_probability_along_path
+def sampling_step(params: CoreParams, mm_per_px: float | None) -> float:
+    """Analysis grid spacing (px): 1 px, coarser only for very high-resolution scans.
+
+    With a known pixel size finer than ``MIN_MM_PER_SAMPLE``, the grid is coarsened to that
+    physical resolution, so pixel-valued parameters keep their meaning on 2400+ dpi scans.
+    """
+    if params.sampling_step is not None:
+        return float(params.sampling_step)
+    if mm_per_px is not None and mm_per_px < MIN_MM_PER_SAMPLE:
+        return MIN_MM_PER_SAMPLE / mm_per_px
+    return 1.0
+
+
+def deep_scale(params: CoreParams, image_shape: tuple[int, ...], mm_per_px: float | None) -> float:
+    """Resize factor bringing the image to the U-Net's training resolution.
+
+    Physical when the pixel size is known (DeepCS-TRD saw ~``DEEP_MODEL_MM_PER_PX`` mm per
+    model pixel); otherwise DeepCS-TRD's own rule for a cross-section of this image size.
+    """
     from tras.cores.deep import training_scale
 
-    scale = params.deep_scale or training_scale(image.shape)
+    if params.deep_scale is not None:
+        return params.deep_scale
+    if mm_per_px is not None:
+        return mm_per_px / DEEP_MODEL_MM_PER_PX
+    return training_scale(image_shape)
+
+
+def deep_evidence(
+    image: npt.NDArray, path: npt.ArrayLike, params: CoreParams, step: float, scale: float
+) -> Evidence:
+    """U-Net boundary probability along the path, combined over lanes with tilt search."""
+    from tras.cores.deep import boundary_probability_along_path
+
     ribbon = boundary_probability_along_path(
-        image, path, params.half_width, params.model, scale, DEEP_CONTEXT_PX
+        image, path, params.half_width, params.model, scale, DEEP_CONTEXT_PX, step
     )
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=RuntimeWarning)
