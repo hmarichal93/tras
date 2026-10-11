@@ -14,6 +14,7 @@ from tras.cores.detect import CoreBoundary
 from tras.cores.detect import CoreParams
 from tras.cores.detect import CoreResult
 from tras.cores.detect import detect_core_rings
+from tras.cores.export import export_results
 from tras.cores.export import to_label_shapes
 from tras.cores.export import to_pos
 from tras.cores.export import to_series

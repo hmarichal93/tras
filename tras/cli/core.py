@@ -7,7 +7,6 @@ TRAS label file (``.json``, editable in the GUI) and, when dated, a Tucson ``.rw
 
 from __future__ import annotations
 
-import dataclasses
 from pathlib import Path
 from typing import Optional
 
@@ -19,16 +18,11 @@ from PIL import Image
 from tras.cores import CoreResult
 from tras.cores import analyze_core_image
 from tras.cores import default_core_params
+from tras.cores import export_results
 from tras.cores import to_label_shapes
-from tras.cores import to_pos
-from tras.cores import to_series
-from tras.cores import write_csv
 from tras.io.pos import MM_PER_INCH
 from tras.io.pos import RING
 from tras.io.pos import read_pos
-from tras.io.pos import write_pos
-from tras.io.tucson import sanitize_series_id
-from tras.io.tucson import write_rwl
 from tras.utils.batch_helper import IMAGE_EXTENSIONS
 
 app = typer.Typer(name="core", help="Detect tree rings on increment-core images")
@@ -67,26 +61,17 @@ def write_outputs(
     results: list[CoreResult],
     output_dir: Path,
 ) -> None:
-    """Write .pos/.csv per core and .json (+ .rwl if dated) per image."""
+    """Write CSV/.pos per core, one .rwl if dated, and an editable TRAS label file."""
     from tras._label_file import LabelFile
     from tras.utils import img_arr_to_data
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    stem = image_path.stem
+    export_results(results, output_dir, image_path.stem, image_file=image_path.name)
     shapes = []
-    series = []
     for k, result in enumerate(results, start=1):
-        name = f"{stem}_core{k}"
-        write_csv(result, output_dir / f"{name}.csv")
-        if result.mm_per_px is not None:
-            write_pos(output_dir / f"{name}.pos", to_pos(result, image_file=image_path.name))
-        if result.outer_year is not None and result.mm_per_px is not None and len(result.widths_px):
-            series.append(dataclasses.replace(to_series(result, name), series_id=sanitize_series_id(f"{stem[:6]}{k}")))
         shapes += to_label_shapes(result, core_index=k)
-        logger.info(f"{name}: {len(result.boundaries)} boundaries, {len(result.widths_px)} rings")
-
+        logger.info(f"{image_path.stem}_core{k}: {len(result.boundaries)} boundaries, {len(result.widths_px)} rings")
     LabelFile(filename=None, enforce_image_data=False).save(
-        filename=str(output_dir / f"{stem}.json"),
+        filename=str(output_dir / f"{image_path.stem}.json"),
         shapes=shapes,
         imagePath=image_path.name,
         imageHeight=image.shape[0],
@@ -94,8 +79,6 @@ def write_outputs(
         imageData=img_arr_to_data(image),
         flags={},
     )
-    if series:
-        write_rwl(output_dir / f"{stem}.rwl", series)
 
 
 @app.command()

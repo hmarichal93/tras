@@ -14,36 +14,15 @@ from tras.cores import to_pos
 from tras.cores import to_series
 from tras.cores import write_csv
 from tras.cores.ribbon import extract_ribbon
+from tras.cores.synthetic import DEFAULT_BOUNDARIES
+from tras.cores.synthetic import centre_path as horizontal_path
+from tras.cores.synthetic import synthetic_core
 from tras.cores.ribbon import sample_path
 from tras.io.pos import read_pos
 from tras.io.pos import write_pos
 
-BOUNDARIES = np.array([40.0, 95, 140, 200, 245, 280, 330, 370, 400, 445])
+BOUNDARIES = np.array(DEFAULT_BOUNDARIES)
 CLASSICAL = CoreParams(evidence="classical", half_width=8)
-
-
-def synthetic_core(length=500, height=40, boundaries=BOUNDARIES, tilt_deg=0.0, flip=False):
-    """Conifer-like core along +x: earlywood light, darkening to latewood, sharp boundary.
-
-    Pith on the left (x=0) unless ``flip``. Boundaries tilt by ``tilt_deg`` from vertical.
-    """
-    x = np.arange(length, dtype=np.float64)[None, :]
-    y = np.arange(height, dtype=np.float64)[:, None] - height / 2
-    shifted = x - y * np.tan(np.deg2rad(tilt_deg))
-    edges = np.r_[0.0, boundaries, length * 2]
-    idx = np.clip(np.searchsorted(edges, shifted, side="right") - 1, 0, len(edges) - 2)
-    start, end = edges[idx], edges[idx + 1]
-    phase = np.clip((shifted - start) / (end - start), 0, 1)
-    intensity = 210 - 120 * phase**3  # latewood darkens at the end of each ring
-    rng = np.random.default_rng(0)
-    intensity = intensity + rng.normal(0, 3, intensity.shape)
-    image = np.repeat(np.clip(intensity, 0, 255)[..., None], 3, axis=2).astype(np.uint8)
-    return image[:, ::-1] if flip else image
-
-
-def horizontal_path(image, margin=0):
-    h, w = image.shape[:2]
-    return np.array([[margin, h / 2], [w - 1 - margin, h / 2]], dtype=np.float64)
 
 
 def test_sample_path_is_unit_speed():

@@ -48,6 +48,7 @@ from tras.widgets import MetadataDialog
 from tras.widgets import ShortcutsDialog
 from tras.widgets import UpdateCheckDialog
 from tras.widgets import BatchProcessDialog
+from tras.widgets import CoreDialog
 
 from . import utils
 from tras.utils.qt_image import qimage_to_numpy
@@ -747,6 +748,17 @@ class MainWindow(QtWidgets.QMainWindow):
             enabled=False,
         )
         
+        # Core Analysis action (increment cores / measurement paths)
+        coreAnalysis = action(
+            self.tr("Core Analysis..."),
+            self._action_core_analysis,
+            None,
+            "tree_ring",
+            self.tr("Detect rings along increment cores or drawn paths (CooRecorder-style)"),
+            enabled=False,
+        )
+        self.actions_core_analysis = coreAnalysis
+
         # Preprocess Image action
         preprocessImage = action(
             self.tr("Preprocess Image"),
@@ -844,6 +856,7 @@ class MainWindow(QtWidgets.QMainWindow):
             editMode,
             brightnessContrast,
             detectTreeRings,  # Keep enabled but not in toolbar
+            coreAnalysis,
             preprocessImage,
             clearAllRings,
             ringProperties,
@@ -922,6 +935,7 @@ class MainWindow(QtWidgets.QMainWindow):
             setScale,           # Step 2: Set Scale
             preprocessImage,    # Step 3: Preprocess
             detectTreeRings,    # Step 4: Detect Rings
+            coreAnalysis,       # Step 4 (cores): Detect rings along a core / path
             None,
             self.actions.createExclusionMode,  # Draw Exclusion Areas
             None,
@@ -1066,7 +1080,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.populateModeActions()
 
         # Check for updates at startup (delayed to not block initialization)
-        QtCore.QTimer.singleShot(3000, self._check_for_updates_startup)
+        # TRAS_NO_UPDATE_CHECK=1 disables the online check (offline labs, CI, tests).
+        if not os.environ.get("TRAS_NO_UPDATE_CHECK"):
+            QtCore.QTimer.singleShot(3000, self._check_for_updates_startup)
 
         # self.firstStart = True
         # if self.firstStart:
@@ -2224,6 +2240,51 @@ class MainWindow(QtWidgets.QMainWindow):
         
         dlg = ExportDialog(parent=self)
         dlg.exec_()
+
+    def _action_core_analysis(self) -> None:
+        """Detect ring boundaries along increment cores or drawn linestrip paths."""
+        from tras.cores.export import CORE_PATH_LABEL
+        from tras.utils.pos_exporter import mm_per_pixel
+
+        if self.image.isNull():
+            self.errorMessage(self.tr("No image"), self.tr("Please open an image first."))
+            return
+        image_np = self.imageArray if self.imageArray is not None else qimage_to_numpy(self.image)
+        drawn_paths = [
+            np.array([(p.x(), p.y()) for p in shape.points], dtype=np.float64)
+            for shape in self.canvas.shapes
+            if shape.shape_type == "linestrip" and len(shape.points) >= 2
+        ]
+        outer_year = (self.sample_metadata or {}).get("harvested_year")
+        stem = osp.splitext(osp.basename(self.filename))[0] if self.filename else "core"
+        dlg = CoreDialog(
+            image_np, drawn_paths, mm_per_pixel(self.image_scale), outer_year, stem, parent=self
+        )
+        if dlg.exec_() != QtWidgets.QDialog.Accepted or not dlg.results:
+            return
+        self._replace_core_shapes(dlg.label_shapes(), CORE_PATH_LABEL)
+
+    def _replace_core_shapes(self, shape_dicts: list[dict], path_label: str) -> None:
+        """Swap previous core results (labels ``core*``) for new ones, keeping other shapes."""
+        self.canvas.storeShapes()
+        old = [s for s in self.canvas.shapes if s.label.startswith(("core", path_label))]
+        if old:
+            self.remLabels(old)
+            self.canvas.shapes = [s for s in self.canvas.shapes if s not in old]
+        shapes = []
+        for d in shape_dicts:
+            shape = Shape(
+                label=d["label"],
+                shape_type=d["shape_type"],
+                group_id=d["group_id"],
+                description=d["description"],
+            )
+            for x, y in d["points"]:
+                shape.addPoint(QtCore.QPointF(x, y))
+            shapes.append(shape)
+        self.loadShapes(shapes, replace=False)
+        self.setDirty()
+        self.show_status_message(self.tr("Added %d core shape(s)") % len(shapes))
 
     def _action_batch_process(self) -> None:
         """Detect rings over every image in a folder (batch processing)."""
@@ -3669,6 +3730,50 @@ class MainWindow(QtWidgets.QMainWindow):
             )
         )
         self.importDirImages(targetDirPath)
+
+    def importDirImages(self, dirpath, pattern=None, load=True):
+        """List every image under ``dirpath`` in the file list and open the first one."""
+        self.actions.openNextImg.setEnabled(True)
+        self.actions.openPrevImg.setEnabled(True)
+
+        if not self.mayContinue() or not dirpath:
+            return
+
+        self.lastOpenDir = dirpath
+        self.filename = None
+        self.fileListWidget.clear()
+
+        filenames = self.scanAllImages(dirpath)
+        if pattern:
+            try:
+                filenames = [f for f in filenames if re.search(pattern, f)]
+            except re.error:
+                pass
+        for filename in filenames:
+            label_file = f"{osp.splitext(filename)[0]}.json"
+            if self.output_dir:
+                label_file = osp.join(self.output_dir, osp.basename(label_file))
+            item = QtWidgets.QListWidgetItem(filename)
+            item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+            if QtCore.QFile.exists(label_file) and LabelFile.is_label_file(label_file):
+                item.setCheckState(Qt.Checked)
+            else:
+                item.setCheckState(Qt.Unchecked)
+            self.fileListWidget.addItem(item)
+        self.openNextImg(load=load)
+
+    def scanAllImages(self, folderPath):
+        """Image files (any format Qt reads) under ``folderPath``, naturally sorted."""
+        extensions = tuple(
+            f".{fmt.data().decode().lower()}"
+            for fmt in QtGui.QImageReader.supportedImageFormats()
+        )
+        images = []
+        for root, _dirs, files in os.walk(folderPath):
+            for file in files:
+                if file.lower().endswith(extensions):
+                    images.append(os.path.normpath(osp.join(root, file)))
+        return natsort.os_sorted(images)
 
     @property
     def imageList(self) -> list[str]:

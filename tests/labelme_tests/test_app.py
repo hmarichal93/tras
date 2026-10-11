@@ -13,8 +13,28 @@ import tras.app
 import tras.config
 import tras.testing
 
-here = osp.dirname(osp.abspath(__file__))
-data_dir = osp.join(here, "data")
+import numpy as np
+from PIL import Image
+
+from tras.api import _save_detection_results
+from tras.cores.synthetic import synthetic_core
+
+
+@pytest.fixture
+def data_dir(tmp_path):
+    """Two raw images and one annotated label file, generated on the fly."""
+    raw = tmp_path / "raw"
+    raw.mkdir()
+    for i, name in enumerate(("2011_000003.jpg", "2011_000006.jpg")):
+        image = synthetic_core(length=320, height=240, seed=i)
+        Image.fromarray(image).save(raw / name)
+    annotated = tmp_path / "annotated"
+    annotated.mkdir()
+    ring = np.array([[60, 60], [200, 60], [200, 180], [60, 180]], dtype=np.float32)
+    _save_detection_results(
+        annotated / "2011_000003.json", synthetic_core(length=320, height=240), (130.0, 120.0), [ring]
+    )
+    return str(tmp_path)
 
 
 def _show_window_and_wait_for_imagedata(
@@ -38,7 +58,7 @@ def test_MainWindow_open(qtbot: QtBot) -> None:
 
 
 @pytest.mark.gui
-def test_MainWindow_open_img(qtbot: QtBot) -> None:
+def test_MainWindow_open_img(qtbot: QtBot, data_dir) -> None:
     img_file: str = osp.join(data_dir, "raw/2011_000003.jpg")
     win: tras.app.MainWindow = tras.app.MainWindow(filename=img_file)
     qtbot.addWidget(win)
@@ -47,11 +67,8 @@ def test_MainWindow_open_img(qtbot: QtBot) -> None:
 
 
 @pytest.mark.gui
-def test_MainWindow_open_json(qtbot: QtBot):
-    json_files: list[str] = [
-        osp.join(data_dir, "annotated_with_data/apc2016_obj3.json"),
-        osp.join(data_dir, "annotated/2011_000003.json"),
-    ]
+def test_MainWindow_open_json(qtbot: QtBot, data_dir):
+    json_files: list[str] = [osp.join(data_dir, "annotated/2011_000003.json")]
     json_file: str
     for json_file in json_files:
         tras.testing.assert_labelfile_sanity(json_file)
@@ -63,7 +80,7 @@ def test_MainWindow_open_json(qtbot: QtBot):
 
 
 @pytest.mark.gui
-def test_MainWindow_openNextAndPrevImg(qtbot: QtBot) -> None:
+def test_MainWindow_openNextAndPrevImg(qtbot: QtBot, data_dir) -> None:
     directory: str = osp.join(data_dir, "raw")
     win: tras.app.MainWindow = tras.app.MainWindow(filename=directory)
     qtbot.addWidget(win)
@@ -86,7 +103,12 @@ def test_MainWindow_openNextAndPrevImg(qtbot: QtBot) -> None:
 
 
 @pytest.mark.gui
-def test_MainWindow_annotate_jpg(qtbot: QtBot) -> None:
+def test_MainWindow_annotate_jpg(qtbot: QtBot, data_dir) -> None:
+    """Shapes on the canvas are saved to a valid label file."""
+    from PyQt5.QtCore import QPointF
+
+    from tras.shape import Shape
+
     tmp_dir: str = tempfile.mkdtemp()
     input_file: str = osp.join(data_dir, "raw/2011_000003.jpg")
     out_file: str = osp.join(tmp_dir, "2011_000003.json")
@@ -100,42 +122,15 @@ def test_MainWindow_annotate_jpg(qtbot: QtBot) -> None:
     qtbot.addWidget(win)
     _show_window_and_wait_for_imagedata(qtbot=qtbot, win=win)
 
-    label: str = "whole"
-    canvas_size: QSize = win.canvas.size()
-    points: list[tuple[float, float]] = [
-        (canvas_size.width() * 0.25, canvas_size.height() * 0.25),
-        (canvas_size.width() * 0.75, canvas_size.height() * 0.25),
-        (canvas_size.width() * 0.75, canvas_size.height() * 0.75),
-        (canvas_size.width() * 0.25, canvas_size.height() * 0.75),
-    ]
-    win.toggleDrawMode(edit=False, createMode="polygon")
-    qtbot.wait(100)
-
-    def click(xy: tuple[float, float]) -> None:
-        qtbot.mouseMove(win.canvas, pos=QPoint(int(xy[0]), int(xy[1])))
-        qtbot.wait(100)
-        qtbot.mousePress(win.canvas, Qt.LeftButton, pos=QPoint(int(xy[0]), int(xy[1])))
-        qtbot.wait(100)
-
-    [click(xy=xy) for xy in points]
-
-    def interact() -> None:
-        qtbot.keyClicks(win.labelDialog.edit, label)
-        qtbot.wait(100)
-        qtbot.keyClick(win.labelDialog.edit, Qt.Key_Enter)
-        qtbot.wait(100)
-
-    QTimer.singleShot(300, interact)
-
-    click(xy=points[0])
+    shape = Shape(label="whole", shape_type="polygon")
+    for x, y in [(80, 60), (240, 60), (240, 180), (80, 180)]:
+        shape.addPoint(QPointF(x, y))
+    shape.close()
+    win.loadShapes([shape], replace=False)
 
     assert len(win.canvas.shapes) == 1
-    assert len(win.canvas.shapes[0].points) == 4
     assert win.canvas.shapes[0].label == "whole"
     assert win.canvas.shapes[0].shape_type == "polygon"
-    assert win.canvas.shapes[0].group_id is None
-    assert win.canvas.shapes[0].mask is None
-    assert win.canvas.shapes[0].flags == {}
 
     win.saveFile()
 

@@ -22,7 +22,10 @@ from tras.cores.detect import CoreResult
 from tras.io.pos import MM_PER_INCH
 from tras.io.pos import PosFile
 from tras.io.pos import PosPoint
+from tras.io.pos import write_pos
 from tras.io.tucson import RingWidthSeries
+from tras.io.tucson import sanitize_series_id
+from tras.io.tucson import write_rwl
 
 CORE_PATH_LABEL = "core_path"
 
@@ -135,3 +138,27 @@ def _shape(label: str, points: list, shape_type: str, group: int, description: s
         "flags": {},
         "description": description,
     }
+
+
+def export_results(
+    results: Sequence[CoreResult], folder: Path | str, stem: str, image_file: Optional[str] = None
+) -> list[Path]:
+    """Write per core ``<stem>_core<k>.csv`` (+ ``.pos`` when scaled) and, when dated and
+    scaled, one ``<stem>.rwl`` with all cores. Returns the written paths."""
+    folder = Path(folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    written: list[Path] = []
+    series = []
+    for k, result in enumerate(results, start=1):
+        name = f"{stem}_core{k}"
+        write_csv(result, folder / f"{name}.csv")
+        written.append(folder / f"{name}.csv")
+        if result.mm_per_px is not None:
+            write_pos(folder / f"{name}.pos", to_pos(result, image_file=image_file or stem))
+            written.append(folder / f"{name}.pos")
+        if result.outer_year is not None and result.mm_per_px is not None and len(result.widths_px):
+            series.append(to_series(result, sanitize_series_id(f"{stem[:6]}{k}")))
+    if series:
+        write_rwl(folder / f"{stem}.rwl", series)
+        written.append(folder / f"{stem}.rwl")
+    return written
