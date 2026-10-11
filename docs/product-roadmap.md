@@ -74,7 +74,7 @@ Managed by the `tras-pi` orchestrator (see `CLAUDE.md`, "How work is organized")
 | # | Task | User job | Metric / done when | State |
 |---|------|----------|--------------------|-------|
 | T1 | Phases 1–3 above | All | 135 tests at close (2026-10-11), benchmarks in `docs/benchmarks.md` | Done (2026-10-11) |
-| T2 | Export core measurements from the edited canvas (not the raw detection); *Draw Core Boundary* tool | Lab researcher correcting cores | Dragged/added/deleted boundaries change .pos/.rwl/CSV; years relabelled; GUI test | In progress |
+| T2 | Export core measurements from the edited canvas (not the raw detection); *Draw Core Boundary* tool | Lab researcher correcting cores | Dragged/added/deleted boundaries change .pos/.rwl/CSV; years relabelled; GUI test | Done 2026-10-11 (8a1487b; QA fixes 59724dd; hand-drawn lines kept on re-run daeca21) |
 | T3 | Crossdating entry point (`tras_dating` CLI + report): series vs master, COFECHA-style flags | Lab researcher dating series | Flags a shifted series in a synthetic set; reads TRAS and dplR `.rwl` | Next |
 | T4 | QC flags visible on the canvas and in the ring list | Anyone reviewing detections | Flagged rings highlighted; GUI test | Next |
 | T5 | Incomplete outer ring: `core<k>_bark` marker; exported to CSV/.pos, left out of .rwl | Lab researcher (Schulman dating) | Bark ring never appears as a full width in .rwl | Next |
