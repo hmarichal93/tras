@@ -71,7 +71,8 @@ Rules:
 6. **Negative results are results.** Record them in `docs/benchmarks.md` or memory.
 7. **Novice first.** TRAS is a GUI for non-programmers (dendro students, lab staff). Judge
    every feature by their path: install → first result → correct → export. A feature is
-   not done without its user-manual page (`docs/manual/`, written by `docs-writer`).
+   not done without its user-manual page (`docs/manual/`, written by `docs-writer`) with
+   current screenshots of every step.
    Bar: the best dendrochronology software on the market.
 8. **Look at the output.** Render the GUI or overlay and look at it before accepting.
 9. **Reversal criteria.** Say what result would make you undo a decision.

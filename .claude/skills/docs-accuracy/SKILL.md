@@ -21,6 +21,11 @@ second audience. So:
   "If something goes wrong" (symptom → what to do).
 - No code, no jargon in the manual. Explain domain terms once (glossary) and software terms
   never ("JSON file" → "TRAS project file (.json)").
+- **Screenshots are mandatory.** Every manual page has at least one screenshot, and every
+  step where the user must find a menu, button, dialog field or result on screen has its
+  own screenshot (the menu opened, the dialog filled in, the result on the canvas). A manual
+  page or a GUI change without up-to-date screenshots fails the audit. Number callouts or
+  arrows (drawn with PIL in the screenshot script) mark where to click.
 - Screenshots are real: render the GUI offscreen (`QT_QPA_PLATFORM=offscreen`, drive the
   app programmatically, `window.grab().save(...)`), crop to the relevant area, PNG < 300 KB,
   in `docs/manual/img/`. Regenerate them when the GUI changes (keep the script in
@@ -58,6 +63,9 @@ CLI `--help` texts, GUI tooltips that describe workflow, PR descriptions.
 5. **Report**: table of claim → doc:line → status (ok / fixed / code bug) → evidence.
 
 ## Rules
+
+- No manual page without screenshots; GUI changes regenerate the affected screenshots
+  in the same PR (`tools/manual_screenshots.py`).
 
 - Never invent numbers; quote `docs/benchmarks.md` with its date.
 - Dates absolute; remove stale "TODO", "coming soon", old names (`labelme` paths, removed buttons).

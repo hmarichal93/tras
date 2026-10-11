@@ -38,7 +38,8 @@ w.grab().save("/tmp/claude-shot.png")
 PY
 ```
 
-Then `Read` the PNG. Never ship a layout you have not looked at.
+Then `Read` the PNG. Never ship a layout you have not looked at. Any GUI change also
+updates the user-manual screenshots (`tools/manual_screenshots.py`, `docs/manual/img/`).
 
 ## Design principles
 
