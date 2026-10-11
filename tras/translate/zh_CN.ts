@@ -15,7 +15,7 @@
     </message>
     <message>
         <location filename="../cores/edit.py" line="0"/>
-        <source>%d hand-drawn boundary line(s) do not cross a core path and were ignored (selected).</source>
+        <source>%d boundary line(s) do not cross a core path and were ignored (selected).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

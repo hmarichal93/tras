@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable
+from collections.abc import Mapping
 from collections.abc import Sequence
 from dataclasses import dataclass
 from dataclasses import replace
@@ -31,6 +32,7 @@ from tras.cores.detect import CoreBoundary
 from tras.cores.detect import CoreParams
 from tras.cores.detect import CoreResult
 from tras.cores.export import boundary_name
+from tras.cores.export import numbered_cores
 from tras.cores.ribbon import SampledPath
 from tras.cores.ribbon import sample_path
 
@@ -117,13 +119,24 @@ def duplicate_boundaries(shapes: Sequence[ShapeDict]) -> list[int]:
 
 
 def unassigned_boundaries(shapes: Sequence[ShapeDict]) -> list[int]:
-    """Indices of hand-drawn ``core_boundary`` lines that cross no core path (ignored)."""
+    """Indices of boundary lines that cross no core path and are therefore ignored.
+
+    Covers hand-drawn ``core_boundary`` lines and detected ``core<k>_…`` lines dragged off
+    their path (or left behind when ``core_path_<k>`` was deleted), so no line is dropped
+    from the export without the user being told.
+    """
     assigned = {a.shape_index for a in assign_boundaries(shapes, core_paths(shapes))}
     return [
         index
         for index, shape in enumerate(shapes)
-        if shape.get("label") == CORE_BOUNDARY_LABEL and index not in assigned
+        if _is_boundary_line(shape) and index not in assigned
     ]
+
+
+def _is_boundary_line(shape: ShapeDict) -> bool:
+    label = shape.get("label") or ""
+    is_boundary_label = label == CORE_BOUNDARY_LABEL or bool(_BOUNDARY_LABEL.match(label))
+    return is_boundary_label and shape.get("shape_type") == "line"
 
 
 def core_paths(shapes: Sequence[ShapeDict]) -> dict[int, SampledPath]:
@@ -306,7 +319,7 @@ def _untranslated(text: str) -> str:
 
 
 def export_warnings(
-    cores: Sequence[CoreResult],
+    cores: Sequence[CoreResult] | Mapping[int, CoreResult],
     *,
     n_unassigned: int = 0,
     n_duplicates: int = 0,
@@ -317,14 +330,15 @@ def export_warnings(
     ``tr`` translates the message templates (the GUI passes ``QObject.tr``).
     """
     warnings = []
-    if any(core.mm_per_px is None for core in cores):
+    measured = [core for _, core in numbered_cores(cores)]
+    if any(core.mm_per_px is None for core in measured):
         warnings.append(
             tr(
                 "No scale: .pos and .rwl skipped, widths in px. "
                 "Set it with Tools → Increment Core → Set Image Scale."
             )
         )
-    if any(core.outer_year is None for core in cores):
+    if any(core.outer_year is None for core in measured):
         warnings.append(
             tr(
                 "Undated: .rwl skipped. Set the outermost ring year in Core Analysis "
@@ -333,10 +347,7 @@ def export_warnings(
         )
     if n_unassigned:
         warnings.append(
-            tr(
-                "%d hand-drawn boundary line(s) do not cross a core path and were "
-                "ignored (selected)."
-            )
+            tr("%d boundary line(s) do not cross a core path and were ignored (selected).")
             % n_unassigned
         )
     if n_duplicates:
@@ -348,19 +359,23 @@ def export_warnings(
 
 
 def export_summary(
-    cores: Sequence[CoreResult],
+    cores: Sequence[CoreResult] | Mapping[int, CoreResult],
     written: Sequence[Path],
     warnings: Sequence[str] = (),
     tr: Callable[[str], str] = _untranslated,
 ) -> list[str]:
-    """Lines of the "Export complete" message: totals, per-core rings, warnings, files."""
-    n_rings = sum(len(core.widths_px) for core in cores)
-    totals = tr("%d cores, %d rings") % (len(cores), n_rings)
-    dated = [core.years for core in cores if core.years]
+    """Lines of the "Export complete" message: totals, per-core rings, warnings, files.
+
+    Cores are numbered as in ``export_results`` (mapping keys, else 1, 2, ...).
+    """
+    numbered = numbered_cores(cores)
+    n_rings = sum(len(core.widths_px) for _, core in numbered)
+    totals = tr("%d cores, %d rings") % (len(numbered), n_rings)
+    dated = [core.years for _, core in numbered if core.years]
     if dated:
         totals += f", {min(y[0] for y in dated)}–{max(y[-1] for y in dated)}"
     lines = [totals]
-    for k, core in enumerate(cores, start=1):
+    for k, core in numbered:
         span = f"{core.years[0]}–{core.years[-1]}" if core.years else tr("undated")
         lines.append(tr("Core %d: %d rings, %s") % (k, len(core.widths_px), span))
     lines += ["", tr("Year labels on the image updated.")]

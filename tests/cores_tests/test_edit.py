@@ -192,7 +192,7 @@ def test_export_summary_lists_rings_warnings_and_files(detected):
     assert len(warnings) == 4
     assert warnings[0].startswith("No scale")
     assert warnings[1].startswith("Undated")
-    assert warnings[2].startswith("2 hand-drawn boundary line(s)")
+    assert warnings[2].startswith("2 boundary line(s)")
     assert warnings[3].startswith("1 boundary line(s) duplicate")
 
     n = len(detected.widths_px)
@@ -206,3 +206,83 @@ def test_export_summary_lists_rings_warnings_and_files(detected):
 
 def test_export_without_problems_has_no_warnings(detected):
     assert export_warnings([detected]) == []
+
+
+# ----- regressions found in QA of the canvas export (T2) --------------------------------
+
+
+def _straight_core(y: float, length: float = 300.0, s_values=(20.0, 60.0, 100.0, 140.0, 180.0)):
+    from tras.cores import CoreBoundary
+    from tras.cores import CoreResult
+    from tras.cores.ribbon import sample_path
+
+    path = sample_path([[0.0, y], [length, y]])
+    boundaries = tuple(CoreBoundary(s, (s, y), 0.0, 5.0) for s in s_values)
+    return CoreResult(path, boundaries, half_width=20, mm_per_px=0.01, outer_year=2020)
+
+
+def test_export_after_deleting_a_core_keeps_core_numbers(tmp_path):
+    from tras.cores import export_results
+    from tras.io.tucson import read_rwl
+
+    shapes = []
+    for k, y in ((1, 100.0), (2, 200.0), (3, 300.0)):
+        shapes += to_label_shapes(_straight_core(y), core_index=k)
+    shapes = [s for s in shapes if s["group_id"] != 2]  # user deleted core 2
+    cores = cores_from_shapes(shapes, mm_per_px=0.01, outer_year=2020)
+
+    written = export_results(cores, tmp_path, "img")
+
+    names = sorted(p.name for p in written)
+    assert names == sorted(
+        ["img_core1.csv", "img_core1.pos", "img_core3.csv", "img_core3.pos", "img.rwl"]
+    )
+    assert [s.series_id for s in read_rwl(tmp_path / "img.rwl")] == ["img1", "img3"]
+    summary = export_summary(cores, written)
+    assert summary[1].startswith("Core 1:") and summary[2].startswith("Core 3:")
+
+
+def test_export_results_list_is_numbered_from_one(tmp_path):
+    from tras.cores import export_results
+
+    written = export_results([_straight_core(100.0), _straight_core(200.0)], tmp_path, "img")
+    assert {p.name for p in written} >= {"img_core1.pos", "img_core2.pos"}
+
+
+@pytest.mark.parametrize("length", [500.0, 1003.0, 4321.0])
+def test_boundary_at_path_end_survives_label_round_trip(length):
+    end = length - 0.5  # outermost boundary right at the bark end of the path
+    core = _straight_core(100.0, length=length, s_values=(10.0, 100.0, end))
+    shapes = to_label_shapes(core, core_index=1)
+    assert shapes[0]["points"][-1] == pytest.approx([length, 100.0])
+
+    rebuilt = cores_from_shapes(shapes, outer_year=2020)[1]
+    assert len(rebuilt.boundaries) == 3
+    assert rebuilt.years == [2019, 2020]
+
+
+def test_detected_line_dragged_off_its_path_is_reported():
+    shapes = to_label_shapes(_straight_core(100.0), core_index=1)
+    for point in shapes[3]["points"]:  # third boundary moved far off the path
+        point[1] += 200.0
+    assert unassigned_boundaries(shapes) == [3]
+    assert 3 not in boundary_labels(shapes, outer_year=2020)
+
+
+def test_edited_core_round_trips_through_pos(tmp_path):
+    from tras.cores import export_results
+    from tras.io.pos import read_pos
+
+    shapes = to_label_shapes(_straight_core(100.0), core_index=1)
+    del shapes[-1]  # outermost boundary deleted: 3 rings left, outermost dated 2020
+    shapes.append(_line(CORE_BOUNDARY_LABEL, (40.0, 100.0)))  # splits the first ring
+    shapes.append(_line(CORE_BOUNDARY_LABEL, (40.5, 100.0)))  # same boundary drawn twice
+    cores = cores_from_shapes(shapes, mm_per_px=0.01, outer_year=2020)
+    export_results(cores, tmp_path, "img")
+
+    pos = read_pos(tmp_path / "img_core1.pos")
+    assert pos.dated_year == 2020
+    assert pos.points[0].end is None and pos.points[0].x == pytest.approx(1.4)  # bark first
+    assert all(p.end is not None for p in pos.points[1:])  # double points inward
+    assert pos.chronological_widths_mm(pith_first=False) == pytest.approx([0.2, 0.2, 0.4, 0.4])
+    assert duplicate_boundaries(shapes) == [len(shapes) - 1]

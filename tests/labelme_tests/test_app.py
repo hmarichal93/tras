@@ -410,3 +410,79 @@ def test_core_analysis_stores_outer_ring_year(qtbot: QtBot, data_dir, monkeypatc
     assert captured["outer_year"] == 2020
     win.setClean()
     win.close()
+
+
+def _export_cores(win: tras.app.MainWindow, folder, monkeypatch) -> list[str]:
+    """Run Export Core Measurements into ``folder``; return the summary texts shown."""
+    from PyQt5 import QtWidgets
+
+    messages: list[str] = []
+    monkeypatch.setattr(
+        QtWidgets.QFileDialog, "getExistingDirectory", lambda *args, **kwargs: str(folder)
+    )
+    monkeypatch.setattr(
+        QtWidgets.QMessageBox, "exec_", lambda box: messages.append(box.text()) or 0
+    )
+    win._action_export_core_measurements()
+    return messages
+
+
+@pytest.mark.gui
+def test_export_after_deleting_a_core_keeps_core_numbers(
+    qtbot: QtBot, data_dir, tmp_path, monkeypatch
+) -> None:
+    from tras.cores import CoreBoundary
+    from tras.cores import CoreResult
+    from tras.cores import to_label_shapes
+    from tras.cores.ribbon import sample_path
+    from tras.io.pos import read_pos
+    from tras.io.tucson import read_rwl
+
+    win = _core_window(qtbot, data_dir)
+    win.image_scale = {"value": 0.01, "unit": "mm"}
+    win.sample_metadata = {"outer_ring_year": 2020}
+    shapes = []
+    for k, y in ((1, 40.0), (2, 120.0), (3, 200.0)):
+        path = sample_path([[20.0, y], [300.0, y]])
+        boundaries = tuple(CoreBoundary(s, (20.0 + s, y), 0.0, 5.0) for s in (20.0, 60.0, 100.0))
+        result = CoreResult(path=path, boundaries=boundaries, half_width=15)
+        shapes += to_label_shapes(result, core_index=k)
+    win._replace_core_shapes(shapes, tras.app.CORE_PATH_LABEL)
+    win.canvas.selectShapes([s for s in win.canvas.shapes if s.group_id == 2])
+    win.remLabels(win.canvas.deleteSelected())  # the user deletes core 2
+
+    out = tmp_path / "export"
+    messages = _export_cores(win, out, monkeypatch)
+    win.setClean()  # a failing assert must not leave a "save changes?" prompt open
+
+    assert sorted(p.name for p in out.iterdir()) == [
+        "2011_000003.rwl",
+        "2011_000003_core1.csv",
+        "2011_000003_core1.pos",
+        "2011_000003_core3.csv",
+        "2011_000003_core3.pos",
+    ]
+    assert [s.series_id for s in read_rwl(out / "2011_000003.rwl")] == ["2011_01", "2011_03"]
+    assert read_pos(out / "2011_000003_core3.pos").image_file == "2011_000003.jpg"
+    assert "Core 3: 2 rings, 2019–2020" in messages[0]
+    win.close()
+
+
+@pytest.mark.gui
+def test_undo_after_core_export_relabel(qtbot: QtBot, data_dir, tmp_path, monkeypatch) -> None:
+    win = _core_window(qtbot, data_dir)
+    win.sample_metadata = {"outer_ring_year": 2020}
+    win.toggleDrawMode(False, createMode="line", core_boundary_mode=True)
+    _draw_line(win, (180.0, 100.0), (180.0, 140.0))
+    before = [shape.label for shape in win.canvas.shapes]
+    _export_cores(win, tmp_path / "export", monkeypatch)
+    relabelled = [shape.label for shape in win.canvas.shapes]
+    assert relabelled[-1] == "core1_2019"
+
+    _draw_line(win, (250.0, 100.0), (250.0, 140.0))  # a later edit...
+    win.undoShapeEdit()  # ...undone alone: the year labels stay
+    assert [shape.label for shape in win.canvas.shapes] == relabelled
+    win.undoShapeEdit()  # the relabel itself is undoable
+    assert [shape.label for shape in win.canvas.shapes] == before
+    win.setClean()
+    win.close()

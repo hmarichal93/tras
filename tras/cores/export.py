@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import csv
 import re
+from collections.abc import Mapping
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -129,7 +130,7 @@ def to_label_shapes(result: CoreResult, core_index: int = 1) -> list[dict[str, A
 
     Boundary labels are ``core<k>_<year>`` when dated, else ``core<k>_b<index>``.
     """
-    path_points = result.path.xy[:: max(1, len(result.path.xy) // 200)]
+    path_points = _subsample_keeping_ends(result.path.xy)
     shapes = [
         _shape(f"{CORE_PATH_LABEL}_{core_index}", path_points.tolist(), "linestrip", core_index)
     ]
@@ -147,6 +148,19 @@ def to_label_shapes(result: CoreResult, core_index: int = 1) -> list[dict[str, A
             )
         )
     return shapes
+
+
+def _subsample_keeping_ends(xy: np.ndarray, max_points: int = 200) -> np.ndarray:
+    """About ``max_points`` of the path, always including both ends.
+
+    Dropping the end would shorten the stored path, and a boundary near the bark would no
+    longer cross it when the core is rebuilt from the shapes (edit.cores_from_shapes).
+    """
+    step = max(1, len(xy) // max_points)
+    kept = xy[::step]
+    if (len(xy) - 1) % step:
+        kept = np.vstack([kept, xy[-1:]])
+    return kept
 
 
 def boundary_name(index: int, years: Sequence[int] | None) -> str:
@@ -169,15 +183,23 @@ def _shape(
 
 
 def export_results(
-    results: Sequence[CoreResult], folder: Path | str, stem: str, image_file: str | None = None
+    results: Sequence[CoreResult] | Mapping[int, CoreResult],
+    folder: Path | str,
+    stem: str,
+    image_file: str | None = None,
 ) -> list[Path]:
     """Write per core ``<stem>_core<k>.csv`` (+ ``.pos`` when scaled) and, when dated and
-    scaled, one ``<stem>.rwl`` with all cores. Returns the written paths."""
+    scaled, one ``<stem>.rwl`` with all cores. Returns the written paths.
+
+    ``results`` is a list (cores numbered 1, 2, ...) or a mapping core index → result, so a
+    core keeps its number ``k`` (from ``core_path_<k>``) in file names and .rwl series IDs
+    even when other cores were deleted.
+    """
     folder = Path(folder)
     folder.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
     series = []
-    for k, result in enumerate(results, start=1):
+    for k, result in numbered_cores(results):
         name = f"{stem}_core{k}"
         write_csv(result, folder / f"{name}.csv")
         written.append(folder / f"{name}.csv")
@@ -190,3 +212,12 @@ def export_results(
         write_rwl(folder / f"{stem}.rwl", series)
         written.append(folder / f"{stem}.rwl")
     return written
+
+
+def numbered_cores(
+    results: Sequence[CoreResult] | Mapping[int, CoreResult],
+) -> list[tuple[int, CoreResult]]:
+    """(core index, result) pairs in index order; a plain list is numbered from 1."""
+    if isinstance(results, Mapping):
+        return sorted(results.items())
+    return list(enumerate(results, start=1))

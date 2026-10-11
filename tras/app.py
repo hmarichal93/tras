@@ -2271,28 +2271,32 @@ class MainWindow(QtWidgets.QMainWindow):
         )
         if not folder:
             return
-        results = [cores[k] for k in sorted(cores)]
-        stem = osp.splitext(osp.basename(self.filename))[0] if self.filename else "core"
-        written = export_results(results, folder, stem)
+        image_file = osp.basename(self.filename) if self.filename else None
+        stem = osp.splitext(image_file)[0] if image_file else "core"
+        # Keyed by k of core_path_<k>: files keep the core's number when others are deleted.
+        written = export_results(cores, folder, stem, image_file=image_file)
         unassigned = core_edit.unassigned_boundaries(shapes)
         warnings = core_edit.export_warnings(
-            results,
+            cores,
             n_unassigned=len(unassigned),
             n_duplicates=len(core_edit.duplicate_boundaries(shapes)),
             tr=self.tr,
         )
         self._relabel_core_boundaries(core_edit.boundary_labels(shapes, outer_year), unassigned)
         self._show_core_export_summary(
-            core_edit.export_summary(results, written, warnings, tr=self.tr), bool(warnings)
+            core_edit.export_summary(cores, written, warnings, tr=self.tr), bool(warnings)
         )
 
     def _relabel_core_boundaries(self, labels: dict[int, str], unassigned: list[int]) -> None:
         """Apply re-numbered year labels (undoable) and select the ignored lines."""
-        self.canvas.storeShapes()
         for index, label in labels.items():
             shape = self.canvas.shapes[index]
             shape.label = label
             self._refresh_label_item(self.labelList.findItemByShape(shape), shape)
+        # The undo stack holds the state after each edit: Ctrl+Z restores the old labels,
+        # and undoing a later edit keeps the new ones.
+        self.canvas.storeShapes()
+        self.actions.undo.setEnabled(self.canvas.isShapeRestorable)
         self.setDirty()
         if unassigned:
             self.setEditMode()
