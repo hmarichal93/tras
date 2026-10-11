@@ -1,6 +1,9 @@
 import argparse
 import os
 import os.path as osp
+from collections.abc import Mapping
+from collections.abc import Sequence
+from typing import Any
 
 import imgviz
 import numpy as np
@@ -16,7 +19,7 @@ _MIN_POINTS = {"polygon": 3, None: 3, "point": 1, "line": 2, "linestrip": 2}
 UNLABELED = "unlabeled"
 
 
-def _rasterizable_shapes(shapes: list[dict]) -> list[dict]:
+def _rasterizable_shapes(shapes: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
     """Drop shapes that cannot be drawn and give unlabeled shapes a placeholder label.
 
     One degenerate shape (e.g. a 2-point polygon) must not abort the whole export.

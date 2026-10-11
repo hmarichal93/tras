@@ -23,6 +23,12 @@ help:
 		{printf "  $(BOLD_BLUE)%-20s$(NC) %s\n", $$1, $$2}'
 
 PACKAGE_NAME:=tras
+# Modules held to the strict gate (format + lint + types). Add a module here once it is
+# clean; the legacy GUI code is migrated gradually.
+STRICT_PATHS:=tras/params.py tras/api.py tras/analysis tras/io tras/evaluation tras/cores \
+	tras/cli/benchmark.py tras/cli/core.py tras/cli/detect.py tras/cli/export_json.py tras/utils/cli_config.py \
+	tras/utils/batch_helper.py tras/utils/ring_properties.py tras/utils/ring_sampling.py \
+	tras/utils/pos_exporter.py tras/widgets/core_dialog.py tests
 
 setup:  # Setup the development environment
 	$(call exec,uv sync --dev)
@@ -38,13 +44,21 @@ lint:
 mypy:
 	$(call exec,uv run mypy --package $(PACKAGE_NAME))
 
+lint_strict:  # Format, lint and type-check the strict modules (what CI enforces)
+	$(call exec,uv run ruff format --check $(STRICT_PATHS))
+	$(call exec,uv run ruff check $(STRICT_PATHS))
+	$(call exec,uv run mypy $(filter-out tests,$(STRICT_PATHS)))
+
 check_translate: update_translate
 	$(call exec,git diff --exit-code tras/translate)
 
 check: lint mypy check_translate # Run checks
 
-test:  # Run tests
+test:  # Run tests (headless; GUI tests use the offscreen Qt platform)
 	$(call exec,uv run pytest -v tests/)
+
+benchmark_cores:  # Core detector benchmark: make benchmark_cores URUDENDRO=<folder>
+	$(call exec,uv run python -m tras.cli.benchmark cores $(URUDENDRO))
 
 build:  # Build the package
 	$(call exec,uv build)
