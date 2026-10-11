@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 import sys
 from pathlib import Path
 
@@ -8,6 +8,7 @@ from loguru import logger
 
 from tras.utils.image_preprocessing import normalize_to_rgb_uint8
 from tras.utils.image_preprocessing import pad_for_edge_detection
+from tras.params import DeepCstrdParams
 from tras.utils.model_paths import get_deepcstrd_models_dir
 
 # Add tree ring methods to path
@@ -18,21 +19,26 @@ sys.path.insert(0, str(_cstrd_path))
 
 from deep_cstrd.deep_tree_ring_detection import DeepTreeRingDetection
 
+
 def detect_rings_deepcstrd(
-    image: np.ndarray, 
+    image: np.ndarray,
     center_xy: Tuple[float, float],
-    model_id: str = "generic",
-    tile_size: int = 0,
-    alpha: int = 45,
-    nr: int = 360,
-    total_rotations: int = 5,
-    prediction_map_threshold: float = 0.5,
-    width: int = 0,
-    height: int = 0
+    model_id: Optional[str] = None,
+    tile_size: Optional[int] = None,
+    alpha: Optional[int] = None,
+    nr: Optional[int] = None,
+    total_rotations: Optional[int] = None,
+    prediction_map_threshold: Optional[float] = None,
+    width: Optional[int] = None,
+    height: Optional[int] = None,
 ) -> List[np.ndarray]:
     """
     Run DeepCS-TRD on the given image and return a list of ring polylines (Nx2 arrays).
-    
+
+    Every parameter left as ``None`` takes its default from
+    ``tras/config/detection_defaults.yaml`` (via ``DeepCstrdParams``), the same values
+    the API, CLI and GUI use.
+
     Args:
         image: Input image as numpy array (H x W x 3)
         center_xy: Pith center coordinates (x, y)
@@ -43,12 +49,23 @@ def detect_rings_deepcstrd(
         nr: Number of radial samples (360 = 1 degree resolution)
         total_rotations: Number of rotations for test-time augmentation
         prediction_map_threshold: Threshold for binary prediction map
-        width: Resize width (0 = no resize) (default: 0)
-        height: Resize height (0 = no resize) (default: 0)
-    
+        width: Resize width (0 = no resize)
+        height: Resize height (0 = no resize)
+
     Returns:
         List of ring polylines, each as Nx2 array of (x, y) points
     """
+    defaults = DeepCstrdParams()
+    model_id = defaults.model if model_id is None else model_id
+    tile_size = defaults.tile_size if tile_size is None else tile_size
+    alpha = defaults.alpha if alpha is None else alpha
+    nr = defaults.nr if nr is None else nr
+    total_rotations = defaults.rotations if total_rotations is None else total_rotations
+    if prediction_map_threshold is None:
+        prediction_map_threshold = defaults.threshold
+    width = defaults.width if width is None else width
+    height = defaults.height if height is None else height
+
     # Ensure RGB uint8 format
     image = normalize_to_rgb_uint8(image)
 
@@ -68,13 +85,19 @@ def detect_rings_deepcstrd(
     if any([pad_top, pad_bottom, pad_left, pad_right]):
         logger.debug(
             "DeepCS-TRD: Added padding - top={}, bottom={}, left={}, right={}; adjusted pith=({:.1f}, {:.1f})",
-            pad_top, pad_bottom, pad_left, pad_right, cx, cy,
+            pad_top,
+            pad_bottom,
+            pad_left,
+            pad_right,
+            cx,
+            cy,
         )
 
     # Create temporary output directory for DeepCS-TRD
     import tempfile
+
     temp_dir = tempfile.mkdtemp(prefix="deepcstrd_")
-    
+
     # Run DeepCS-TRD
     result = DeepTreeRingDetection(
         im_in=image,
@@ -90,33 +113,34 @@ def detect_rings_deepcstrd(
         debug_image_input_path=None,
         debug_output_dir=temp_dir,
         tile_size=tile_size,
-        prediction_map_threshold=prediction_map_threshold
+        prediction_map_threshold=prediction_map_threshold,
     )
-    
+
     # Extract rings from result
     # DeepTreeRingDetection returns a tuple: (im_seg, im_pre, ch_e, ch_f, ch_s, ch_c, ch_p, rings_dict)
     rings = []
-    
+
     if result is not None and isinstance(result, tuple) and len(result) >= 8:
         # Extract the rings dictionary (last element of tuple)
         rings_dict = result[7]
-        
-        if isinstance(rings_dict, dict) and 'shapes' in rings_dict:
-            for shape in rings_dict['shapes']:
-                if 'points' in shape and isinstance(shape['points'], list):
-                    pts = np.array(shape['points'], dtype=np.float32)
+
+        if isinstance(rings_dict, dict) and "shapes" in rings_dict:
+            for shape in rings_dict["shapes"]:
+                if "points" in shape and isinstance(shape["points"], list):
+                    pts = np.array(shape["points"], dtype=np.float32)
                     if len(pts.shape) == 2 and pts.shape[1] == 2:
                         # Adjust coordinates back if padding was added
                         if any([pad_top, pad_bottom, pad_left, pad_right]):
                             pts[:, 0] -= pad_left  # x coordinates
-                            pts[:, 1] -= pad_top   # y coordinates
+                            pts[:, 1] -= pad_top  # y coordinates
                         rings.append(pts)
-    
+
     return rings
+
 
 def _get_model_path(model_id: str, tile_size: int = 0) -> str:
     """Get path to DeepCS-TRD model weights.
-    
+
     Supports both model IDs (e.g., "generic", "pinus_v2") and filesystem paths.
     If model_id is a filesystem path that exists, it's returned as-is.
     Otherwise, it's treated as a model ID and resolved from downloaded_assets.
@@ -125,7 +149,7 @@ def _get_model_path(model_id: str, tile_size: int = 0) -> str:
     model_path_obj = Path(model_id)
     if model_path_obj.exists() and model_path_obj.is_file():
         return str(model_path_obj.resolve())
-    
+
     # Treat as model ID and resolve from downloaded_assets
     base_path = get_deepcstrd_models_dir()
     logger.debug("_get_model_path called with model_id='{}', tile_size={}", model_id, tile_size)
