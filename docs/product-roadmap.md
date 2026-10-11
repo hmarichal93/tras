@@ -76,6 +76,9 @@ Managed by the `cv-pi` orchestrator (see `CLAUDE.md`, "How work is organized").
 | T2 | Export core measurements from the edited canvas (not the raw detection); *Draw Core Boundary* tool | Lab researcher correcting cores | Dragged/added/deleted boundaries change .pos/.rwl/CSV; years relabelled; GUI test | In progress |
 | T3 | Crossdating entry point (`tras_dating` CLI + report): series vs master, COFECHA-style flags | Lab researcher dating series | Flags a shifted series in a synthetic set; reads TRAS and dplR `.rwl` | Next |
 | T4 | QC flags visible on the canvas and in the ring list | Anyone reviewing detections | Flagged rings highlighted; GUI test | Next |
+| T5 | Incomplete outer ring: `core<k>_bark` marker; exported to CSV/.pos, left out of .rwl | Lab researcher (Schulman dating) | Bark ring never appears as a full width in .rwl | Next |
+| T6 | Missing rings (0-width) and crack/gap pairs, written as CooRecorder gap markers in .pos | Lab researcher with damaged cores | Round-trip with CooRecorder conventions; domain review | Next |
+| T7 | Provenance: boundaries dragged by hand marked user-edited (not detector strength) | QA of corrected series | Edited lines carry no `strength=` | Next |
 
 ## How progress is checked
 
