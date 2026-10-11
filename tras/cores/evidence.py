@@ -86,25 +86,47 @@ def tilt_search(
     max_tilt_deg: float,
     n_tilts: int,
 ) -> Evidence:
-    """Best lane-median response over candidate boundary tilts, per position."""
+    """Best lane-median response over candidate boundary tilts, per position.
+
+    The tilt is refined between grid steps by fitting a parabola through the best score
+    and its two neighbours.
+    """
     tilts = np.deg2rad(np.linspace(-max_tilt_deg, max_tilt_deg, n_tilts)) if n_tilts > 1 else np.zeros(1)
+    scores = np.stack([_sheared_median(response, offsets, valid, t) for t in tilts])  # (T, S)
+    scores = np.where(np.isfinite(scores), scores, -np.inf)
+    best = scores.argmax(axis=0)
+    columns = np.arange(scores.shape[1])
+    score = scores[best, columns]
+    tilt = tilts[best] + _parabolic_offset(scores, best) * (tilts[1] - tilts[0] if n_tilts > 1 else 0.0)
+    score[~np.isfinite(score)] = 0.0
+    return Evidence(score=score, tilt=tilt)
+
+
+def _sheared_median(
+    response: FloatArray, offsets: FloatArray, valid: npt.NDArray[np.bool_], tilt: float
+) -> FloatArray:
+    """Median over lanes after shifting lane ``o`` by ``o·tan(tilt)`` along the path."""
     n_lanes, n_s = response.shape
     masked = np.where(valid, response, np.nan)
     rows = np.repeat(np.arange(n_lanes, dtype=np.float64)[:, None], n_s, axis=1)
-    cols = np.arange(n_s, dtype=np.float64)[None, :]
+    cols = np.arange(n_s, dtype=np.float64)[None, :] + offsets[:, None] * np.tan(tilt)
+    sheared = map_coordinates(masked, [rows, cols], order=1, mode="nearest")
+    return np.nanmedian(sheared, axis=0)
 
-    best = np.full(n_s, -np.inf)
-    best_tilt = np.zeros(n_s)
-    for tilt in tilts:
-        sheared_cols = cols + offsets[:, None] * np.tan(tilt)
-        sheared = map_coordinates(masked, [rows, sheared_cols], order=1, mode="nearest", cval=np.nan)
-        score = np.nanmedian(np.where(np.isfinite(sheared), sheared, np.nan), axis=0)
-        score = np.nan_to_num(score, nan=-np.inf)
-        better = score > best
-        best[better] = score[better]
-        best_tilt[better] = tilt
-    best[~np.isfinite(best)] = 0.0
-    return Evidence(score=best, tilt=best_tilt)
+
+def _parabolic_offset(scores: FloatArray, best: npt.NDArray[np.intp]) -> FloatArray:
+    """Sub-step position of each column's maximum, in grid steps (−0.5 … 0.5)."""
+    n_tilts = scores.shape[0]
+    columns = np.arange(scores.shape[1])
+    inner = (best > 0) & (best < n_tilts - 1)
+    left = scores[np.clip(best - 1, 0, n_tilts - 1), columns]
+    centre = scores[best, columns]
+    right = scores[np.clip(best + 1, 0, n_tilts - 1), columns]
+    curvature = left - 2 * centre + right
+    ok = inner & np.isfinite(left) & np.isfinite(right) & (curvature < 0)
+    offset = np.zeros(scores.shape[1])
+    offset[ok] = 0.5 * (left[ok] - right[ok]) / curvature[ok]
+    return np.clip(offset, -0.5, 0.5)
 
 
 def peak_strength(score: FloatArray, min_distance_px: int, top: int = 20) -> float:

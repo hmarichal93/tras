@@ -10,10 +10,16 @@ import numpy as np
 import numpy.typing as npt
 from loguru import logger
 
+from tras.cores.axis import DetectedCore
 from tras.cores.axis import find_cores
 from tras.cores.detect import CoreParams
 from tras.cores.detect import CoreResult
 from tras.cores.detect import detect_core_rings
+
+
+# Tuned on the UruDendro virtual-core split (docs/benchmarks.md): the learned map is
+# best read on a narrow band along the path.
+DEEP_DEFAULTS = {"half_width": 5, "deep_threshold": 0.15}
 
 
 def deep_model_available(model_id: str = "generic") -> bool:
@@ -36,10 +42,20 @@ def default_core_params(**overrides) -> CoreParams:
     Defaults chosen on the UruDendro virtual-core tuning split and confirmed on held-out
     CooRecorder measurements (``docs/benchmarks.md``).
     """
-    params = CoreParams(**overrides)
-    if "evidence" not in overrides and deep_model_available(params.model):
-        params = dataclasses.replace(params, evidence="deep")
-    return params
+    evidence = overrides.get("evidence")
+    if evidence is None:
+        evidence = "deep" if deep_model_available(overrides.get("model", "generic")) else "classical"
+    tuned = DEEP_DEFAULTS if evidence != "classical" else {}
+    return CoreParams(**{**tuned, **overrides, "evidence": evidence})
+
+
+def _fit_to_core(params: CoreParams, core: DetectedCore) -> CoreParams:
+    """Keep every ribbon inside the core's width."""
+    return dataclasses.replace(
+        params,
+        half_width=min(params.half_width, core.half_width),
+        curvature_half_width=min(params.curvature_half_width, int(0.45 * core.diameter_px)),
+    )
 
 
 def analyze_core_image(
@@ -65,10 +81,7 @@ def analyze_core_image(
         found = find_cores(image)
         logger.info("Found {} core(s)", len(found))
         # Stay inside the core: never wider than ~30 % of its diameter on each side.
-        jobs = [
-            (core.path_xy, dataclasses.replace(params, half_width=min(params.half_width, core.half_width)))
-            for core in found
-        ]
+        jobs = [(core.path_xy, _fit_to_core(params, core)) for core in found]
     else:
         jobs = [(np.asarray(p, dtype=np.float64), params) for p in paths]
     return [

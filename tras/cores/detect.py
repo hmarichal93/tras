@@ -26,6 +26,7 @@ from tras.cores.evidence import edge_response
 from tras.cores.evidence import normalize_lanes
 from tras.cores.evidence import ribbon_intensity
 from tras.cores.evidence import tilt_search
+from tras.cores.orientation import curvature_vote
 from tras.cores.ribbon import Ribbon
 from tras.cores.ribbon import SampledPath
 from tras.cores.ribbon import extract_ribbon
@@ -66,9 +67,13 @@ class CoreParams:
         deep_scale: Resize factor bringing rings to the model's training scale; ``None``
             uses DeepCS-TRD's rule for a cross-section of the input image's size.
         deep_threshold: Minimum boundary probability of a deep peak.
+        curvature_half_width: Ribbon half-width for the curvature orientation cue; must
+            stay inside the wood (0 disables the cue).
+        snap_px: With deep/hybrid evidence, move each boundary to the sharpest classical
+            edge within this distance (0 disables).
     """
 
-    half_width: int = 15
+    half_width: int = 25
     min_ring_width: float = 5.0
     edge_sigma: float = 1.5
     background: float = 81.0
@@ -82,6 +87,8 @@ class CoreParams:
     model: str = "generic"
     deep_scale: Optional[float] = None
     deep_threshold: float = 0.3
+    curvature_half_width: int = 30
+    snap_px: int = 0
 
     def __post_init__(self) -> None:
         if self.evidence not in EVIDENCE_SOURCES:
@@ -159,18 +166,26 @@ def detect_core_rings(
     """
     ribbon = extract_ribbon(image, path, params.half_width)
     positive, negative = boundary_evidence(ribbon, params)
-    pith_at_start, evidence = orient(positive, negative, params)
-    if params.evidence != "classical":
-        evidence = combine_evidence(evidence, deep_evidence(image, path, params), params.evidence)
-    peaks, strengths = pick_boundaries(
-        evidence.score, params.min_ring_width, _threshold(params), params.deep_threshold
-    )
+    deep = deep_evidence(image, path, params) if params.evidence != "classical" else None
+
+    pith_at_start = initial_orientation(positive, negative, params)
+    evidence, peaks, strengths = _boundaries_for(pith_at_start, positive, negative, deep, params)
+    if params.pith_side == "auto":
+        # Tilts are not passed: under the wrong polarity they are meaningless, and the
+        # lane-by-lane tracer follows boundaries up to 45° on its own.
+        vote = curvature_vote(
+            image, path, ribbon.s[np.round(peaks).astype(int)], np.zeros(len(peaks)),
+            params.channel, params.edge_sigma, params.background, params.curvature_half_width,
+        )
+        if vote is not None and vote != pith_at_start:
+            pith_at_start = vote
+            evidence, peaks, strengths = _boundaries_for(pith_at_start, positive, negative, deep, params)
 
     boundaries = [
         CoreBoundary(
-            s=float(ribbon.s[p]),
-            xy=tuple(float(v) for v in ribbon.path.xy[p]),  # type: ignore[arg-type]
-            tilt=float(evidence.tilt[p]),
+            s=float(p * ribbon.path.step),
+            xy=tuple(float(v) for v in ribbon.path.point_at(p * ribbon.path.step)),  # type: ignore[arg-type]
+            tilt=float(evidence.tilt[int(round(p))]),
             strength=float(st),
         )
         for p, st in zip(peaks, strengths)
@@ -221,10 +236,12 @@ def combine_evidence(classical: Evidence, deep: Evidence, mode: str) -> Evidence
     stays comparable to the deep threshold.
     """
     if mode == "deep":
-        return deep
+        # The probability ridge saturates over neighbouring tilts; the classical edge
+        # response is sharp in tilt, so it supplies the boundary orientation.
+        return Evidence(score=deep.score, tilt=classical.tilt)
     z_classical = _robust_z(classical.score)
     z_deep = _robust_z(deep.score)
-    return Evidence(score=z_classical + z_deep, tilt=np.where(z_deep > z_classical, deep.tilt, classical.tilt))
+    return Evidence(score=z_classical + z_deep, tilt=classical.tilt)
 
 
 def _robust_z(values: FloatArray) -> FloatArray:
@@ -236,20 +253,61 @@ def _threshold(params: CoreParams) -> Optional[float]:
     return None if params.evidence == "deep" else params.sensitivity
 
 
-def orient(positive: Evidence, negative: Evidence, params: CoreParams) -> tuple[bool, Evidence]:
-    """Decide which path end is the pith and which evidence polarity marks boundaries.
+def initial_orientation(positive: Evidence, negative: Evidence, params: CoreParams) -> bool:
+    """Pith at the path start? From ``pith_side`` or, if auto, from edge polarity.
 
-    Walking pith → bark, a ``dark_to_light`` boundary is a brightening step. If the pith
-    is at the path start, brightening along +s is the positive polarity.
+    Walking pith → bark, a ``dark_to_light`` boundary is a brightening step: if
+    brightening (+s) edges are the sharper ones, the pith is at the start.
     """
+    if params.pith_side != "auto":
+        return params.pith_side == "start"
+    polarity = choose_polarity(positive, negative, int(params.min_ring_width))
+    return (polarity > 0) == (params.boundary_step == "dark_to_light")
+
+
+def _boundaries_for(
+    pith_at_start: bool,
+    positive: Evidence,
+    negative: Evidence,
+    deep: Optional[Evidence],
+    params: CoreParams,
+) -> tuple[Evidence, FloatArray, FloatArray]:
+    """Evidence for the given orientation and its picked (sub-pixel) peaks."""
     brightening_outward = params.boundary_step == "dark_to_light"
-    if params.pith_side == "auto":
-        polarity = choose_polarity(positive, negative, int(params.min_ring_width))
-        pith_at_start = (polarity > 0) == brightening_outward
-    else:
-        pith_at_start = params.pith_side == "start"
-        polarity = 1 if pith_at_start == brightening_outward else -1
-    return pith_at_start, positive if polarity > 0 else negative
+    classical = positive if pith_at_start == brightening_outward else negative
+    evidence = classical if deep is None else combine_evidence(classical, deep, params.evidence)
+    peaks, strengths = pick_boundaries(
+        evidence.score, params.min_ring_width, _threshold(params), params.deep_threshold
+    )
+    if deep is not None and params.snap_px > 0:
+        # The learned map decides *where* boundaries are; the sharp classical edge
+        # localizes them more precisely.
+        peaks = snap_to_local_maxima(classical.score, peaks, params.snap_px)
+        return evidence, refine_peaks(classical.score, peaks), strengths
+    return evidence, refine_peaks(evidence.score, peaks), strengths
+
+
+def snap_to_local_maxima(
+    score: FloatArray, peaks: npt.NDArray[np.intp], radius: int
+) -> npt.NDArray[np.intp]:
+    """Move each peak to the highest ``score`` within ``±radius`` samples."""
+    snapped = peaks.copy()
+    for i, p in enumerate(peaks):
+        lo, hi = max(0, p - radius), min(len(score), p + radius + 1)
+        snapped[i] = lo + int(np.argmax(score[lo:hi]))
+    return snapped
+
+
+def refine_peaks(score: FloatArray, peaks: npt.NDArray[np.intp]) -> FloatArray:
+    """Sub-sample peak positions from a parabola through each peak and its neighbours."""
+    refined = peaks.astype(np.float64)
+    inner = (peaks > 0) & (peaks < len(score) - 1)
+    p = peaks[inner]
+    left, centre, right = score[p - 1], score[p], score[p + 1]
+    curvature = left - 2 * centre + right
+    offset = np.where(curvature < 0, 0.5 * (left - right) / np.where(curvature < 0, curvature, -1), 0.0)
+    refined[inner] += np.clip(offset, -0.5, 0.5)
+    return refined
 
 
 def pick_boundaries(

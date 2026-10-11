@@ -27,6 +27,7 @@ from tras.cores.detect import CoreParams
 from tras.cores.detect import detect_core_rings
 from tras.evaluation.datasets import AnnotatedPath
 from tras.evaluation.datasets import AnnotatedSection
+from tras.evaluation.path import match_boundaries
 from tras.evaluation.path import score_boundaries
 
 DEFAULT_TOLERANCE_PX = 4.0
@@ -43,6 +44,7 @@ class CaseResult:
     mae_px: float
     orientation_ok: bool
     ring_count_error: int  # detected − true
+    width_errors: tuple[float, ...] = ()  # |Δwidth| / true width, matched consecutive rings
 
 
 @dataclass(frozen=True)
@@ -54,11 +56,12 @@ class BenchmarkSummary:
     mae_px: float
     orientation_accuracy: float
     mean_abs_ring_count_error: float
+    width_mdape: float  # median absolute % error of matched ring widths
 
     def format(self) -> str:
         return (
             f"cases={self.cases}  P={self.precision:.3f}  R={self.recall:.3f}  "
-            f"F1={self.f1:.3f}  MAE={self.mae_px:.2f}px  "
+            f"F1={self.f1:.3f}  MAE={self.mae_px:.2f}px  width-MdAPE={self.width_mdape:.1%}  "
             f"orientation={self.orientation_accuracy:.1%}  "
             f"|Δrings|={self.mean_abs_ring_count_error:.2f}"
         )
@@ -93,6 +96,7 @@ def evaluate_path(
     given = detect_core_rings(image, case.path_xy, dataclasses.replace(params, pith_side="start"))
     detected = [b.s for b in given.boundaries]
     score = score_boundaries(detected, list(case.boundaries_px), tolerance_px)
+    pairs = dict(match_boundaries(detected, list(case.boundaries_px), tolerance_px))
 
     auto = detect_core_rings(image, case.path_xy, dataclasses.replace(params, pith_side="auto"))
     orientation_ok = bool(np.allclose(auto.path.xy[0], given.path.xy[0]))
@@ -104,7 +108,22 @@ def evaluate_path(
         mae_px=score.mae,
         orientation_ok=orientation_ok,
         ring_count_error=len(detected) - len(case.boundaries_px),
+        width_errors=_width_errors(given.widths_px, pairs, case.boundaries_px),
     )
+
+
+def _width_errors(
+    widths_px: np.ndarray, pairs: dict[int, int], truth: tuple[float, ...]
+) -> tuple[float, ...]:
+    """Relative width error for rings whose both boundaries matched consecutive truths."""
+    errors = []
+    for k, width in enumerate(widths_px):
+        inner, outer = pairs.get(k), pairs.get(k + 1)
+        if inner is not None and outer == inner + 1:
+            true_width = truth[outer] - truth[inner]
+            if true_width > 0:
+                errors.append(abs(width - true_width) / true_width)
+    return tuple(errors)
 
 
 def summarize(results: Iterable[CaseResult]) -> BenchmarkSummary:
@@ -125,6 +144,7 @@ def summarize(results: Iterable[CaseResult]) -> BenchmarkSummary:
         mae_px=sum(weighted_mae) / tp if tp else float("nan"),
         orientation_accuracy=float(np.mean([r.orientation_ok for r in rows])) if rows else 0.0,
         mean_abs_ring_count_error=float(np.mean([abs(r.ring_count_error) for r in rows])) if rows else 0.0,
+        width_mdape=float(np.median([e for r in rows for e in r.width_errors])) if any(r.width_errors for r in rows) else float("nan"),
     )
 
 
