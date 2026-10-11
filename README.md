@@ -8,12 +8,13 @@
 
 **Open-source dendrochronology software for automatic tree ring detection and measurement**
 
-*Accepted as a Software Article at Forestry: An International Journal of Forest Research*
+*Published in [Forestry: An International Journal of Forest Research](https://doi.org/10.1093/forestry/cpag046) 99(4), cpag046 (2026)*
 
 [![Release](https://img.shields.io/github/v/release/hmarichal93/tras?color=green&label=Release)](https://github.com/hmarichal93/tras/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/hmarichal93/tras/total?color=blue&label=Downloads)](https://github.com/hmarichal93/tras/releases)
 [![License](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue)](https://www.python.org)
+[![DOI](https://img.shields.io/badge/DOI-10.1093%2Fforestry%2Fcpag046-blue)](https://doi.org/10.1093/forestry/cpag046)
 [![arXiv](https://img.shields.io/badge/arXiv-2605.08025-b31b1b.svg)](https://arxiv.org/abs/2605.08025)
 
 [Overview](#-overview) • [Features](#-key-features) • [Installation](#-installation) • [Quick Start](#-quick-start) • [Increment Cores](#-increment-cores) • [Accuracy](#-accuracy) • [Workflow](#-workflow) • [Citations](#-citations)
@@ -285,8 +286,8 @@ Full guide: **[docs/cores.md](docs/cores.md)**.
 
 ## 🎯 Accuracy
 
-Measured with `tras_benchmark` on held-out annotated data; full protocol, datasets and caveats in
-**[docs/benchmarks.md](docs/benchmarks.md)**.
+Measured with `tras_benchmark` on annotated data held out from parameter tuning. Full protocol,
+datasets and caveats: **[docs/benchmarks.md](docs/benchmarks.md)**.
 
 | Task | Data | Precision | Recall | F1 |
 |------|------|-----------|--------|----|
@@ -297,9 +298,14 @@ Measured with `tras_benchmark` on held-out annotated data; full protocol, datase
 
 Core ring widths differ from the CooRecorder expert by a median of 3.3 %.
 
-The TRAS article ([arXiv:2605.08025](https://arxiv.org/abs/2605.08025)) reports DeepCS-TRD F = 81.0 % on
-a different set (18 *P. taeda* discs, automatic pith, stricter matching rule); it is a separate
-result, not comparable with this table. Why the numbers differ:
+The released DeepCS-TRD weights were trained on the DeepCS-TRD train/validation discs, not
+its test set. Our UruDendro test split is a different partition, so some of its discs may be
+in that training data and the deep-model UruDendro rows may be optimistic. The CooRecorder
+radii are the independent check ([caveats](docs/benchmarks.md#datasets)).
+
+The TRAS article ([Marichal et al. 2026, *Forestry*](https://doi.org/10.1093/forestry/cpag046))
+reports DeepCS-TRD F = 81.0 % on a different set (18 *P. taeda* discs, automatic pith,
+stricter matching rule); it is a separate result, not comparable with this table. Why the numbers differ:
 [docs/benchmarks.md](docs/benchmarks.md#tras-article-results-and-why-they-differ).
 
 ---
@@ -370,20 +376,21 @@ repository" button).
 
 **Cite TRAS**
 ```bibtex
-@misc{marichal2026tras,
-  author        = {Marichal, Henry and Passarella, Diego and Randall, Gregory},
-  title         = {{TRAS}: An Interactive Software for Tracing Tree Ring Cross Sections},
-  year          = {2026},
-  eprint        = {2605.08025},
-  archivePrefix = {arXiv},
-  primaryClass  = {cs.CV},
-  doi           = {10.48550/arXiv.2605.08025},
-  url           = {https://arxiv.org/abs/2605.08025},
-  note          = {Accepted as a Software Article at Forestry: An International Journal of Forest Research}
+@article{marichal2026tras,
+  author  = {Marichal, Henry and Passarella, Diego and Randall, Gregory},
+  title   = {{TRAS}: an interactive software for tracing tree ring cross sections},
+  journal = {Forestry: An International Journal of Forest Research},
+  volume  = {99},
+  number  = {4},
+  pages   = {cpag046},
+  year    = {2026},
+  doi     = {10.1093/forestry/cpag046},
+  url     = {https://doi.org/10.1093/forestry/cpag046}
 }
 ```
 
-When the Forestry version of record is online, cite it instead (its DOI will be added here).
+The preprint is [arXiv:2605.08025](https://arxiv.org/abs/2605.08025); cite the journal
+version above.
 
 <details>
 <summary><b>📖 BibTeX entries for the methods, dataset and tools</b></summary>

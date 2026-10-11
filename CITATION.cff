@@ -19,21 +19,40 @@ keywords:
   - increment cores
 preferred-citation:
   type: article
-  title: "TRAS: An Interactive Software for Tracing Tree Ring Cross Sections"
+  title: "TRAS: an interactive software for tracing tree ring cross sections"
   authors:
     - family-names: Marichal
       given-names: Henry
+      orcid: "https://orcid.org/0009-0007-8302-4807"
     - family-names: Passarella
       given-names: Diego
     - family-names: Randall
       given-names: Gregory
+  journal: "Forestry: An International Journal of Forest Research"
+  volume: 99
+  issue: 4
+  number: cpag046
   year: 2026
-  month: 5
-  journal: "arXiv preprint"
-  identifiers:
-    - type: other
-      value: "arXiv:2605.08025"
-    - type: doi
-      value: "10.48550/arXiv.2605.08025"
-  url: "https://arxiv.org/abs/2605.08025"
-  notes: "Accepted as a Software Article at Forestry: An International Journal of Forest Research. Cite the journal version of record once its DOI is available."
+  doi: "10.1093/forestry/cpag046"
+  url: "https://doi.org/10.1093/forestry/cpag046"
+  notes: "Version of record, published online 2026-07-09. Preprint: arXiv:2605.08025."
+references:
+  - type: article
+    title: "TRAS: An Interactive Software for Tracing Tree Ring Cross Sections"
+    authors:
+      - family-names: Marichal
+        given-names: Henry
+      - family-names: Passarella
+        given-names: Diego
+      - family-names: Randall
+        given-names: Gregory
+    year: 2026
+    month: 5
+    journal: "arXiv preprint"
+    identifiers:
+      - type: other
+        value: "arXiv:2605.08025"
+      - type: doi
+        value: "10.48550/arXiv.2605.08025"
+    url: "https://arxiv.org/abs/2605.08025"
+    notes: "Preprint of the Forestry article (doi:10.1093/forestry/cpag046)."

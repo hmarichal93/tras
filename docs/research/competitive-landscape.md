@@ -13,13 +13,14 @@ Every row links its source. *(unverified)* marks facts from secondary sources or
 - **To be "best", TRAS must match the incumbents' lab workflow, not only out-detect them.** That
   means crossdating in the GUI, earlywood/latewood widths, Heidelberg export, pith offset for
   cores, blue intensity, and installing without a terminal.
-- **Our docs say no public core dataset with ring annotations exists. That is wrong.** Two
-  CC BY 4.0 core datasets exist ([Poláček 2023](https://zenodo.org/records/7981462),
-  [Zambrano-Suárez 2026](https://zenodo.org/records/22915111)). TRAS can be benchmarked on
-  them now.
+- **Two CC BY 4.0 core datasets with ring annotations are public**
+  ([Poláček 2023](https://zenodo.org/records/7981462),
+  [Zambrano-Suárez 2026](https://zenodo.org/records/22915111)). TRAS lists them as related
+  work and does not benchmark on them (PI decision 2026-10-11: TRAS is a GUI product, not a
+  new algorithm). Our docs used to say no such dataset exists; fixed in T11.
 - **The TRAS paper is published** in *Forestry* 99(4), cpag046,
   [doi:10.1093/forestry/cpag046](https://doi.org/10.1093/forestry/cpag046), online
-  2026-07-09. `CITATION.cff` and the README still point to arXiv.
+  2026-07-09. `CITATION.cff` and the README cite it since T11.
 
 ## What "best on the market" has to mean
 
@@ -131,12 +132,12 @@ protocol. Read "Comparing TRAS numbers" before quoting any of them next to ours.
 |---|---|---|---|
 | `tras_benchmark` CS-TRD F1 0.904, UruDendro test split (32 discs), ≥ 60 % of 360 rays | CS-TRD F 0.89–0.91, all 64 UruDendro discs, ≥ 60 % of nodes | **Roughly.** Same data source and threshold | Half the discs; rays instead of chain nodes. A good sanity check, not a claim |
 | `tras_benchmark` DeepCS-TRD F1 0.947 (same split) | TRAS paper F 0.810, 18 discs | **No** | The paper needs ≥ 90 % of nodes in the zone, we need ≥ 60 %. Other images, APD pith vs ground-truth pith |
-| Same F1 0.947 | DeepCS-TRD mAR 0.884; UruDendro4 mAR 0.782 | **No** | Region IoU vs boundary zone. DeepCS-TRD's 117 training discs = UruDendro 64 + UruDendro2 53, so the generic weights probably saw our test discs |
+| Same F1 0.947 | DeepCS-TRD mAR 0.884; UruDendro4 mAR 0.782 | **No** | Region IoU vs boundary zone. The released generic weights were trained on the DeepCS-TRD train/validation discs only, not its test set (H. Marichal, 2026-10-11). Our even/odd split is a different partition, so some of our test discs may be in that training data |
 | Core F1 0.929 (6 px, 16 radii) | Poláček P 0.948–0.969, R 0.987 | **No** | Count-based against dated series vs position-matched; spruce vs pine; 34 cores vs 16 radii |
 
 **Do not write "TRAS beats Poláček" or "DeepCS-TRD reaches 95 %" anywhere without these
-qualifiers.** The fair head-to-head is to run the TRAS core detector on the Poláček and
-Zambrano-Suárez data (recommendation 2).
+qualifiers.** A fair head-to-head would need the TRAS core detector run on the Poláček and
+Zambrano-Suárez data (recommendation 2, declined by the PI on 2026-10-11).
 
 ## Gap analysis: what users expect versus what TRAS has
 
@@ -177,14 +178,14 @@ Ranked by user value divided by effort. Effort: S = days, M = 1–3 weeks, L = m
 | # | Recommendation | Value | Effort | Evidence |
 |---|---|---|---|---|
 | 1 | **Fix the record**: cite the *Forestry* version of record in `CITATION.cff` and README; settle the licence (paper says MIT, repo is GPL-3.0); correct the "no public core dataset" claim in `benchmarks.md` and `core-detection-sota.md` | Credibility with reviewers and users | S | [OUP page](https://academic.oup.com/forestry/article-abstract/99/4/cpag046/8729338); [paper §3.1, "MIT license"](https://arxiv.org/abs/2605.08025); repo `LICENSE`; Zenodo [7981462](https://zenodo.org/records/7981462), [22915111](https://zenodo.org/records/22915111) |
-| 2 | **Benchmark the core detector on the two public core datasets** (Zambrano-Suárez masks → boundary positions; Poláček patches and dated measurement tables). Add them to `tras_benchmark` | First public, comparable core numbers; a fair test against Mask R-CNN | M | Both CC BY 4.0; no competitor GUI reports core accuracy |
+| 2 | *Declined by the PI 2026-10-11 (TRAS is a GUI product, not a new algorithm).* **Benchmark the core detector on the two public core datasets** (Zambrano-Suárez masks → boundary positions; Poláček patches and dated measurement tables). Add them to `tras_benchmark` | First public, comparable core numbers; a fair test against Mask R-CNN | M | Both CC BY 4.0; no competitor GUI reports core accuracy |
 | 3 | **Windows installer with no terminal** (T9) | Unblocks the target user | M | CooRecorder installs from an `.exe`; README requires Anaconda Prompt |
 | 4 | **Crossdating in the GUI and CLI** (T3), reusing `tras/analysis/dating.py` | Dated, checked series inside TRAS; removes the trip to CDendro | M | CDendro, TSAP-Win, Fritts and xDateR all offer it |
 | 5 | **Heidelberg `.fh` reader and writer** in `tras/io/` | European labs can import TRAS output directly | S | `.fh` is the native format of [TSAP-Win](https://rinntech.info/products/tsap-win/) and [LignoVision](https://rinntech.info/products/lignovision/) |
 | 6 | **EW/LW boundaries and widths**: port the CS-TRD [`early_late_wood` branch](https://github.com/hmarichal93/cstrd/tree/early_late_wood); add EW/LW to cores (`#W#` points in `.pos`) and to the `.rwl` export (separate EW and LW files, as dplR expects) | Climate studies need EW/LW; makes the paper's claim true in code | M | CooRecorder, WinDENDRO, xRing all provide it; the [paper](https://doi.org/10.1093/forestry/cpag046) claims EW/LW areas |
 | 7 | **User manual for novices** (T8) | Adoption without help | M | Competitors ship help pages; ours has screenshots only |
 | 8 | **Core-lab completeness**: incomplete bark ring (T5), missing rings and cracks (T6), pith-offset estimate (distance and years to pith) | Correct dating and age estimates on real cores | M | CooRecorder [pith help](https://www.cdendro.se/forfun/dendro/helpcoorecorder7/distanceToPith/index.htm); modendro `yrs_to_pith` |
-| 9 | **Report the cross-section benchmark also under the paper's 90 % rule and on UruDendro4** (mAR/ARAND too), and state the DeepCS-TRD training overlap | One table reviewers can check against our own papers | S | `tras/evaluation/cross_section.py` uses 0.6; the paper uses 0.9; DeepCS-TRD trained on 117 = 64 + 53 UruDendro discs |
+| 9 | **Report the cross-section benchmark also under the paper's 90 % rule and on UruDendro4** (mAR/ARAND too), and state the DeepCS-TRD training overlap | One table reviewers can check against our own papers | S | `tras/evaluation/cross_section.py` uses 0.6; the paper uses 0.9; DeepCS-TRD weights trained on its train/val split, a different partition from ours (stated in `docs/benchmarks.md` since T11) |
 | 10 | **Blue intensity along core paths** (mean of the darkest latewood pixels, CooRecorder-style settings), after a domain review | Matches the reference BI tool for free | L | [CooRecorder BI](https://www.cdendro.se/forfun/dendro/helpcoorecorder7/bluechannel80/index.htm); [Rydval 2014](https://doi.org/10.1016/j.dendro.2014.04.003) |
 
 Not recommended now: chronology building (dplR does it well), anatomy (ROXAS/WinCELL serve
@@ -194,20 +195,21 @@ another community), TRiDaS.
 
 | Statement | Where | Status | Source |
 |---|---|---|---|
-| "No public increment-core dataset with ring annotations exists (2026-10)" | `docs/benchmarks.md`, `docs/research/core-detection-sota.md` | **Wrong** | [Zenodo 7981462](https://zenodo.org/records/7981462), [22915111](https://zenodo.org/records/22915111) |
-| Paper cited as arXiv only, "accepted" | `CITATION.cff`, `README.md` | **Out of date**: published 2026-07-09 | [doi:10.1093/forestry/cpag046](https://doi.org/10.1093/forestry/cpag046) |
+| "No public increment-core dataset with ring annotations exists (2026-10)" | `docs/benchmarks.md`, `docs/research/core-detection-sota.md` | **Fixed** (T11) | [Zenodo 7981462](https://zenodo.org/records/7981462), [22915111](https://zenodo.org/records/22915111) |
+| Paper cited as arXiv only, "accepted" | `CITATION.cff`, `README.md` | **Fixed** (T11): published 2026-07-09 | [doi:10.1093/forestry/cpag046](https://doi.org/10.1093/forestry/cpag046) |
 | "Open source under the MIT license" | *Forestry* paper §3.1 | **Conflicts** with GPL-3.0 `LICENSE` | [arXiv v2](https://arxiv.org/abs/2605.08025) |
 | TRAS computes EW and LW areas | *Forestry* paper abstract, §4.3 | **Not in the code** on this branch or `main` | `git grep` 2026-10-11 |
-| "Zambrano-Suárez et al. 2025, PLOS ONE"; "Zenodo access restricted" | `core-detection-sota.md` | **Fix**: published 2026-06-18; data open since 2026-09-23 | [PLOS ONE](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0321841), [Zenodo](https://zenodo.org/records/22915111) |
-| Poláček "P 0.95–0.97, R 0.99"; "data not released" | `core-detection-sota.md` | Numbers fine (R 0.987); **data is released** (CC BY 4.0) | [Zenodo 7981462](https://zenodo.org/records/7981462) |
+| "Zambrano-Suárez et al. 2025, PLOS ONE"; "Zenodo access restricted" | `core-detection-sota.md` | **Fixed** (T11): published 2026-06-18; data open since 2026-09-23 | [PLOS ONE](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0321841), [Zenodo](https://zenodo.org/records/22915111) |
+| Poláček "P 0.95–0.97, R 0.99"; "data not released" | `core-detection-sota.md` | Numbers fine (R 0.987); **data is released** (CC BY 4.0); **fixed** (T11) | [Zenodo 7981462](https://zenodo.org/records/7981462) |
 
 ## Open questions for the authors
 
 1. Licence: is TRAS GPL-3.0 (repo) or MIT (paper)? Should the paper get an erratum, or the repo
    change licence? The vendored code also mixes licences (INBD MPL-2.0, CS-TRD MIT, and an AGPL
    notice in the `cstrd` `early_late_wood` README).
-2. Were the released DeepCS-TRD generic weights trained on all 64 UruDendro discs, or only on a
-   training split? This decides whether our UruDendro test numbers are optimistic.
+2. *Answered 2026-10-11 (H. Marichal):* the released DeepCS-TRD generic weights were trained on
+   the DeepCS-TRD train/validation split only. Follow-up: which discs are in that split? With the
+   list, the UruDendro benchmark could report only discs the weights never saw.
 3. Which code produced the EW/LW areas in the paper (Figures 5 and 7)? Can it be merged?
 4. Is the Kennel *Abies alba* dataset public?
 5. Do the Poláček real-world cores include per-ring coordinates (`.pos`)? If not, use ring

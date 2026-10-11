@@ -9,7 +9,9 @@ Every number below is reproducible with `tras_benchmark` (commands at the end).
   core detector finds boundaries with **precision 0.97, recall 0.90 (F1 0.93)**. Its
   boundaries are within **1.4 px** of the expert's clicks, and ring widths differ by a
   median **3.3 %**.
-- **Cross-sections:** DeepCS-TRD reaches **F1 0.947** on held-out UruDendro discs.
+- **Cross-sections:** DeepCS-TRD reaches **F1 0.947** on the UruDendro test split. Its
+  weights were trained on a different partition of UruDendro, so some test discs may have been
+  in their training data; read this as a regression check (see the caveat below).
 
 ## Datasets
 
@@ -20,16 +22,27 @@ Every number below is reproducible with `tras_benchmark` (commands at the end).
 | UruDendro test split | 32 discs (odd index) | Reported numbers |
 | CooRecorder paths | 4 *Pinus* discs × 4 radii (N/E/S/W), measured by an expert in CooRecorder 9.8 | Real-world core test; never used for tuning |
 
-**Virtual cores.** No public increment-core dataset with ring annotations exists
-(2026-10; see [research notes](research/core-detection-sota.md)). A virtual core is the
-straight path from the pith to past the bark along one ray of an annotated disc. The
-ground truth is where the annotated rings cross that ray. Each disc gives 8 cores (every 45°).
+**Virtual cores.** A virtual core is the straight path from the pith to past the bark along
+one ray of an annotated disc. The ground truth is where the annotated rings cross that ray.
+Each disc gives 8 cores (every 45°).
 
-> **Caveat:** the DeepCS-TRD "generic" weights were trained on UruDendro: the DeepCS-TRD
-> paper uses 60 % of the samples for training and 20 % for validation
-> ([arXiv:2504.16242](https://arxiv.org/abs/2504.16242), §3). Our odd-index test split was
-> not held out from that training, so deep-model numbers on UruDendro may be optimistic; the
-> CooRecorder set is the independent check.
+**Public core datasets.** Two increment-core datasets with ring annotations are public
+under CC BY 4.0. TRAS is not benchmarked on them; they are listed as related work (details in
+the [competitive landscape](research/competitive-landscape.md)).
+
+| Dataset | Content | Licence |
+|---------|---------|---------|
+| Poláček et al. 2023, "Automation of tree-ring detection and measurements using deep learning" ([Zenodo 7981462](https://zenodo.org/records/7981462)) | *Picea abies* core patches with hand-annotated boundaries; full cores of 4 conifers with measurement tables | CC BY 4.0 |
+| Zambrano-Suárez et al. 2026, "Tree ring segmentation performance in highly disturbed trees using deep learning" ([Zenodo 22915111](https://zenodo.org/records/22915111)) | *Pinus sylvestris* cores with binary ring masks | CC BY 4.0 |
+
+> **Caveat (training overlap):** the DeepCS-TRD "generic" weights that TRAS ships
+> (`0_all_1504.pth`) were trained only on the DeepCS-TRD training and validation discs, not
+> on its test set (H. Marichal, author, 2026-10-11). The DeepCS-TRD paper splits each dataset
+> 60 % train, 20 % validation, 20 % test
+> ([arXiv:2504.16242](https://arxiv.org/abs/2504.16242), §3.2). Our even/odd tune/test split
+> is a different partition, so some of our test discs may be in DeepCS-TRD's train/validation
+> set. Deep-model numbers on UruDendro (cross-sections and virtual cores) may therefore be
+> optimistic. The CooRecorder set is the independent check.
 
 ## Increment cores
 
@@ -97,8 +110,8 @@ and recall pool the true/false positives of all discs (micro-average).
 
 ## TRAS article results and why they differ
 
-The TRAS article ([Marichal et al. 2026, arXiv:2605.08025](https://arxiv.org/abs/2605.08025),
-§3.1) reports, for fully automatic detection with no user correction:
+The TRAS article ([Marichal et al. 2026, *Forestry* 99(4) cpag046](https://doi.org/10.1093/forestry/cpag046);
+§3.1 of the [arXiv preprint](https://arxiv.org/abs/2605.08025)) reports, for fully automatic detection with no user correction:
 
 | Method | Precision | Recall | F | Data |
 |--------|-----------|--------|---|------|
@@ -120,7 +133,7 @@ cross-section table above**: the protocols differ on every axis that moves the s
 | Matching rule | ≥ 90 % of a detection's nodes in the ring's influence zone | ≥ 60 % of 360 rays | 90 % is stricter, so lower F |
 | Preprocessing | Resize factor 2, automatic background removal, web interface | Benchmark defaults | Unknown |
 | Averaging | Mean of per-disc scores | Pooled over all rings | Small |
-| Training overlap | Models trained on UruDendro; overlap with the 18 discs not stated | Weights likely saw most test discs (see caveat above) | Our F1 may be optimistic |
+| Training overlap | Models trained on UruDendro; overlap with the 18 discs not stated | Weights trained on DeepCS-TRD train/val; some of our test discs may be in it (see caveat above) | Our F1 may be optimistic |
 
 The article's F = 81.0 % is closer to what a user gets out of the box on new images with
 automatic pith. The F1 0.947 here is a regression check: it tells whether a code

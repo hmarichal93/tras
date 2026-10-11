@@ -8,11 +8,14 @@ and real files, not from vendor documentation.
 
 - CooRecorder `.pos` files list ring boundaries from **bark to pith**, in millimetres.
   TRAS writes one *double point* per boundary so each width is an exact perpendicular segment.
-- No public increment-core dataset with ring annotations exists (2026-10). TRAS benchmarks its
-  core detector on *virtual cores*: radial strips cut from annotated cross-sections.
+- Two public increment-core datasets with ring annotations exist, both CC BY 4.0:
+  [Poláček et al. 2023](https://zenodo.org/records/7981462) and
+  [Zambrano-Suárez et al. 2026](https://zenodo.org/records/22915111). TRAS benchmarks its core
+  detector on *virtual cores* (radial strips cut from annotated cross-sections) and 16
+  CooRecorder radii; it is not benchmarked on the two public datasets.
 - The highest reported core-detection scores come from a Mask R-CNN (Poláček et al. 2023):
-  recall > 0.98 and precision 0.96 on microscope-imaged Norway spruce cores. These are on the
-  authors' own data, not a shared benchmark, so they rank nothing. (A "cracks caused 27 % of
+  recall > 0.98 and precision 0.96 on Norway spruce cores. They use the authors' own protocol
+  (ring counts against dated series) on different data, so they do not rank against TRAS. (A "cracks caused 27 % of
   misses" figure in earlier versions of this note is *unverified*.)
 
 ## CooRecorder `.pos` format
@@ -72,8 +75,8 @@ Sources: [NOAA treeinfo.txt](https://www.ncei.noaa.gov/pub/data/paleo/treering/t
 
 | Method | Approach | Reported accuracy | Code / data |
 |--------|----------|-------------------|-------------|
-| [Poláček et al. 2023, MEE](https://doi.org/10.1111/2041-210X.14183) ([code](https://github.com/Gregor-Mendel-Institute/TRG-ImageProcessing)) | Mask R-CNN on sliding windows; width = min distance between ring centrelines | P 0.96, R > 0.98 on real-world spruce cores (abstract) | Code + weights MIT; data not released |
-| [Zambrano-Suárez et al. 2025, PLOS ONE](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0321841) | U-Net variants (VGG16 FTU-Net) | Dice ≈ 0.77; poor below 200 µm rings | Zenodo access restricted |
+| [Poláček et al. 2023, MEE](https://doi.org/10.1111/2041-210X.14183) ([code](https://github.com/Gregor-Mendel-Institute/TRG-ImageProcessing)) | Mask R-CNN on sliding windows; width = min distance between ring centrelines | P 0.96, R > 0.98 on real-world spruce cores (abstract) | Code + weights MIT; data CC BY 4.0 ([Zenodo 7981462](https://zenodo.org/records/7981462)) |
+| [Zambrano-Suárez et al. 2026, PLOS ONE 21(6) e0321841](https://doi.org/10.1371/journal.pone.0321841) | U-Net variants (VGG16 FTU-Net) | Dice ≈ 0.77; poor below 200 µm rings | Data CC BY 4.0, open since 2026-09-23 ([Zenodo 22915111](https://zenodo.org/records/22915111)) |
 | DeepDendro (Fabijańska & Danek 2018) | U-Net boundary map, ring-porous species | P 0.97 / R 0.96 | Not released |
 | [MtreeRing](https://github.com/ropensci/MtreeRing) | Morphology + watershed/Canny along a path; two-path tilt correction | — | GPL-3 |
 | CooRecorder [AutoPlace](https://www.cdendro.se/forfun/dendro/helpcoorecorder7/autoplace/index.htm) | Intensity pattern along a user path band; "lowest earlywood width" suppresses false borders | — | Proprietary |
