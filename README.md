@@ -6,7 +6,7 @@
   <img src="assets/tras-logo.png" alt="TRAS Logo" width="200"/>
 </p>
 
-**Professional dendrochronology software for automatic tree ring detection and measurement**
+**Open-source dendrochronology software for automatic tree ring detection and measurement**
 
 *Accepted as a Software Article at Forestry: An International Journal of Forest Research*
 
@@ -24,7 +24,7 @@
 
 ## 🎯 Overview
 
-TRAS integrates **state-of-the-art computer vision** and **deep learning** methods for dendrochronology research. Automatically detect tree rings on **wood cross-sections** and **increment cores**, measure ring widths, check the dating, and export data in standard formats (CooRecorder `.pos`, Tucson `.rwl`, CSV, PDF) — through a graphical interface, a Python API, or command-line tools for batch jobs.
+TRAS integrates published **computer vision** and **deep learning** methods (APD, CS-TRD, DeepCS-TRD, INBD; see [Citations](#-citations)) for dendrochronology research. Automatically detect tree rings on **wood cross-sections** and **increment cores**, measure ring widths, check the dating, and export data in standard formats (CooRecorder `.pos`, Tucson `.rwl`, CSV, PDF) — through a graphical interface, a Python API, or command-line tools for batch jobs.
 
 <p align="center">
   <img src="assets/screenshot-main.png" alt="TRAS Main Interface" width="800"/>
@@ -97,14 +97,14 @@ TRAS integrates **state-of-the-art computer vision** and **deep learning** metho
 </tr>
 </table>
 
-### 📄 Professional PDF Reports
+### 📄 PDF Reports
 
 Generate comprehensive reports with a single click:
 
 - Sample metadata and summary statistics
 - Ring overlay with detected boundaries
 - Multi-panel analysis plots (area, growth rate, radial width)
-- Ready for publication or archival
+- One file per sample for sharing or archiving
 
 <p align="center">
 <table>
@@ -297,6 +297,11 @@ Measured with `tras_benchmark` on held-out annotated data; full protocol, datase
 
 Core ring widths differ from the CooRecorder expert by a median of 3.3 %.
 
+The TRAS article ([arXiv:2605.08025](https://arxiv.org/abs/2605.08025)) reports DeepCS-TRD F = 81.0 % on
+a different set (18 *P. taeda* discs, automatic pith, stricter matching rule); it is a separate
+result, not comparable with this table. Why the numbers differ:
+[docs/benchmarks.md](docs/benchmarks.md#tras-article-results-and-why-they-differ).
+
 ---
 
 ## 📖 Workflow
@@ -359,14 +364,33 @@ See [`pyproject.toml`](pyproject.toml) for the complete dependency list.
 
 ## 📚 Citations
 
-If you use TRAS in your research, please cite the relevant papers below.
+If you use TRAS in your research, please cite the TRAS article and the papers of the methods
+you used. The same metadata is in [`CITATION.cff`](CITATION.cff) (GitHub's "Cite this
+repository" button).
+
+**Cite TRAS**
+```bibtex
+@misc{marichal2026tras,
+  author        = {Marichal, Henry and Passarella, Diego and Randall, Gregory},
+  title         = {{TRAS}: An Interactive Software for Tracing Tree Ring Cross Sections},
+  year          = {2026},
+  eprint        = {2605.08025},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CV},
+  doi           = {10.48550/arXiv.2605.08025},
+  url           = {https://arxiv.org/abs/2605.08025},
+  note          = {Accepted as a Software Article at Forestry: An International Journal of Forest Research}
+}
+```
+
+When the Forestry version of record is online, cite it instead (its DOI will be added here).
 
 <details>
-<summary><b>📖 BibTeX entries</b></summary>
+<summary><b>📖 BibTeX entries for the methods, dataset and tools</b></summary>
 
 <br/>
 
-**UruDendro**
+**UruDendro** (dataset used for benchmarks and model training)
 ```bibtex
 @article{UruDendro,
   author    = {Henry Marichal and Diego Passarella and Christine Lucas and Ludmila Profumo and Verónica Casaravilla and María Noel Rocha Galli and Serrana Ambite and Gregory Randall},
@@ -385,52 +409,96 @@ If you use TRAS in your research, please cite the relevant papers below.
 **APD — Automatic Pith Detection**
 ```bibtex
 @inproceedings{apd,
-  isbn = {978-3-031-78447-7},
-  year = {2025},
-  pages = {1--15},
-  title = {Automatic Wood Pith Detector: Local Orientation Estimation and Robust Accumulation},
-  author = {Marichal, Henry and Passarella, Diego and Randall, Gregory},
-  booktitle = {International Conference on Pattern Recognition (ICPR)}
+  author        = {Marichal, Henry and Passarella, Diego and Randall, Gregory},
+  title         = {Automatic Wood Pith Detector: Local Orientation Estimation and Robust Accumulation},
+  booktitle     = {Pattern Recognition (International Conference on Pattern Recognition, ICPR)},
+  series        = {Lecture Notes in Computer Science},
+  publisher     = {Springer Nature Switzerland},
+  address       = {Cham},
+  pages         = {1--15},
+  year          = {2025},
+  isbn          = {978-3-031-78447-7},
+  doi           = {10.1007/978-3-031-78447-7_1},
+  eprint        = {2404.01952},
+  archivePrefix = {arXiv}
 }
 ```
 
 **CS-TRD — Cross-Section Tree Ring Detection**
 ```bibtex
 @article{ipol.2025.485,
-    title   = {{CS-TRD: a Cross-Section Tree Ring Detection Method}},
-    author  = {Marichal, Henry and Passarella, Diego and Randall, Gregory},
-    journal = {{Image Processing On Line}},
-    volume  = {15},
-    pages   = {78--107},
-    year    = {2025},
-    note    = {\url{https://doi.org/10.5201/ipol.2025.485}}
+  author  = {Marichal, Henry and Passarella, Diego and Randall, Gregory},
+  title   = {{CS-TRD}: a Cross-Section Tree Ring Detection Method},
+  journal = {Image Processing On Line},
+  volume  = {15},
+  pages   = {78--107},
+  year    = {2025},
+  doi     = {10.5201/ipol.2025.485},
+  url     = {https://doi.org/10.5201/ipol.2025.485}
 }
 ```
 
 **DeepCS-TRD — Deep Learning Tree Ring Detection**
 ```bibtex
-@InProceedings{10.1007/978-3-032-10185-3_3,
-author="Marichal, Henry
-and Casaravilla, Ver{\'o}nica
-and Power, Candice
-and Mello, Karolain
-and Mazarino, Joaqu{\'i}n
-and Lucas, Christine
-and Profumo, Ludmila
-and Passarella, Diego
-and Randall, Gregory",
-editor="Rodol{\`a}, Emanuele
-and Galasso, Fabio
-and Masi, Iacopo",
-title="DeepCS-TRD, a Deep Learning-Based Cross-Section Tree Ring Detector",
-booktitle="Image Analysis and Processing -- ICIAP 2025",
-year="2026",
-publisher="Springer Nature Switzerland",
-address="Cham",
-pages="29--41",
-isbn="978-3-032-10185-3"
+@inproceedings{deepcstrd,
+  author        = {Marichal, Henry and Casaravilla, Ver{\'o}nica and Power, Candice and Mello, Karolain and Mazarino, Joaqu{\'i}n and Lucas, Christine and Profumo, Ludmila and Passarella, Diego and Randall, Gregory},
+  editor        = {Rodol{\`a}, Emanuele and Galasso, Fabio and Masi, Iacopo},
+  title         = {{DeepCS-TRD}, a Deep Learning-Based Cross-Section Tree Ring Detector},
+  booktitle     = {Image Analysis and Processing -- ICIAP 2025},
+  series        = {Lecture Notes in Computer Science},
+  publisher     = {Springer Nature Switzerland},
+  address       = {Cham},
+  pages         = {29--41},
+  year          = {2026},
+  isbn          = {978-3-032-10185-3},
+  doi           = {10.1007/978-3-032-10185-3_3},
+  eprint        = {2504.16242},
+  archivePrefix = {arXiv}
 }
 ```
+
+**INBD — Iterative Next Boundary Detection**
+```bibtex
+@inproceedings{Gillert_2023_CVPR,
+  author    = {Gillert, Alexander and Resente, Giulia and Anadon-Rosell, Alba and Wilmking, Martin and von Lukas, Uwe Freiherr},
+  title     = {Iterative Next Boundary Detection for Instance Segmentation of Tree Rings in Microscopy Images of Shrub Cross Sections},
+  booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  month     = {June},
+  year      = {2023},
+  pages     = {14540--14548},
+  doi       = {10.1109/CVPR52729.2023.01397}
+}
+```
+
+**U²-Net — background removal** (Preprocess Image → Remove background)
+```bibtex
+@article{qin2020u2net,
+  author  = {Qin, Xuebin and Zhang, Zichen and Huang, Chenyang and Dehghan, Masood and Zaiane, Osmar R. and Jagersand, Martin},
+  title   = {{U}$^2$-{Net}: Going deeper with nested {U}-structure for salient object detection},
+  journal = {Pattern Recognition},
+  volume  = {106},
+  pages   = {107404},
+  year    = {2020},
+  doi     = {10.1016/j.patcog.2020.107404}
+}
+```
+
+**CooRecorder** (`.pos` format; the expert reference in the core benchmark)
+```bibtex
+@article{maxwell2021coorecorder,
+  author  = {Maxwell, R. Stockton and Larsson, Lars-{\AA}ke},
+  title   = {Measuring tree-ring widths using the {CooRecorder} software application},
+  journal = {Dendrochronologia},
+  volume  = {67},
+  pages   = {125841},
+  year    = {2021},
+  doi     = {10.1016/j.dendro.2021.125841}
+}
+```
+
+Crossdating statistics (COFECHA-style segments, Gleichläufigkeit) follow Holmes (1983) and
+Eckstein & Bauch (1969); references in
+[docs/research/core-detection-sota.md](docs/research/core-detection-sota.md#references).
 
 </details>
 
@@ -465,7 +533,7 @@ issue first to discuss what you would like to change.
 
 **TRAS** — Tree Ring Analyzer Suite
 
-*Advancing dendrochronology research through intelligent automation*
+*Automatic tree ring detection, manual correction and measurement*
 
 [📖 Documentation](https://hmarichal93.github.io/tras/) • [🐛 Report Bug](https://github.com/hmarichal93/tras/issues) • [💡 Request Feature](https://github.com/hmarichal93/tras/issues)
 

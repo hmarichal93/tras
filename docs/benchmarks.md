@@ -25,9 +25,11 @@ Every number below is reproducible with `tras_benchmark` (commands at the end).
 straight path from the pith to past the bark along one ray of an annotated disc. The
 ground truth is where the annotated rings cross that ray. Each disc gives 8 cores (every 45°).
 
-> **Caveat:** the DeepCS-TRD "generic" weights were trained on data that likely includes
-> UruDendro. Deep-model numbers on UruDendro may be optimistic; the CooRecorder set is the
-> independent check.
+> **Caveat:** the DeepCS-TRD "generic" weights were trained on UruDendro: the DeepCS-TRD
+> paper uses 60 % of the samples for training and 20 % for validation
+> ([arXiv:2504.16242](https://arxiv.org/abs/2504.16242), §3). Our odd-index test split was
+> not held out from that training, so deep-model numbers on UruDendro may be optimistic; the
+> CooRecorder set is the independent check.
 
 ## Increment cores
 
@@ -85,12 +87,44 @@ was trained on.
 
 Ring detection with the ground-truth pith, UruDendro test split (32 discs); matching per
 the UruDendro protocol (a detection must fall in one ring's influence zone on ≥ 60 % of
-360 rays).
+360 rays; threshold from [CS-TRD](https://arxiv.org/abs/2305.10809) §6.3.3). Precision
+and recall pool the true/false positives of all discs (micro-average).
 
 | Method | Precision | Recall | F1 | Time per disc |
 |--------|-----------|--------|----|---------------|
 | DeepCS-TRD (generic) | 0.993 | 0.905 | **0.947** | 45 s (GTX 1650) |
 | CS-TRD | 0.938 | 0.872 | 0.904 | 131 s (CPU) |
+
+## TRAS article results and why they differ
+
+The TRAS article ([Marichal et al. 2026, arXiv:2605.08025](https://arxiv.org/abs/2605.08025),
+§3.1) reports, for fully automatic detection with no user correction:
+
+| Method | Precision | Recall | F | Data |
+|--------|-----------|--------|---|------|
+| DeepCS-TRD | 86.4 % | 76.5 % | 81.0 % | 18 *P. taeda* discs, 414 rings |
+| CS-TRD | 85.2 % | 75.4 % | 79.7 % | same |
+| INBD | 81.2 % | 77.5 % | 79.2 % | same |
+
+It also reports that TRAS and CooRecorder ring widths agree with Pearson r > 0.99
+(336 widths, 4 discs × 4 paths). That compares the two tools' **measurement** of the same
+corrected rings, not automatic detection.
+
+These are valid results for a different question. **Do not compare them with the
+cross-section table above**: the protocols differ on every axis that moves the score.
+
+| Factor | TRAS article | `tras_benchmark sections` | Expected effect |
+|--------|--------------|---------------------------|-----------------|
+| Images | 18 discs (sample IDs A–C), iPhone 6S, mixed surface finish | 32 UruDendro discs (odd index) | Different difficulty |
+| Pith | Automatic (APD) | Ground-truth pith | GT pith raises F (F falls as pith error grows, [CS-TRD](https://arxiv.org/abs/2305.10809) §6.3.2) |
+| Matching rule | ≥ 90 % of a detection's nodes in the ring's influence zone | ≥ 60 % of 360 rays | 90 % is stricter, so lower F |
+| Preprocessing | Resize factor 2, automatic background removal, web interface | Benchmark defaults | Unknown |
+| Averaging | Mean of per-disc scores | Pooled over all rings | Small |
+| Training overlap | Models trained on UruDendro; overlap with the 18 discs not stated | Weights likely saw most test discs (see caveat above) | Our F1 may be optimistic |
+
+The article's F = 81.0 % is closer to what a user gets out of the box on new images with
+automatic pith. The F1 0.947 here is a regression check: it tells whether a code
+change made detection better or worse under fixed conditions.
 
 ## Quality-control flags
 
