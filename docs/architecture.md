@@ -38,6 +38,7 @@ different ring-area implementations; `tras/analysis/rings.py` replaced both.)
 | Ring order, areas, widths | `tras/analysis/rings.py::measure_rings` |
 | Ray/polygon geometry | `tras/analysis/geometry.py` |
 | Core boundary detection | `tras/cores/detect.py::detect_core_rings` |
+| Core measurements from edited canvas shapes | `tras/cores/edit.py::cores_from_shapes` |
 | `.pos` / `.rwl` syntax | `tras/io/pos.py`, `tras/io/tucson.py` |
 | Batch outputs (GUI and CLI) | `tras/utils/batch_helper.py::run_batch` |
 

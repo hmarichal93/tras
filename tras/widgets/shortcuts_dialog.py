@@ -51,6 +51,7 @@ class ShortcutsDialog(QtWidgets.QDialog):
                 ("detect_tree_rings", "Detect Tree Rings"),
                 ("measure_radial_width", "Measure Ring Width"),
                 ("view_ring_properties", "View Ring Properties"),
+                ("draw_core_boundary", "Draw Core Boundary"),
             ],
             "Drawing & Editing": [
                 ("create_polygon", "Draw Closed Ring (Polygon)"),

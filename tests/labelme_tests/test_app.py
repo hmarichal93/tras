@@ -225,6 +225,8 @@ def test_tools_menu_separates_cross_sections_and_cores(qtbot: QtBot, data_dir, m
         "Set Image Scale",
         "Draw Core Path",
         "Core Analysis...",
+        "Draw Core Boundary",
+        "Export Core Measurements...",
     ]
 
     # Only core paths (not open rings drawn as linestrips) are offered to Core Analysis.
@@ -254,5 +256,157 @@ def test_tools_menu_separates_cross_sections_and_cores(qtbot: QtBot, data_dir, m
     assert win._core_path_mode
     win.toggleDrawMode(True)
     assert not win._core_path_mode
+    win.setClean()
+    win.close()
+
+
+def _core_window(qtbot: QtBot, data_dir) -> tras.app.MainWindow:
+    """Main window with one measured core (path + 5 boundary lines) on the canvas."""
+    from tras.cores import CoreBoundary
+    from tras.cores import CoreResult
+    from tras.cores import to_label_shapes
+    from tras.cores.ribbon import sample_path
+
+    win = tras.app.MainWindow(filename=osp.join(data_dir, "raw/2011_000003.jpg"))
+    qtbot.addWidget(win)
+    _show_window_and_wait_for_imagedata(qtbot=qtbot, win=win)
+    path = sample_path([[20.0, 120.0], [300.0, 120.0]])
+    boundaries = tuple(
+        CoreBoundary(s, (20.0 + s, 120.0), 0.0, 5.0) for s in (20.0, 60.0, 100.0, 140.0, 180.0)
+    )
+    result = CoreResult(path=path, boundaries=boundaries, half_width=20)
+    win._replace_core_shapes(to_label_shapes(result, core_index=1), tras.app.CORE_PATH_LABEL)
+    return win
+
+
+def _draw_line(win: tras.app.MainWindow, p1, p2) -> None:
+    """Finish a line on the canvas as a mouse drag would (no event sequence)."""
+    from PyQt5.QtCore import QPointF
+
+    from tras.shape import Shape
+
+    shape = Shape(shape_type="line")
+    shape.addPoint(QPointF(*p1))
+    shape.addPoint(QPointF(*p2))
+    win.canvas.current = shape
+    win.canvas.finalise()  # emits newShape → MainWindow.newShape
+
+
+@pytest.mark.gui
+def test_draw_core_boundary_labels_new_lines(qtbot: QtBot, data_dir) -> None:
+    win = _core_window(qtbot, data_dir)
+    assert win.actions.drawCoreBoundary.isEnabled()
+    assert win.actions.drawCoreBoundary.shortcut().toString() == "Ctrl+B"
+
+    win.actions.drawCoreBoundary.trigger()
+    assert win._core_boundary_mode
+    assert win.actions.drawCoreBoundary.isChecked()
+    assert win.canvas.createMode == "line"
+    _draw_line(win, (100.0, 100.0), (100.0, 140.0))
+
+    added = win.canvas.shapes[-1]
+    assert added.label == "core_boundary"
+    assert added.description == "Ring boundary added by hand"
+    win.setEditMode()
+    assert not win._core_boundary_mode
+    assert not win.actions.drawCoreBoundary.isChecked()
+    win.setClean()
+    win.close()
+
+
+@pytest.mark.gui
+def test_export_core_measurements_uses_canvas_edits(
+    qtbot: QtBot, data_dir, tmp_path, monkeypatch
+) -> None:
+    from PyQt5 import QtWidgets
+
+    win = _core_window(qtbot, data_dir)
+    win.image_scale = {"value": 0.01, "unit": "mm"}
+    win.sample_metadata = {"harvested_year": 2021, "outer_ring_year": 2020}
+    boundary = win.canvas.shapes[2]  # second boundary (s = 60), moved 10 px to the bark
+    for point in boundary.points:
+        point.setX(point.x() + 10.0)
+    win.toggleDrawMode(False, createMode="line", core_boundary_mode=True)
+    _draw_line(win, (180.0, 100.0), (180.0, 140.0))  # splits the s = 140..180 ring
+    _draw_line(win, (100.0, 10.0), (100.0, 40.0))  # crosses no core path
+
+    out = tmp_path / "export"
+    out.mkdir()
+    messages = []
+    monkeypatch.setattr(
+        QtWidgets.QFileDialog, "getExistingDirectory", lambda *args, **kwargs: str(out)
+    )
+    monkeypatch.setattr(
+        QtWidgets.QMessageBox, "exec_", lambda box: messages.append(box.text()) or 0
+    )
+    win._action_export_core_measurements()
+
+    csv_lines = (out / "2011_000003_core1.csv").read_text().splitlines()[1:]
+    widths = [float(line.split(",")[3]) for line in csv_lines]
+    years = [int(line.split(",")[1]) for line in csv_lines]
+    assert widths == pytest.approx([50.0, 30.0, 40.0, 20.0, 20.0], abs=0.5)
+    assert years == [2016, 2017, 2018, 2019, 2020]
+    assert (out / "2011_000003_core1.pos").exists()
+    assert (out / "2011_000003.rwl").exists()
+
+    labels = [shape.label for shape in win.canvas.shapes]
+    assert labels[-2] == "core1_2019"  # the hand-drawn boundary got its year
+    assert labels[-1] == "core_boundary"  # off the path: kept, ignored and selected
+    assert win.canvas.selectedShapes == [win.canvas.shapes[-1]]
+    assert "1 cores, 5 rings, 2016–2020" in messages[0]
+    assert "do not cross a core path" in messages[0]
+    win.setClean()
+    win.close()
+
+
+@pytest.mark.gui
+def test_export_core_measurements_without_core_shows_error(
+    qtbot: QtBot, data_dir, monkeypatch
+) -> None:
+    win = tras.app.MainWindow(filename=osp.join(data_dir, "raw/2011_000003.jpg"))
+    qtbot.addWidget(win)
+    _show_window_and_wait_for_imagedata(qtbot=qtbot, win=win)
+    errors = []
+    monkeypatch.setattr(win, "errorMessage", lambda title, text: errors.append(text))
+    win._action_export_core_measurements()
+    assert errors and errors[0].startswith("No measured core on the image.")
+    win.close()
+
+
+@pytest.mark.gui
+def test_core_analysis_stores_outer_ring_year(qtbot: QtBot, data_dir, monkeypatch) -> None:
+    from PyQt5 import QtWidgets
+
+    win = tras.app.MainWindow(filename=osp.join(data_dir, "raw/2011_000003.jpg"))
+    qtbot.addWidget(win)
+    _show_window_and_wait_for_imagedata(qtbot=qtbot, win=win)
+    win.sample_metadata = {"harvested_year": 2021, "sample_code": "T1"}
+    captured = {}
+
+    class FakeDialog:
+        def __init__(self, image, drawn_paths, mm_per_px, outer_year, **kwargs):
+            captured["outer_year"] = outer_year
+            self.results = ["one core"]
+
+        def exec_(self):
+            return QtWidgets.QDialog.Accepted
+
+        def outer_ring_year(self):
+            return 2020
+
+        def label_shapes(self):
+            return []
+
+    monkeypatch.setattr(tras.app, "CoreDialog", FakeDialog)
+    win._action_core_analysis()
+    assert captured["outer_year"] == 2021  # harvested year until set
+    assert win.sample_metadata == {
+        "harvested_year": 2021,
+        "sample_code": "T1",
+        "outer_ring_year": 2020,
+    }
+    assert win.otherData["sample_metadata"]["outer_ring_year"] == 2020
+    win._action_core_analysis()
+    assert captured["outer_year"] == 2020
     win.setClean()
     win.close()

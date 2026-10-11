@@ -26,6 +26,10 @@ def test_core_dialog_runs_on_drawn_path(qtbot, tmp_path):
     shapes = dialog.label_shapes()
     assert shapes[0]["shape_type"] == "linestrip"
     assert shapes[-1]["label"] == "core1_2020"
+    assert dialog.outer_ring_year() == 2020
+    assert dialog.apply_button.isDefault()
+    assert not hasattr(dialog, "export_button")  # export happens after canvas edits
+    assert "Export Core Measurements" in dialog.status_label.text()
 
 
 @pytest.mark.gui
@@ -35,3 +39,4 @@ def test_core_dialog_defaults_to_auto_without_paths(qtbot):
     assert dialog.auto_paths.isChecked()
     assert not dialog.drawn.isEnabled()
     assert dialog.analysis_kwargs()["paths"] is None
+    assert dialog.outer_ring_year() is None

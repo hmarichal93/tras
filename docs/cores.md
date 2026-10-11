@@ -42,10 +42,18 @@ The scale comes from the image's DPI metadata, which flatbed scanners write. Oth
 2. Optional: draw one path per core with **Tools → Increment Core → Draw Core Path**, from
    pith to bark (Ctrl+click ends the path).
 3. **Tools → Increment Core → Core Analysis…** → choose *Find cores automatically* or *Use drawn
-   paths* → **Detect rings**.
-4. **Add to image** places the path and one line per boundary on the canvas. Drag, delete
-   or add boundaries as usual.
-5. **Export .pos / .rwl / .csv…** writes the measurement files.
+   paths*, check *Outermost complete ring year* → **Detect rings** → **Add to image**. The
+   path and one line per boundary appear on the canvas.
+4. Correct the boundaries: drag a line to move it, delete it to merge two rings, or add a
+   missed one with **Draw Core Boundary** (Ctrl+B): click two points across the boundary.
+5. **Tools → Increment Core → Export Core Measurements…** writes `.csv` per core, `.pos`
+   (needs the scale) and `.rwl` (needs the scale and a year) from the lines as they are on
+   the image, and relabels the lines with their years. Lines that cross no core path are
+   ignored and selected.
+
+**Outermost complete ring year.** It defaults to the harvest year. Use the previous year for
+southern-hemisphere samples cut before the growing season ends, or when the outer ring is
+incomplete. TRAS saves it with the sample metadata in the label file.
 
 ## How it works
 

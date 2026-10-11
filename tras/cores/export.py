@@ -137,10 +137,9 @@ def to_label_shapes(result: CoreResult, core_index: int = 1) -> list[dict[str, A
     for i, boundary in enumerate(result.boundaries):
         direction = boundary_direction(result, boundary) * result.half_width
         centre = np.array(boundary.xy)
-        name = f"b{i}" if years is None or i == 0 else str(years[i - 1])
         shapes.append(
             _shape(
-                f"core{core_index}_{name}",
+                f"core{core_index}_{boundary_name(i, years)}",
                 [(centre - direction).tolist(), (centre + direction).tolist()],
                 "line",
                 core_index,
@@ -148,6 +147,12 @@ def to_label_shapes(result: CoreResult, core_index: int = 1) -> list[dict[str, A
             )
         )
     return shapes
+
+
+def boundary_name(index: int, years: Sequence[int] | None) -> str:
+    """Label suffix of boundary ``index`` (pith → bark): the year of the ring it closes,
+    or ``b<index>`` when undated and for the innermost boundary (it closes no ring)."""
+    return f"b{index}" if years is None or index == 0 else str(years[index - 1])
 
 
 def _shape(

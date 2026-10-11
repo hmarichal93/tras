@@ -49,6 +49,7 @@ from tras.widgets import ShortcutsDialog
 from tras.widgets import UpdateCheckDialog
 from tras.widgets import BatchProcessDialog
 from tras.widgets import CoreDialog
+from tras.cores.edit import CORE_BOUNDARY_LABEL
 from tras.cores.export import CORE_PATH_LABEL
 
 from . import utils
@@ -403,6 +404,15 @@ class MainWindow(QtWidgets.QMainWindow):
             enabled=False,
         )
         self.actions_draw_core_path = drawCorePath
+        drawCoreBoundary = action(
+            self.tr("Draw Core Boundary"),
+            lambda: self.toggleDrawMode(False, createMode="line", core_boundary_mode=True),
+            shortcuts["draw_core_boundary"],
+            "objects",
+            self.tr("Click two points across a ring boundary; it joins the core path it crosses."),
+            enabled=False,
+            checkable=True,
+        )
         createExclusionMode = action(
             self.tr("Draw Exclusion Area"),
             lambda: self.toggleDrawMode(False, createMode="polygon", exclusion_mode=True),
@@ -733,6 +743,7 @@ class MainWindow(QtWidgets.QMainWindow):
             createPointMode=createPointMode,
             createLineStripMode=createLineStripMode,
             createExclusionMode=createExclusionMode,
+            drawCoreBoundary=drawCoreBoundary,
             zoom=zoom,
             zoomIn=zoomIn,
             zoomOut=zoomOut,
@@ -774,6 +785,14 @@ class MainWindow(QtWidgets.QMainWindow):
             enabled=False,
         )
         self.actions_core_analysis = coreAnalysis
+        exportCoreMeasurements = action(
+            self.tr("Export Core Measurements..."),
+            self._action_export_core_measurements,
+            None,
+            "save",
+            self.tr("Export the core measurements as they are on the image (.pos / .rwl / .csv)."),
+            enabled=False,
+        )
 
         # Preprocess Image action
         preprocessImage = action(
@@ -874,6 +893,8 @@ class MainWindow(QtWidgets.QMainWindow):
             detectTreeRings,  # Keep enabled but not in toolbar
             coreAnalysis,
             drawCorePath,
+            drawCoreBoundary,
+            exportCoreMeasurements,
             preprocessImage,
             clearAllRings,
             ringProperties,
@@ -967,7 +988,10 @@ class MainWindow(QtWidgets.QMainWindow):
             setScale,           # Step 2: Set Scale (or DPI)
             None,
             drawCorePath,       # Step 3 (optional): draw the path pith → bark
-            coreAnalysis,       # Step 4: detect, review, export .pos/.rwl/.csv
+            coreAnalysis,       # Step 4: detect, review, add to image
+            None,
+            drawCoreBoundary,   # Step 5: correct (add missed boundaries)
+            exportCoreMeasurements,  # Step 6: export the corrected .pos/.rwl/.csv
         ))
         utils.addActions(self.menus.tools, (
             self.menus.tools_cross_section,
@@ -1477,8 +1501,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if dlg.exec_() != QtWidgets.QDialog.Accepted:
             return
         
-        # Store metadata
-        self.sample_metadata = dlg.get_metadata()
+        # Store metadata (keeping keys the dialog does not edit, e.g. outer_ring_year)
+        self.sample_metadata = {**(self.sample_metadata or {}), **dlg.get_metadata()}
         
         logger.info(f"Sample metadata updated:")
         logger.info(f"  - Harvested Year: {self.sample_metadata['harvested_year']}")
@@ -2170,14 +2194,31 @@ class MainWindow(QtWidgets.QMainWindow):
             and len(shape.points) >= 2
             and shape.label == CORE_PATH_LABEL
         ]
-        outer_year = (self.sample_metadata or {}).get("harvested_year")
-        stem = osp.splitext(osp.basename(self.filename))[0] if self.filename else "core"
         dlg = CoreDialog(
-            image_np, drawn_paths, mm_per_pixel(self.image_scale), outer_year, stem, parent=self
+            image_np, drawn_paths, mm_per_pixel(self.image_scale), self._core_outer_year(),
+            parent=self,
         )
         if dlg.exec_() != QtWidgets.QDialog.Accepted or not dlg.results:
             return
+        self._store_outer_ring_year(dlg.outer_ring_year())
         self._replace_core_shapes(dlg.label_shapes(), CORE_PATH_LABEL)
+
+    def _core_outer_year(self) -> int | None:
+        """Year of the outermost complete ring: set in Core Analysis, else harvested year."""
+        metadata = self.sample_metadata or {}
+        return metadata.get("outer_ring_year") or metadata.get("harvested_year")
+
+    def _store_outer_ring_year(self, year: int | None) -> None:
+        """Keep the outer ring year in the sample metadata (saved in the label file)."""
+        metadata = dict(self.sample_metadata or {})
+        if year is None:
+            metadata.pop("outer_ring_year", None)
+        else:
+            metadata["outer_ring_year"] = year
+        self.sample_metadata = metadata
+        if self.otherData is None:
+            self.otherData = {}
+        self.otherData["sample_metadata"] = metadata
 
     def _replace_core_shapes(self, shape_dicts: list[dict], path_label: str) -> None:
         """Swap previous core results for new ones, keeping every other shape."""
@@ -2201,7 +2242,70 @@ class MainWindow(QtWidgets.QMainWindow):
             shapes.append(shape)
         self.loadShapes(shapes, replace=False)
         self.setDirty()
-        self.show_status_message(self.tr("Added %d core shape(s)") % len(shapes))
+        self.show_status_message(
+            self.tr("Added %d core shape(s) — Ctrl+Z to undo") % len(shapes), delay=5000
+        )
+
+    def _action_export_core_measurements(self) -> None:
+        """Export the cores as corrected on the canvas to .pos / .rwl / .csv."""
+        from tras.cores import edit as core_edit
+        from tras.cores import export_results
+        from tras.utils.pos_exporter import mm_per_pixel
+
+        shapes = [core_edit.shape_to_dict(shape) for shape in self.canvas.shapes]
+        outer_year = self._core_outer_year()
+        cores = core_edit.cores_from_shapes(
+            shapes, mm_per_px=mm_per_pixel(self.image_scale), outer_year=outer_year
+        )
+        if not cores:
+            self.errorMessage(
+                self.tr("Export Core Measurements"),
+                self.tr(
+                    "No measured core on the image. Run Tools → Increment Core → "
+                    "Core Analysis… and click Add to image."
+                ),
+            )
+            return
+        folder = QtWidgets.QFileDialog.getExistingDirectory(
+            self, self.tr("Export folder"), self.currentPath()
+        )
+        if not folder:
+            return
+        results = [cores[k] for k in sorted(cores)]
+        stem = osp.splitext(osp.basename(self.filename))[0] if self.filename else "core"
+        written = export_results(results, folder, stem)
+        unassigned = core_edit.unassigned_boundaries(shapes)
+        warnings = core_edit.export_warnings(
+            results,
+            n_unassigned=len(unassigned),
+            n_duplicates=len(core_edit.duplicate_boundaries(shapes)),
+            tr=self.tr,
+        )
+        self._relabel_core_boundaries(core_edit.boundary_labels(shapes, outer_year), unassigned)
+        self._show_core_export_summary(
+            core_edit.export_summary(results, written, warnings, tr=self.tr), bool(warnings)
+        )
+
+    def _relabel_core_boundaries(self, labels: dict[int, str], unassigned: list[int]) -> None:
+        """Apply re-numbered year labels (undoable) and select the ignored lines."""
+        self.canvas.storeShapes()
+        for index, label in labels.items():
+            shape = self.canvas.shapes[index]
+            shape.label = label
+            self._refresh_label_item(self.labelList.findItemByShape(shape), shape)
+        self.setDirty()
+        if unassigned:
+            self.setEditMode()
+            self.canvas.selectShapes([self.canvas.shapes[i] for i in unassigned])
+
+    def _show_core_export_summary(self, lines: list[str], has_warnings: bool) -> None:
+        box = QtWidgets.QMessageBox(self)
+        box.setIcon(
+            QtWidgets.QMessageBox.Warning if has_warnings else QtWidgets.QMessageBox.Information
+        )
+        box.setWindowTitle(self.tr("Export complete"))
+        box.setText("\n".join(lines))
+        box.exec_()
 
     def _action_batch_process(self) -> None:
         """Detect rings over every image in a folder (batch processing)."""
@@ -2498,7 +2602,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.actions.delete.setEnabled(not drawing)
 
     def toggleDrawMode(
-        self, edit=True, createMode="polygon", exclusion_mode=False, core_path_mode=False
+        self,
+        edit=True,
+        createMode="polygon",
+        exclusion_mode=False,
+        core_path_mode=False,
+        core_boundary_mode=False,
     ):
         self.canvas.setEditing(edit)
         self.canvas.createMode = createMode
@@ -2506,6 +2615,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self._exclusion_mode = exclusion_mode
         # Linestrips drawn in core-path mode are labelled "core_path", not open rings.
         self._core_path_mode = core_path_mode and not edit
+        # Lines drawn in core-boundary mode are labelled "core_boundary" (no popup).
+        self._core_boundary_mode = core_boundary_mode and not edit
+        if hasattr(self, "actions") and hasattr(self.actions, "drawCoreBoundary"):
+            self.actions.drawCoreBoundary.setChecked(self._core_boundary_mode)
         if edit:
             for _, draw_action in self.draw_actions:
                 draw_action.setEnabled(True)
@@ -2632,20 +2745,24 @@ class MainWindow(QtWidgets.QMainWindow):
             if edit_description:
                 shape.description = description
 
-            self._update_shape_color(shape)
-            if shape.group_id is None:
-                r, g, b = shape.fill_color.getRgb()[:3]
-                item.setText(
-                    f"{html.escape(shape.label)} "
-                    f'<font color="#{r:02x}{g:02x}{b:02x}">●</font>'
-                )
-            else:
-                item.setText(f"{shape.label} ({shape.group_id})")
+            self._refresh_label_item(item, shape)
             self.setDirty()
-            if self.uniqLabelList.find_label_item(shape.label) is None:
-                self.uniqLabelList.add_label_item(
-                    label=shape.label, color=self._get_rgb_by_label(label=shape.label)
-                )
+
+    def _refresh_label_item(self, item, shape: Shape) -> None:
+        """Update colour and label-list text after ``shape.label`` changed."""
+        self._update_shape_color(shape)
+        if shape.group_id is None:
+            r, g, b = shape.fill_color.getRgb()[:3]
+            item.setText(
+                f"{html.escape(shape.label)} "
+                f'<font color="#{r:02x}{g:02x}{b:02x}">●</font>'
+            )
+        else:
+            item.setText(f"{shape.label} ({shape.group_id})")
+        if self.uniqLabelList.find_label_item(shape.label) is None:
+            self.uniqLabelList.add_label_item(
+                label=shape.label, color=self._get_rgb_by_label(label=shape.label)
+            )
 
     def fileSearchChanged(self):
         self.importDirImages(
@@ -2901,6 +3018,12 @@ class MainWindow(QtWidgets.QMainWindow):
             flags = {}
             group_id = None
             description = "Core measurement path (pith → bark)"
+        elif getattr(self, '_core_boundary_mode', False):
+            # Core boundary mode: a hand-drawn ring boundary across a core path
+            text = CORE_BOUNDARY_LABEL
+            flags = {}
+            group_id = None
+            description = "Ring boundary added by hand"
         elif getattr(self, '_exclusion_mode', False):
             # Exclusion mode: automatically set label to "exclusion"
             text = "exclusion"

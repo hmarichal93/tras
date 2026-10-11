@@ -147,6 +147,7 @@ shortcuts:
   detect_tree_rings: Ctrl+T
   measure_radial_width: Ctrl+G
   view_ring_properties: Ctrl+K
+  draw_core_boundary: Ctrl+B
   
   # Help
   show_shortcuts: F1

@@ -195,7 +195,7 @@ tras --version                     # print the version
 The **Tools** menu has three entries:
 
 - **Cross-section** — the step-by-step workflow for an open disc image (set scale → preprocess → detect → measure → export).
-- **Increment Core** — measure cores (set scale → draw core path → Core Analysis → export `.pos`/`.rwl`).
+- **Increment Core** — measure cores (set scale → draw core path → Core Analysis → correct boundaries → Export Core Measurements to `.pos`/`.rwl`/`.csv`).
 - **Batch Processing (Cross-sections)…** — run detection over an entire folder (see below).
 
 ### 📁 GUI Batch Processing
@@ -263,7 +263,8 @@ tras_core scan.tif --outer-year 2023              # find cores automatically
 tras_core disc.jpg --path "120,40;3900,85"         # measure along a given path
 ```
 
-In the GUI: **Tools → Increment Core → Core Analysis…** (detected boundaries are editable shapes).
+In the GUI: **Tools → Increment Core → Core Analysis…**, correct the boundaries on the image, then
+**Export Core Measurements…**.
 Full guide: **[docs/cores.md](docs/cores.md)**.
 
 ---

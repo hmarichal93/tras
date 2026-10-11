@@ -3,13 +3,13 @@
 The user chooses where to measure (cores found automatically, or paths drawn as
 linestrips), the outer year and detector settings. Detection runs in a worker thread.
 Results are returned to the main window as label shapes (one ``linestrip`` path and one
-``line`` per boundary, all editable) and can be exported to CooRecorder ``.pos``,
-Tucson ``.rwl`` and CSV.
+``line`` per boundary, all editable). The user corrects them on the image and exports with
+Tools → Increment Core → Export Core Measurements (``.pos``, ``.rwl``, CSV), so the files
+reflect the corrections.
 """
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -20,7 +20,6 @@ from PyQt5 import QtWidgets
 from tras.cores import CoreResult
 from tras.cores import analyze_core_image
 from tras.cores import default_core_params
-from tras.cores import export_results
 from tras.cores import to_label_shapes
 
 _EVIDENCE = [
@@ -64,7 +63,6 @@ class CoreDialog(QtWidgets.QDialog):
         drawn_paths: list[np.ndarray],
         mm_per_px: float | None,
         outer_year: int | None,
-        image_name: str = "core",
         parent: QtWidgets.QWidget | None = None,
     ):
         super().__init__(parent)
@@ -73,7 +71,6 @@ class CoreDialog(QtWidgets.QDialog):
         self._image = image
         self._drawn_paths = drawn_paths
         self._mm_per_px = mm_per_px
-        self._image_name = image_name
         self._thread: QtCore.QThread | None = None
         self._worker: CoreWorker | None = None
         self.results: list[CoreResult] = []
@@ -113,11 +110,20 @@ class CoreDialog(QtWidgets.QDialog):
         self.outer_year.setRange(0, 3000)
         self.outer_year.setSpecialValueText(self.tr("undated"))
         self.outer_year.setValue(outer_year or 0)
-        form.addRow(self.tr("Year of outermost ring:"), self.outer_year)
+        self.outer_year.setToolTip(
+            self.tr(
+                "Calendar year of the outermost complete ring. Defaults to the harvested "
+                "year; use the previous year for southern-hemisphere samples cut before the "
+                "growing season ends, or if the outer ring is incomplete."
+            )
+        )
+        form.addRow(self.tr("Outermost complete ring year:"), self.outer_year)
         scale_text = (
             self.tr("%.5f mm/px") % self._mm_per_px
             if self._mm_per_px
-            else self.tr("not set (Tools → Set Scale); widths in px, no .pos")
+            else self.tr(
+                "not set (Tools → Increment Core → Set Image Scale); widths in px, no .pos"
+            )
         )
         form.addRow(self.tr("Scale:"), QtWidgets.QLabel(scale_text))
         self.pith_side = QtWidgets.QComboBox()
@@ -158,15 +164,13 @@ class CoreDialog(QtWidgets.QDialog):
         row = QtWidgets.QHBoxLayout()
         self.run_button = QtWidgets.QPushButton(self.tr("Detect rings"))
         self.run_button.clicked.connect(self._on_run)
-        self.export_button = QtWidgets.QPushButton(self.tr("Export .pos / .rwl / .csv…"))
-        self.export_button.setEnabled(False)
-        self.export_button.clicked.connect(self._on_export)
         self.apply_button = QtWidgets.QPushButton(self.tr("Add to image"))
         self.apply_button.setEnabled(False)
         self.apply_button.clicked.connect(self.accept)
+        self.apply_button.setDefault(True)
         close = QtWidgets.QPushButton(self.tr("Close"))
         close.clicked.connect(self.reject)
-        for button in (self.run_button, self.export_button, self.apply_button, close):
+        for button in (self.run_button, self.apply_button, close):
             row.addWidget(button)
         return row
 
@@ -184,7 +188,7 @@ class CoreDialog(QtWidgets.QDialog):
             "paths": self._drawn_paths if self.drawn.isChecked() else None,
             "params": default_core_params(**overrides),
             "mm_per_px": self._mm_per_px,
-            "outer_year": self.outer_year.value() or None,
+            "outer_year": self.outer_ring_year(),
         }
 
     def _on_run(self) -> None:
@@ -208,8 +212,13 @@ class CoreDialog(QtWidgets.QDialog):
         lines = [
             self.tr("Core %d: %d rings") % (k, len(r.widths_px)) for k, r in enumerate(results, 1)
         ]
+        lines.append(
+            self.tr(
+                "Add to image, correct boundaries, then "
+                "Tools → Increment Core → Export Core Measurements…"
+            )
+        )
         self.status_label.setText("\n".join(lines))
-        self.export_button.setEnabled(True)
         self.apply_button.setEnabled(True)
 
     def _on_error(self, message: str) -> None:
@@ -230,17 +239,12 @@ class CoreDialog(QtWidgets.QDialog):
 
     # ----- results -------------------------------------------------------------
 
+    def outer_ring_year(self) -> int | None:
+        """Year of the outermost complete ring, or None when undated."""
+        return self.outer_year.value() or None
+
     def label_shapes(self) -> list[dict[str, Any]]:
         shapes = []
         for k, result in enumerate(self.results, start=1):
             shapes += to_label_shapes(result, core_index=k)
         return shapes
-
-    def _on_export(self) -> None:
-        folder = QtWidgets.QFileDialog.getExistingDirectory(self, self.tr("Export folder"))
-        if not folder:
-            return
-        written = export_results(self.results, Path(folder), self._image_name)
-        QtWidgets.QMessageBox.information(
-            self, self.tr("Export complete"), "\n".join(str(p) for p in written)
-        )

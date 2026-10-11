@@ -2,6 +2,54 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="zh_CN">
 <context>
+    <name>@default</name>
+    <message>
+        <location filename="../cores/edit.py" line="0"/>
+        <source>No scale: .pos and .rwl skipped, widths in px. Set it with Tools → Increment Core → Set Image Scale.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../cores/edit.py" line="0"/>
+        <source>Undated: .rwl skipped. Set the outermost ring year in Core Analysis or Sample Metadata.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../cores/edit.py" line="0"/>
+        <source>%d hand-drawn boundary line(s) do not cross a core path and were ignored (selected).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../cores/edit.py" line="0"/>
+        <source>%d boundary line(s) duplicate another line on the same boundary and were ignored.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../cores/edit.py" line="0"/>
+        <source>%d cores, %d rings</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../cores/edit.py" line="0"/>
+        <source>undated</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../cores/edit.py" line="0"/>
+        <source>Core %d: %d rings, %s</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../cores/edit.py" line="0"/>
+        <source>Year labels on the image updated.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../cores/edit.py" line="0"/>
+        <source>Files written:</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>BatchProcessDialog</name>
     <message>
         <location filename="../widgets/batch_dialog.py" line="0"/>
@@ -436,17 +484,7 @@ Config: %s</source>
     </message>
     <message>
         <location filename="../widgets/core_dialog.py" line="0"/>
-        <source>Year of outermost ring:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../widgets/core_dialog.py" line="0"/>
         <source>%.5f mm/px</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../widgets/core_dialog.py" line="0"/>
-        <source>not set (Tools → Set Scale); widths in px, no .pos</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -501,11 +539,6 @@ Config: %s</source>
     </message>
     <message>
         <location filename="../widgets/core_dialog.py" line="0"/>
-        <source>Export .pos / .rwl / .csv…</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../widgets/core_dialog.py" line="0"/>
         <source>Add to image</source>
         <translation type="unfinished"></translation>
     </message>
@@ -536,12 +569,22 @@ Config: %s</source>
     </message>
     <message>
         <location filename="../widgets/core_dialog.py" line="0"/>
-        <source>Export folder</source>
+        <source>Calendar year of the outermost complete ring. Defaults to the harvested year; use the previous year for southern-hemisphere samples cut before the growing season ends, or if the outer ring is incomplete.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../widgets/core_dialog.py" line="0"/>
-        <source>Export complete</source>
+        <source>Outermost complete ring year:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/core_dialog.py" line="0"/>
+        <source>not set (Tools → Increment Core → Set Image Scale); widths in px, no .pos</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/core_dialog.py" line="0"/>
+        <source>Add to image, correct boundaries, then Tools → Increment Core → Export Core Measurements…</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -2069,11 +2112,6 @@ Check console for error details.</source>
     </message>
     <message>
         <location filename="../app.py" line="0"/>
-        <source>Added %d core shape(s)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../app.py" line="0"/>
         <source>Draw a rectangle to define the crop region...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2126,6 +2164,51 @@ Note: All existing annotations will be cleared.</source>
     <message>
         <location filename="../app.py" line="0"/>
         <source>Loaded annotations from %s</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Draw Core Boundary</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Click two points across a ring boundary; it joins the core path it crosses.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Export Core Measurements...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Export the core measurements as they are on the image (.pos / .rwl / .csv).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Added %d core shape(s) — Ctrl+Z to undo</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Export Core Measurements</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>No measured core on the image. Run Tools → Increment Core → Core Analysis… and click Add to image.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Export folder</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../app.py" line="0"/>
+        <source>Export complete</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
