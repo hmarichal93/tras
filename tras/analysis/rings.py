@@ -205,3 +205,30 @@ def radial_width_series(
         )
         for k, d in enumerate(directions_deg)
     ]
+
+
+# Compass directions in image coordinates (x right, y down; image top = north).
+COMPASS_DEGREES = {"N": 270.0, "E": 0.0, "S": 90.0, "W": 180.0}
+
+
+def compass_series(
+    rings: Sequence[npt.ArrayLike],
+    pith_xy: tuple[float, float],
+    outer_year: int,
+    mm_per_px: float,
+    sample_name: str,
+    directions: str = "NESW",
+) -> list[RingWidthSeries]:
+    """Ring-width series (mm) along compass radii, IDs ``<sample[:7]><letter>``.
+
+    The image top is taken as north, as when discs are photographed with the north mark up.
+    """
+    from tras.io.tucson import sanitize_series_id
+
+    degrees = [COMPASS_DEGREES[d] for d in directions]
+    series = radial_width_series(rings, pith_xy, degrees, outer_year, unit_per_px=mm_per_px)
+    stem = sanitize_series_id(sample_name)[:7]
+    return [
+        RingWidthSeries(f"{stem}{letter}", s.first_year, s.widths_mm)
+        for letter, s in zip(directions, series)
+    ]

@@ -124,6 +124,13 @@ class BatchProcessDialog(QtWidgets.QDialog):
         self.scale_unit.addItems(["mm", "cm", "um"])
         form.addRow(self.tr("Value (unit/px):"), self.scale_value)
         form.addRow(self.tr("Unit:"), self.scale_unit)
+        self.outer_year = QtWidgets.QSpinBox()
+        self.outer_year.setRange(0, 3000)
+        self.outer_year.setSpecialValueText(self.tr("undated"))
+        self.outer_year.setToolTip(
+            self.tr("Year of the outermost ring. With a scale, also writes radii.rwl (Tucson).")
+        )
+        form.addRow(self.tr("Outer year:"), self.outer_year)
         return group
 
     def _build_preprocess_group(self) -> QtWidgets.QGroupBox:
@@ -319,6 +326,9 @@ class BatchProcessDialog(QtWidgets.QDialog):
                 "unit": self.scale_unit.currentText(),
             }
 
+        if self.outer_year.value() > 0:
+            config["dating"] = {"outer_year": int(self.outer_year.value())}
+
         preprocess: dict[str, Any] = {"remove_background": self.remove_bg.isChecked()}
         if self.resize_scale.value() < 1.0:
             preprocess["resize_scale"] = float(self.resize_scale.value())
@@ -414,6 +424,8 @@ class BatchProcessDialog(QtWidgets.QDialog):
             summary.summary_pdf,
             summary.config_path,
         )
+        if summary.rwl_path is not None:
+            message += "\n" + self.tr("Tucson radii: %s") % summary.rwl_path
         QtWidgets.QMessageBox.information(self, self.tr("Batch complete"), message)
 
     def _on_error(self, message: str) -> None:

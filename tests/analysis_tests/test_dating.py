@@ -92,3 +92,20 @@ def test_radial_width_series_from_circles():
     for s in series:
         assert s.first_year == 1998
         np.testing.assert_allclose(s.widths_mm, [1.0, 1.5, 0.5], atol=0.01)
+
+
+def test_compass_series_ids_and_directions():
+    from tras.analysis.rings import compass_series
+
+    t = np.linspace(0, 2 * np.pi, 720, endpoint=False)
+    # Eccentric outer ring: wider towards +x (east).
+    rings = [
+        np.stack([10 * np.cos(t), 10 * np.sin(t)], 1),
+        np.stack([5 + 20 * np.cos(t), 20 * np.sin(t)], 1),
+    ]
+    series = compass_series(rings, (0, 0), 2001, 0.5, "Disc 07/A")
+    assert [s.series_id for s in series] == ["Disc_07N", "Disc_07E", "Disc_07S", "Disc_07W"]
+    by_id = {s.series_id[-1]: s for s in series}
+    assert by_id["E"].widths_mm[1] == pytest.approx((25 - 10) * 0.5, abs=0.05)
+    assert by_id["W"].widths_mm[1] == pytest.approx((15 - 10) * 0.5, abs=0.05)
+    assert all(s.first_year == 2000 for s in series)

@@ -110,3 +110,45 @@ def test_find_images_filters_and_sorts(tmp_path: Path):
         (tmp_path / name).write_bytes(b"x")
     names = [p.name for p in batch_helper.find_images(tmp_path)]
     assert names == ["a.JPG", "b.tiff", "z.png"]
+
+
+def _fake_concentric(output: Path | None) -> DetectionResult:
+    image = np.zeros((120, 120, 3), dtype=np.uint8)
+    t = np.linspace(0, 2 * np.pi, 180, endpoint=False)
+    rings = [
+        np.stack([60 + r * np.cos(t), 60 + r * np.sin(t)], 1).astype(np.float32)
+        for r in (10, 25, 40)
+    ]
+    if output is not None:
+        _save_detection_results(Path(output), image, (60.0, 60.0), rings)
+    return DetectionResult(
+        image=image, pith_xy=(60.0, 60.0), rings=rings, preprocessing=None, output_path=output
+    )
+
+
+def test_run_batch_writes_radii_rwl_when_dated(input_dir: Path, tmp_path: Path, monkeypatch):
+    from tras.io.tucson import read_rwl
+
+    monkeypatch.setattr(
+        batch_helper, "detect", lambda image_path, output=None, **kw: _fake_concentric(output)
+    )
+    config = {
+        "rings": {"method": "deepcstrd"},
+        "physical_scale": {"value": 0.5, "unit": "mm"},
+        "dating": {"outer_year": 2020},
+    }
+    summary = batch_helper.run_batch(input_dir, tmp_path / "out", config)
+
+    assert summary.rwl_path == tmp_path / "out" / "radii.rwl"
+    series = read_rwl(summary.rwl_path)
+    assert len(series) == 3 * 4  # three images x N/E/S/W
+    assert all(s.first_year == 2018 and s.last_year == 2020 for s in series)
+    assert series[0].widths_mm == pytest.approx((5.0, 7.5, 7.5), abs=0.01)
+
+
+def test_run_batch_skips_rwl_without_scale(input_dir: Path, tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(
+        batch_helper, "detect", lambda image_path, output=None, **kw: _fake_concentric(output)
+    )
+    config = {"rings": {"method": "deepcstrd"}, "dating": {"outer_year": 2020}}
+    assert batch_helper.run_batch(input_dir, tmp_path / "out", config).rwl_path is None

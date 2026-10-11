@@ -190,6 +190,11 @@ def main(
     scale_unit: Optional[str] = typer.Option(
         None, "--scale-unit", help="Physical scale unit (e.g., mm, cm) for batch processing"
     ),
+    outer_year: Optional[int] = typer.Option(
+        None,
+        "--outer-year",
+        help="Year of the outermost ring (batch): also writes radii.rwl (N/E/S/W series)",
+    ),
 ) -> None:
     """
     Detect tree ring pith and rings from an image or batch process a folder.
@@ -246,6 +251,7 @@ def main(
                 **detection_flags,
                 "scale_value": scale_value,
                 "scale_unit": scale_unit,
+                "dating_outer_year": outer_year,
             }
             _process_folder(input_path, output_dir, config, _config_overrides(folder_flags))
         else:

@@ -146,6 +146,7 @@ _SECTION_PREFIXES: list[tuple[str, tuple[str, ...]]] = [
     ("deepcstrd_", ("rings", "deepcstrd")),
     ("cstrd_", ("rings", "cstrd")),
     ("inbd_", ("rings", "inbd")),
+    ("dating_", ("dating",)),
 ]
 
 

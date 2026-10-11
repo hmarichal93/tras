@@ -137,3 +137,16 @@ def test_folder_mode_processes_supported_images(tmp_path, monkeypatch):
     _process_folder(tmp_path, tmp_path / "out", None, {})
 
     assert sorted(seen) == ["a.jpg", "b.JPG", "c.png", "d.tif"]
+
+
+def test_outer_year_flag_reaches_batch_config(tmp_path):
+    (tmp_path / "a.jpg").write_bytes(b"fake")
+    with patch("tras.cli.detect.run_batch") as mock_batch:
+        mock_batch.return_value = MagicMock(total=1, processed=1, skipped=0, errors=0)
+        result = CliRunner().invoke(
+            app,
+            [str(tmp_path), "--outer-year", "2021", "--scale-value", "0.02", "--scale-unit", "mm"],
+        )
+    assert result.exit_code == 0, result.output
+    config = mock_batch.call_args.args[2]
+    assert config["dating"] == {"outer_year": 2021}

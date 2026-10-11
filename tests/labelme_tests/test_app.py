@@ -165,3 +165,40 @@ def test_exclusion_zones_are_not_rings(qtbot: QtBot, data_dir) -> None:
     assert exclusion.label == "exclusion"
     win.setClean()  # otherwise close() asks to save (modal) and blocks
     win.close()
+
+
+@pytest.mark.gui
+def test_export_dialog_writes_rwl(qtbot: QtBot, data_dir, tmp_path) -> None:
+    import numpy as np
+    from PyQt5.QtCore import QPointF
+
+    from tras.io.tucson import read_rwl
+    from tras.shape import Shape
+    from tras.widgets import ExportDialog
+
+    win = tras.app.MainWindow(filename=osp.join(data_dir, "raw/2011_000003.jpg"))
+    qtbot.addWidget(win)
+    _show_window_and_wait_for_imagedata(qtbot=qtbot, win=win)
+    t = np.linspace(0, 2 * np.pi, 90, endpoint=False)
+    shapes = []
+    for label, r in (("1", 20), ("2", 40), ("3", 60)):
+        shape = Shape(label=label, shape_type="polygon")
+        for a in t:
+            shape.addPoint(QPointF(160 + r * np.cos(a), 120 + r * np.sin(a)))
+        shape.close()
+        shapes.append(shape)
+    win.loadShapes(shapes, replace=False)
+    win.pith_xy = (160.0, 120.0)
+    win.image_scale = {"value": 0.1, "unit": "mm"}
+    win.sample_metadata = {"harvested_year": 2022, "sample_code": "T1"}
+
+    dialog = ExportDialog(parent=win)
+    qtbot.addWidget(dialog)
+    assert dialog.export_rwl_checkbox.isEnabled()
+    path = dialog._export_rwl(tmp_path)
+
+    series = read_rwl(path)
+    assert [s.series_id for s in series] == ["T1N", "T1E", "T1S", "T1W"]
+    assert series[0].widths_mm == pytest.approx((2.0, 2.0, 2.0), abs=0.05)
+    win.setClean()
+    win.close()

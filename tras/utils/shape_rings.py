@@ -62,7 +62,7 @@ def ring_property_rows(
         return []
     rings = [shape_points(s) for s in ring_shapes]
     labels = [s.label for s in ring_shapes]
-    pith = pith_xy if pith_xy is not None else _innermost_centroid(rings)
+    pith = pith_xy if pith_xy is not None else innermost_centroid(rings)
     exclusions = [shape_points(s) for s in exclusion_shapes]
 
     measured = measure_rings(rings, pith, labels=labels, exclusions=exclusions)
@@ -80,6 +80,6 @@ def ring_property_rows(
     return rows
 
 
-def _innermost_centroid(rings: Sequence[npt.NDArray[np.float64]]) -> tuple[float, float]:
+def innermost_centroid(rings: Sequence[npt.NDArray[np.float64]]) -> tuple[float, float]:
     """Pith fallback: centroid of the smallest ring."""
     return polygon_centroid(rings[order_rings_by_area(rings)[0]])

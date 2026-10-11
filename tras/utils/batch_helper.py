@@ -25,10 +25,13 @@ from loguru import logger
 from PIL import Image as PILImage
 
 from tras._label_file import LabelFile
+from tras.analysis.rings import compass_series
 from tras.api import detect
+from tras.io.tucson import write_rwl
 from tras.params import DetectionParams
 from tras.utils.cli_config import dump_config
 from tras.utils.cli_config import get_detection_params
+from tras.utils.pos_exporter import mm_per_pixel
 from tras.utils.report_pdf import generate_pdf_report
 from tras.utils.report_pdf import generate_summary_pdf
 from tras.utils.ring_properties import compute_ring_properties
@@ -53,6 +56,7 @@ class BatchSummary:
     summary_pdf: Path
     config_path: Path
     error_names: list[str] = field(default_factory=list)
+    rwl_path: Path | None = None  # radii.rwl, written when dated and scaled
 
 
 def find_images(input_dir: Path) -> list[Path]:
@@ -105,10 +109,37 @@ def _load_result_from_json(
 def _effective_config(config: dict[str, Any], params: DetectionParams) -> dict[str, Any]:
     """Config actually used: every detection parameter spelled out, plus the scale."""
     effective: dict[str, Any] = {}
-    if "physical_scale" in config:
-        effective["physical_scale"] = config["physical_scale"]
+    for key in ("physical_scale", "dating"):
+        if key in config:
+            effective[key] = config[key]
     effective.update(params.to_config())
     return effective
+
+
+def write_radii_rwl(
+    path: Path, results: list[dict[str, Any]], config: dict[str, Any]
+) -> Path | None:
+    """Tucson file with N/E/S/W radius series of every image, when dated and scaled.
+
+    Needs ``dating.outer_year`` and a physical scale in ``config``; returns None otherwise.
+    """
+    outer_year = (config.get("dating") or {}).get("outer_year")
+    mm_px = mm_per_pixel(config.get("physical_scale"))
+    if not outer_year or mm_px is None:
+        return None
+    series = [
+        s
+        for r in results
+        if len(r["rings"]) >= 2
+        for s in compass_series(
+            r["rings"], r["pith_xy"], int(outer_year), mm_px, Path(r["name"]).stem
+        )
+    ]
+    if not series:
+        return None
+    write_rwl(path, series)
+    logger.info(f"Wrote {len(series)} radius series to {path}")
+    return path
 
 
 def write_image_reports(
@@ -211,6 +242,7 @@ def run_batch(
 
     config_path = output_dir / "batch_config.yml"
     dump_config(_effective_config(config, params), config_path)
+    rwl_path = write_radii_rwl(output_dir / "radii.rwl", results, config)
 
     logger.info(f"Batch complete: {processed} processed, {skipped} skipped, {errors} error(s)")
     return BatchSummary(
@@ -222,4 +254,5 @@ def run_batch(
         summary_pdf=summary_pdf,
         config_path=config_path,
         error_names=error_names,
+        rwl_path=rwl_path,
     )
