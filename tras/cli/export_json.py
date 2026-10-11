@@ -12,6 +12,29 @@ from tras import utils
 from tras._label_file import LabelFile
 
 
+# Minimum point count per shape type for rasterization (see tras.utils.shape).
+_MIN_POINTS = {"polygon": 3, None: 3, "point": 1, "line": 2, "linestrip": 2}
+UNLABELED = "unlabeled"
+
+
+def _rasterizable_shapes(shapes: list[dict]) -> list[dict]:
+    """Drop shapes that cannot be drawn and give unlabeled shapes a placeholder label.
+
+    One degenerate shape (e.g. a 2-point polygon) must not abort the whole export.
+    """
+    kept = []
+    for shape in shapes:
+        min_points = _MIN_POINTS.get(shape.get("shape_type"), 1)
+        if len(shape.get("points", [])) < min_points:
+            logger.warning(
+                f"Skipping shape '{shape.get('label')}': {len(shape.get('points', []))} "
+                f"point(s), needs >= {min_points}"
+            )
+            continue
+        kept.append({**shape, "label": shape.get("label") or UNLABELED})
+    return kept
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("json_file")
@@ -32,15 +55,16 @@ def main():
 
     image: npt.NDArray[np.uint8] = utils.img_data_to_arr(label_file.imageData)
 
+    shapes = _rasterizable_shapes(label_file.shapes)
     label_name_to_value = {"_background_": 0}
-    for shape in sorted(label_file.shapes, key=lambda x: x["label"]):
+    for shape in sorted(shapes, key=lambda x: x["label"]):
         label_name = shape["label"]
         if label_name in label_name_to_value:
             label_value = label_name_to_value[label_name]
         else:
             label_value = len(label_name_to_value)
             label_name_to_value[label_name] = label_value
-    lbl, _ = utils.shapes_to_label(image.shape, label_file.shapes, label_name_to_value)
+    lbl, _ = utils.shapes_to_label(image.shape, shapes, label_name_to_value)
 
     label_names = [None] * (max(label_name_to_value.values()) + 1)
     for name, value in label_name_to_value.items():
@@ -58,7 +82,7 @@ def main():
         for lbl_name in label_names:
             f.write(f"{lbl_name}\n")
 
-    logger.info(f"Saved to: {out_dir}")
+    print(f"Saved to: {out_dir}")
 
 
 if __name__ == "__main__":

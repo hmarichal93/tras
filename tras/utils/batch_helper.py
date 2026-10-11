@@ -1,7 +1,6 @@
 """Qt-free batch processing runner for the TRAS GUI.
 
-Mirrors the CLI ``_process_folder`` loop (``tras/cli/detect.py``) but tailored to the
-GUI batch feature: it writes one ``.json`` label file per image, then a single combined
+Shared by the GUI batch dialog and the ``tras_detect`` folder mode. It writes one ``.json`` label file per image, then a single combined
 ``summary.pdf`` (one image per page) and a CLI-compatible ``batch_config.yml`` recording
 the settings used. Already-processed images (those with an existing ``.json``) are
 skipped so a batch can be resumed.
@@ -26,9 +25,13 @@ from PIL import Image as PILImage
 
 from tras._label_file import LabelFile
 from tras.api import detect
+from tras.params import DetectionParams
 from tras.utils.cli_config import dump_config
 from tras.utils.cli_config import get_detection_params
+from tras.utils.report_pdf import generate_pdf_report
 from tras.utils.report_pdf import generate_summary_pdf
+from tras.utils.ring_properties import compute_ring_properties
+from tras.utils.ring_properties import write_ring_properties_csv
 
 # Broader than the CLI's {.jpg, .jpeg, .png}: the GUI also opens TIFF/BMP images.
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp"}
@@ -98,11 +101,50 @@ def _load_result_from_json(
     return image, pith_xy, rings
 
 
+def _effective_config(config: dict[str, Any], params: DetectionParams) -> dict[str, Any]:
+    """Config actually used: every detection parameter spelled out, plus the scale."""
+    effective: dict[str, Any] = {}
+    if "physical_scale" in config:
+        effective["physical_scale"] = config["physical_scale"]
+    effective.update(params.to_config())
+    return effective
+
+
+def write_image_reports(
+    output_stem: Path,
+    image: npt.NDArray[np.uint8],
+    pith_xy: tuple[float, float],
+    rings: list[npt.NDArray[np.float32]],
+    scale_value: float | None,
+    scale_unit: str | None,
+) -> None:
+    """Write ``<stem>.csv`` (ring properties) and ``<stem>.pdf`` (report) for one image."""
+    if not rings:
+        logger.warning(f"No rings detected for {output_stem.name}; skipping CSV/PDF")
+        return
+    value, unit = (scale_value, scale_unit) if scale_value and scale_unit else (1.0, "px")
+    ring_props = compute_ring_properties(rings, pith_xy)
+    write_ring_properties_csv(output_stem.with_suffix(".csv"), ring_props, value, unit)
+    generate_pdf_report(
+        output_path=output_stem.with_suffix(".pdf"),
+        image=image,
+        pith_xy=pith_xy,
+        rings=rings,
+        ring_properties=ring_props,
+        scale_value=value,
+        scale_unit=unit,
+        sample_code=output_stem.name,
+        harvested_year=None,
+    )
+
+
 def run_batch(
     input_dir: Path | str,
     output_dir: Path | str,
     config: dict[str, Any],
     progress: ProgressCallback | None = None,
+    *,
+    per_image_reports: bool = False,
 ) -> BatchSummary:
     """Detect rings for every image in a folder and write batch outputs.
 
@@ -110,6 +152,10 @@ def run_batch(
     summary), otherwise run detection and write its ``.json``. Per-image failures are
     logged and counted but never abort the batch. After the loop, writes
     ``summary.pdf`` and ``batch_config.yml`` into ``output_dir``.
+
+    With ``per_image_reports=True`` (the CLI folder mode) each newly processed image also
+    gets a ``<stem>.csv`` of ring properties and a ``<stem>.pdf`` report. Without a
+    physical scale in ``config`` those are written in pixel units.
     """
     input_dir = Path(input_dir)
     output_dir = Path(output_dir)
@@ -139,13 +185,17 @@ def run_batch(
                 skipped += 1
             else:
                 logger.info(f"[{idx}/{total}] Processing {name}")
-                detection = detect(image_path=image_path, output=json_path, **params)
+                detection = detect(image_path=image_path, output=json_path, params=params)
                 image, pith_xy, rings = (
                     detection.image,
                     detection.pith_xy,
                     detection.rings,
                 )
                 processed += 1
+                if per_image_reports:
+                    write_image_reports(
+                        output_dir / image_path.stem, image, pith_xy, rings, scale_value, scale_unit
+                    )
             results.append(
                 {"name": name, "image": image, "pith_xy": pith_xy, "rings": rings}
             )
@@ -161,7 +211,7 @@ def run_batch(
         logger.warning("Batch produced no results; skipping summary PDF")
 
     config_path = output_dir / "batch_config.yml"
-    dump_config(config, config_path)
+    dump_config(_effective_config(config, params), config_path)
 
     logger.info(
         f"Batch complete: {processed} processed, {skipped} skipped, {errors} error(s)"

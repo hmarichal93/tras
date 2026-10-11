@@ -49,10 +49,10 @@ def _load_shape_json_obj(shape_json_obj: dict) -> ShapeDict:
     }
 
     assert "label" in shape_json_obj, f"label is required: {shape_json_obj}"
-    assert isinstance(shape_json_obj["label"], str), (
-        f"label must be str: {shape_json_obj['label']}"
-    )
-    label: str = shape_json_obj["label"]
+    # Tolerate null labels written by other tools: treat them as unlabeled.
+    raw_label = shape_json_obj["label"]
+    assert raw_label is None or isinstance(raw_label, str), f"label must be str: {raw_label}"
+    label: str = raw_label or ""
 
     assert "points" in shape_json_obj, f"points is required: {shape_json_obj}"
     assert isinstance(shape_json_obj["points"], list), (

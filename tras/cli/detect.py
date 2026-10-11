@@ -1,106 +1,64 @@
-"""Unified CLI command for automatic pith and ring detection.
+"""``tras_detect``: automatic pith and ring detection from the command line.
 
-Automatically detects if input is a single image file or a directory of images,
-and processes accordingly.
+The input decides the mode:
+
+* **image file** → detect rings on that image and write one TRAS label file (JSON);
+* **directory** → batch-process every image in it (JSON + CSV + PDF per image, a combined
+  ``summary.pdf`` and the ``batch_config.yml`` actually used).
+
+Parameter precedence, lowest to highest: ``tras/config/detection_defaults.yaml`` →
+``--config`` YAML → command-line flags.
 """
 
 from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import Any
 from typing import Optional
 
 import typer
 from loguru import logger
 
 from tras.api import detect as detect_api
-from tras.utils.cli_config import (
-    ConfigError,
-    get_detection_params,
-    load_config,
-    merge_config,
-    validate_config,
-)
-from tras.utils.ring_properties import compute_ring_properties, write_ring_properties_csv
-from tras.utils.report_pdf import generate_pdf_report
+from tras.params import DetectionParams
+from tras.utils.batch_helper import run_batch
+from tras.utils.cli_config import ConfigError
+from tras.utils.cli_config import load_config
+from tras.utils.cli_config import merge_config
 
 app = typer.Typer(
     name="detect",
     help="Detect tree ring pith and rings from an image or batch process a folder",
 )
 
+# CLI flag name -> key in the YAML config schema understood by ``merge_config``.
+_FLAG_TO_CONFIG_KEY = {
+    "scale": "preprocess_resize_scale",
+    "remove_background": "preprocess_remove_background",
+    "sampling_nr": "postprocess_sampling_nr",
+    "auto_pith": "pith_auto",
+}
+
 
 def _process_single_image(
     image_path: Path,
     output: Optional[Path],
-    pith_x: Optional[float],
-    pith_y: Optional[float],
-    auto_pith: bool,
-    pith_method: str,
-    ring_method: str,
-    scale: Optional[float],
-    remove_background: bool,
-    sampling_nr: int,
-    cstrd_sigma: float,
-    cstrd_th_low: float,
-    cstrd_th_high: float,
-    cstrd_alpha: int,
-    cstrd_nr: int,
-    deepcstrd_model: str,
-    deepcstrd_tile_size: int,
-    deepcstrd_alpha: int,
-    deepcstrd_nr: int,
-    deepcstrd_rotations: int,
-    deepcstrd_threshold: float,
-    inbd_model: str,
-    inbd_auto_pith: bool,
+    params: DetectionParams,
 ) -> None:
-    """Process a single image file."""
-    # Validate input
-    if not image_path.exists() or not image_path.is_file():
+    """Detect rings on one image and write its label file."""
+    if not image_path.is_file():
         logger.error(f"Image file not found: {image_path}")
         sys.exit(1)
 
-    # Determine output path
-    if output is None:
-        output = image_path.parent / f"{image_path.stem}_detected.json"
-    else:
-        output = Path(output)
-
+    output = output or image_path.parent / f"{image_path.stem}_detected.json"
     try:
-        detection = detect_api(
-            image_path=image_path,
-            output=output,
-            pith_x=pith_x,
-            pith_y=pith_y,
-            auto_pith=auto_pith,
-            pith_method=pith_method,
-            ring_method=ring_method,
-            scale=scale,
-            remove_background=remove_background,
-            sampling_nr=sampling_nr,
-            cstrd_sigma=cstrd_sigma,
-            cstrd_th_low=cstrd_th_low,
-            cstrd_th_high=cstrd_th_high,
-            cstrd_alpha=cstrd_alpha,
-            cstrd_nr=cstrd_nr,
-            deepcstrd_model=deepcstrd_model,
-            deepcstrd_tile_size=deepcstrd_tile_size,
-            deepcstrd_alpha=deepcstrd_alpha,
-            deepcstrd_nr=deepcstrd_nr,
-            deepcstrd_rotations=deepcstrd_rotations,
-            deepcstrd_threshold=deepcstrd_threshold,
-            inbd_model=inbd_model,
-            inbd_auto_pith=inbd_auto_pith,
-        )
+        detection = detect_api(image_path=image_path, output=output, params=params)
     except ValueError as exc:
         logger.error(f"Invalid configuration: {exc}")
         sys.exit(1)
 
-    result_path = detection.output_path or output
-
-    logger.info("✓ Detection complete!")
-    print(f"\nResults saved to: {result_path}")
+    print(f"\nResults saved to: {detection.output_path or output}")
     print(f"  Pith: ({detection.pith_xy[0]:.1f}, {detection.pith_xy[1]:.1f})")
     print(f"  Rings: {len(detection.rings)}")
 
@@ -109,186 +67,46 @@ def _process_folder(
     input_dir: Path,
     output_dir: Optional[Path],
     config: Optional[Path],
-    scale_value: Optional[float],
-    scale_unit: Optional[str],
-    preprocess_resize_scale: Optional[float],
-    preprocess_remove_background: Optional[bool],
-    postprocess_sampling_nr: Optional[int],
-    pith_auto: Optional[bool],
-    pith_method: Optional[str],
-    ring_method: Optional[str],
-    cstrd_sigma: Optional[float],
-    cstrd_th_low: Optional[float],
-    cstrd_th_high: Optional[float],
-    cstrd_alpha: Optional[int],
-    cstrd_nr: Optional[int],
-    deepcstrd_model: Optional[str],
-    deepcstrd_tile_size: Optional[int],
-    deepcstrd_alpha: Optional[int],
-    deepcstrd_nr: Optional[int],
-    deepcstrd_rotations: Optional[int],
-    deepcstrd_threshold: Optional[float],
-    inbd_model: Optional[str],
-    inbd_auto_pith: Optional[bool],
+    overrides: dict[str, Any],
 ) -> None:
-    """Process all images in a folder."""
-    # Validate input directory
-    if not input_dir.exists() or not input_dir.is_dir():
+    """Batch-process every image in ``input_dir``.
+
+    ``overrides`` holds the flags given on the command line, already translated to
+    config keys (see ``_config_overrides``).
+    """
+    if not input_dir.is_dir():
         logger.error(f"Input directory not found or not a directory: {input_dir}")
         sys.exit(1)
 
-    # Determine output directory
-    if output_dir is None:
-        output_dir = input_dir / "tras_out"
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    logger.info(f"Output directory: {output_dir}")
-
-    # Load and merge configuration
-    yaml_config = load_config(config)
-
-    # Collect CLI overrides (only non-None values)
-    normalized_overrides = {}
-    if scale_value is not None:
-        normalized_overrides["scale_value"] = scale_value
-    if scale_unit is not None:
-        normalized_overrides["scale_unit"] = scale_unit
-    if preprocess_resize_scale is not None:
-        normalized_overrides["preprocess_resize_scale"] = preprocess_resize_scale
-    if preprocess_remove_background is not None:
-        normalized_overrides["preprocess_remove_background"] = preprocess_remove_background
-    if postprocess_sampling_nr is not None:
-        normalized_overrides["postprocess_sampling_nr"] = postprocess_sampling_nr
-    if pith_auto is not None:
-        normalized_overrides["pith_auto"] = pith_auto
-    if pith_method is not None:
-        normalized_overrides["pith_method"] = pith_method
-    if ring_method is not None:
-        normalized_overrides["ring_method"] = ring_method
-    if cstrd_sigma is not None:
-        normalized_overrides["cstrd_sigma"] = cstrd_sigma
-    if cstrd_th_low is not None:
-        normalized_overrides["cstrd_th_low"] = cstrd_th_low
-    if cstrd_th_high is not None:
-        normalized_overrides["cstrd_th_high"] = cstrd_th_high
-    if cstrd_alpha is not None:
-        normalized_overrides["cstrd_alpha"] = cstrd_alpha
-    if cstrd_nr is not None:
-        normalized_overrides["cstrd_nr"] = cstrd_nr
-    if deepcstrd_model is not None:
-        normalized_overrides["deepcstrd_model"] = deepcstrd_model
-    if deepcstrd_tile_size is not None:
-        normalized_overrides["deepcstrd_tile_size"] = deepcstrd_tile_size
-    if deepcstrd_alpha is not None:
-        normalized_overrides["deepcstrd_alpha"] = deepcstrd_alpha
-    if deepcstrd_nr is not None:
-        normalized_overrides["deepcstrd_nr"] = deepcstrd_nr
-    if deepcstrd_rotations is not None:
-        normalized_overrides["deepcstrd_rotations"] = deepcstrd_rotations
-    if deepcstrd_threshold is not None:
-        normalized_overrides["deepcstrd_threshold"] = deepcstrd_threshold
-    if inbd_model is not None:
-        normalized_overrides["inbd_model"] = inbd_model
-    if inbd_auto_pith is not None:
-        normalized_overrides["inbd_auto_pith"] = inbd_auto_pith
-
-    merged_config = merge_config(yaml_config, normalized_overrides)
-
-    # Validate that physical scale is present
+    output_dir = Path(output_dir) if output_dir else input_dir / "tras_out"
     try:
-        validate_config(merged_config)
-    except ConfigError as e:
-        logger.error(f"Configuration error: {e}")
-        logger.error(
-            "Physical scale is required for batch processing. "
-            "Provide via --config YAML file or --scale-value/--scale-unit CLI flags."
-        )
+        merged = merge_config(load_config(config), overrides)
+    except ConfigError as exc:
+        logger.error(f"Configuration error: {exc}")
         sys.exit(1)
 
-    scale_value_final = float(merged_config["physical_scale"]["value"])
-    scale_unit_final = merged_config["physical_scale"]["unit"]
+    if "physical_scale" not in merged:
+        logger.warning(
+            "No physical scale given (--scale-value/--scale-unit or physical_scale in "
+            "--config); CSV and PDF reports will be in pixels."
+        )
 
-    # Get detection parameters
-    detect_params = get_detection_params(merged_config)
+    summary = run_batch(input_dir, output_dir, merged, per_image_reports=True)
+    logger.info(
+        f"Processed {summary.processed}, skipped {summary.skipped}, "
+        f"errors {summary.errors} of {summary.total} image(s). Output: {output_dir}"
+    )
+    if summary.total == 0:
+        logger.warning(f"No images found in {input_dir}")
 
-    # Find all JPEG/PNG images
-    image_extensions = {".jpg", ".jpeg", ".png"}
-    image_files = [
-        f
-        for f in input_dir.iterdir()
-        if f.is_file() and f.suffix.lower() in image_extensions
-    ]
 
-    if not image_files:
-        logger.warning(f"No JPEG/PNG images found in {input_dir}")
-        sys.exit(0)
-
-    logger.info(f"Found {len(image_files)} image(s) to process")
-
-    # Process each image
-    success_count = 0
-    error_count = 0
-
-    for img_idx, image_path in enumerate(sorted(image_files), 1):
-        logger.info(f"\n[{img_idx}/{len(image_files)}] Processing {image_path.name}")
-
-        try:
-            # Determine output filenames (stem-based, no suffixes)
-            stem = image_path.stem
-            json_path = output_dir / f"{stem}.json"
-            csv_path = output_dir / f"{stem}.csv"
-            pdf_path = output_dir / f"{stem}.pdf"
-
-            # Run detection
-            logger.info(f"  Detecting pith and rings...")
-            detection = detect_api(image_path=image_path, output=json_path, **detect_params)
-
-            if not detection.rings:
-                logger.warning(f"  No rings detected in {image_path.name}, skipping CSV/PDF")
-                continue
-
-            # Compute ring properties
-            logger.info(f"  Computing ring properties...")
-            ring_props = compute_ring_properties(detection.rings, detection.pith_xy)
-
-            # Write CSV
-            logger.info(f"  Writing CSV...")
-            write_ring_properties_csv(csv_path, ring_props, scale_value_final, scale_unit_final)
-
-            # Generate PDF
-            logger.info(f"  Generating PDF report...")
-            generate_pdf_report(
-                output_path=pdf_path,
-                image=detection.image,
-                pith_xy=detection.pith_xy,
-                rings=detection.rings,
-                ring_properties=ring_props,
-                scale_value=scale_value_final,
-                scale_unit=scale_unit_final,
-                sample_code=stem,
-                harvested_year=None,
-            )
-
-            logger.info(f"  ✓ Complete: {stem}.json, {stem}.csv, {stem}.pdf")
-            success_count += 1
-
-        except KeyboardInterrupt:
-            logger.warning("\nProcessing interrupted by user")
-            sys.exit(130)
-        except Exception as e:
-            logger.error(f"  ✗ Failed to process {image_path.name}: {e}")
-            import traceback
-
-            traceback.print_exc()
-            error_count += 1
-
-    # Summary
-    logger.info(f"\n{'='*60}")
-    logger.info(f"Processing complete!")
-    logger.info(f"  Successful: {success_count}/{len(image_files)}")
-    if error_count > 0:
-        logger.warning(f"  Errors: {error_count}/{len(image_files)}")
-    logger.info(f"  Output directory: {output_dir}")
+def _config_overrides(flags: dict[str, Any]) -> dict[str, Any]:
+    """Translate given (non-None) CLI flags to ``merge_config`` override keys."""
+    return {
+        _FLAG_TO_CONFIG_KEY.get(name, name): value
+        for name, value in flags.items()
+        if value is not None
+    }
 
 
 @app.command()
@@ -324,7 +142,9 @@ def main(
     # CS-TRD parameters
     cstrd_sigma: Optional[float] = typer.Option(None, "--cstrd-sigma", help="CS-TRD Gaussian sigma"),
     cstrd_th_low: Optional[float] = typer.Option(None, "--cstrd-th-low", help="CS-TRD low threshold"),
-    cstrd_th_high: Optional[float] = typer.Option(None, "--cstrd-th-high", help="CS-TRD high threshold"),
+    cstrd_th_high: Optional[float] = typer.Option(
+        None, "--cstrd-th-high", help="CS-TRD high threshold"
+    ),
     cstrd_alpha: Optional[int] = typer.Option(None, "--cstrd-alpha", help="CS-TRD alpha parameter"),
     cstrd_nr: Optional[int] = typer.Option(None, "--cstrd-nr", help="CS-TRD radial samples"),
     # DeepCS-TRD parameters
@@ -334,7 +154,9 @@ def main(
     deepcstrd_tile_size: Optional[int] = typer.Option(
         None, "--deepcstrd-tile-size", help="DeepCS-TRD tile size (0 or 256)"
     ),
-    deepcstrd_alpha: Optional[int] = typer.Option(None, "--deepcstrd-alpha", help="DeepCS-TRD alpha parameter"),
+    deepcstrd_alpha: Optional[int] = typer.Option(
+        None, "--deepcstrd-alpha", help="DeepCS-TRD alpha parameter"
+    ),
     deepcstrd_nr: Optional[int] = typer.Option(
         None, "--deepcstrd-nr", help="DeepCS-TRD radial samples (method-internal)"
     ),
@@ -351,7 +173,9 @@ def main(
     ),
     # Batch processing options (only used when input is a directory)
     output_dir: Optional[Path] = typer.Option(
-        None, "--output-dir", help="Output directory for batch processing (default: <input_dir>/tras_out)"
+        None,
+        "--output-dir",
+        help="Output directory for batch processing (default: <input_dir>/tras_out)",
     ),
     config: Optional[Path] = typer.Option(
         None, "--config", "-c", help="YAML configuration file (batch processing)"
@@ -365,10 +189,6 @@ def main(
 ) -> None:
     """
     Detect tree ring pith and rings from an image or batch process a folder.
-
-    Automatically detects if input is a single image file or a directory:
-    - **Single image**: Detects rings and saves JSON output
-    - **Directory**: Batch processes all JPEG/PNG images, generates JSON/CSV/PDF per image
 
     Single Image Mode Examples:
         # Auto-detect pith and rings with DeepCS-TRD
@@ -385,89 +205,53 @@ def main(
         tras_detect /path/to/images --config config.yml
 
         # Process folder with CLI-only config
-        tras_detect /path/to/images --scale-value 0.0213 --scale-unit mm --ring-method deepcstrd
+        tras_detect /path/to/images --scale-value 0.0213 --scale-unit mm
 
         # Override config with CLI flags
-        tras_detect /path/to/images --config config.yml --scale-value 0.025 --ring-method cstrd
+        tras_detect /path/to/images --config config.yml --ring-method cstrd
     """
+    detection_flags = {
+        "pith_x": pith_x,
+        "pith_y": pith_y,
+        "auto_pith": auto_pith,
+        "pith_method": pith_method,
+        "ring_method": ring_method,
+        "scale": scale,
+        "remove_background": remove_background,
+        "sampling_nr": sampling_nr,
+        "cstrd_sigma": cstrd_sigma,
+        "cstrd_th_low": cstrd_th_low,
+        "cstrd_th_high": cstrd_th_high,
+        "cstrd_alpha": cstrd_alpha,
+        "cstrd_nr": cstrd_nr,
+        "deepcstrd_model": deepcstrd_model,
+        "deepcstrd_tile_size": deepcstrd_tile_size,
+        "deepcstrd_alpha": deepcstrd_alpha,
+        "deepcstrd_nr": deepcstrd_nr,
+        "deepcstrd_rotations": deepcstrd_rotations,
+        "deepcstrd_threshold": deepcstrd_threshold,
+        "inbd_model": inbd_model,
+        "inbd_auto_pith": inbd_auto_pith,
+    }
     try:
-        input_path = Path(input_path)
-
-        # Check if input exists
-        if not input_path.exists():
+        if input_path.is_file():
+            params = DetectionParams().with_flat_overrides(**detection_flags)
+            _process_single_image(input_path, output, params)
+        elif input_path.is_dir():
+            folder_flags = {
+                **detection_flags,
+                "scale_value": scale_value,
+                "scale_unit": scale_unit,
+            }
+            _process_folder(input_path, output_dir, config, _config_overrides(folder_flags))
+        else:
             logger.error(f"Input path not found: {input_path}")
             sys.exit(1)
-
-        # Determine if it's a file or directory
-        if input_path.is_file():
-            # Single image mode - use defaults for None values
-            logger.info(f"Processing single image: {input_path}")
-            _process_single_image(
-                image_path=input_path,
-                output=output,
-                pith_x=pith_x,
-                pith_y=pith_y,
-                auto_pith=auto_pith if auto_pith is not None else True,
-                pith_method=pith_method if pith_method is not None else "apd_dl",
-                ring_method=ring_method if ring_method is not None else "deepcstrd",
-                scale=scale,
-                remove_background=remove_background if remove_background is not None else False,
-                sampling_nr=sampling_nr if sampling_nr is not None else 360,
-                cstrd_sigma=cstrd_sigma if cstrd_sigma is not None else 3.0,
-                cstrd_th_low=cstrd_th_low if cstrd_th_low is not None else 5.0,
-                cstrd_th_high=cstrd_th_high if cstrd_th_high is not None else 20.0,
-                cstrd_alpha=cstrd_alpha if cstrd_alpha is not None else 30,
-                cstrd_nr=cstrd_nr if cstrd_nr is not None else 360,
-                deepcstrd_model=deepcstrd_model if deepcstrd_model is not None else "generic",
-                deepcstrd_tile_size=deepcstrd_tile_size if deepcstrd_tile_size is not None else 0,
-                deepcstrd_alpha=deepcstrd_alpha if deepcstrd_alpha is not None else 45,
-                deepcstrd_nr=deepcstrd_nr if deepcstrd_nr is not None else 360,
-                deepcstrd_rotations=deepcstrd_rotations if deepcstrd_rotations is not None else 5,
-                deepcstrd_threshold=deepcstrd_threshold if deepcstrd_threshold is not None else 0.5,
-                inbd_model=inbd_model if inbd_model is not None else "INBD_EH",
-                inbd_auto_pith=inbd_auto_pith if inbd_auto_pith is not None else True,
-            )
-        elif input_path.is_dir():
-            # Batch processing mode
-            logger.info(f"Processing folder: {input_path}")
-            _process_folder(
-                input_dir=input_path,
-                output_dir=output_dir,
-                config=config,
-                scale_value=scale_value,
-                scale_unit=scale_unit,
-                preprocess_resize_scale=scale,  # Map --scale to preprocess_resize_scale
-                preprocess_remove_background=remove_background,
-                postprocess_sampling_nr=sampling_nr,
-                pith_auto=auto_pith,
-                pith_method=pith_method,
-                ring_method=ring_method,
-                cstrd_sigma=cstrd_sigma,
-                cstrd_th_low=cstrd_th_low,
-                cstrd_th_high=cstrd_th_high,
-                cstrd_alpha=cstrd_alpha,
-                cstrd_nr=cstrd_nr,
-                deepcstrd_model=deepcstrd_model,
-                deepcstrd_tile_size=deepcstrd_tile_size,
-                deepcstrd_alpha=deepcstrd_alpha,
-                deepcstrd_nr=deepcstrd_nr,
-                deepcstrd_rotations=deepcstrd_rotations,
-                deepcstrd_threshold=deepcstrd_threshold,
-                inbd_model=inbd_model,
-                inbd_auto_pith=inbd_auto_pith,
-            )
-        else:
-            logger.error(f"Input path is neither a file nor a directory: {input_path}")
-            sys.exit(1)
-
     except KeyboardInterrupt:
         logger.warning("Processing interrupted by user")
         sys.exit(130)
-    except Exception as e:
-        logger.error(f"Processing failed: {e}")
-        import traceback
-
-        traceback.print_exc()
+    except (ValueError, TypeError) as exc:
+        logger.error(f"Invalid parameters: {exc}")
         sys.exit(1)
 
 

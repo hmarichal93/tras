@@ -1,8 +1,23 @@
+"""Programmatic entry point for cross-section pith and ring detection.
+
+``detect()`` runs the whole pipeline on one image::
+
+    load → preprocess → locate pith → detect rings → resample rings → (save)
+
+Parameters come from a ``DetectionParams`` (see ``tras/params.py``). For backward
+compatibility, the legacy flat keywords (``ring_method="cstrd"``, ``cstrd_sigma=2.5``, ...)
+are still accepted and override the given or default parameters.
+
+Detector back-ends import torch and the method packages, so they are imported lazily
+inside the step functions: ``import tras.api`` stays fast and works without a GPU stack.
+"""
+
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 from typing import Optional
 
 import numpy as np
@@ -11,14 +26,11 @@ from loguru import logger
 from PIL import Image as PILImage
 
 from tras._label_file import LabelFile
-from tras.config.detection_defaults import get_detection_defaults
+from tras.params import DetectionParams
 from tras.utils import img_arr_to_data
-from tras.utils.apd_helper import detect_pith_apd
-from tras.utils.cstrd_helper import detect_rings_cstrd
-from tras.utils.deepcstrd_helper import detect_rings_deepcstrd
-from tras.utils.inbd_helper import detect_rings_inbd
-from tras.utils.preprocess_helper import preprocess_image
 from tras.utils.ring_sampling import resample_rings_by_rays
+
+RingList = list[npt.NDArray[np.float32]]
 
 
 @dataclass
@@ -28,226 +40,247 @@ class PreprocessingInfo:
     original_size: tuple[int, int]
     processed_size: tuple[int, int]
 
+    def to_flag_payload(self) -> dict[str, Any]:
+        return {
+            "scale_factor": self.scale_factor,
+            "remove_background": self.remove_background,
+            "original_size": list(self.original_size),
+            "processed_size": list(self.processed_size),
+        }
+
 
 @dataclass
 class DetectionResult:
     image: npt.NDArray[np.uint8]
     pith_xy: tuple[float, float]
-    rings: list[npt.NDArray[np.float32]]
+    rings: RingList
     preprocessing: Optional[PreprocessingInfo]
     output_path: Optional[Path] = None
+    params: Optional[DetectionParams] = None
 
 
-def _load_image(image_path: Path) -> npt.NDArray[np.uint8]:
-    """Load image from disk using PIL with RGB conversion."""
-    try:
-        pil_img = PILImage.open(image_path)
-        if pil_img.mode != "RGB":
-            pil_img = pil_img.convert("RGB")
-        return np.array(pil_img, dtype=np.uint8)
-    except Exception as exc:  # pragma: no cover - PIL error surfaces to caller
-        logger.error(f"Failed to load image from %s: %s", image_path, exc)
-        raise
+def detect(
+    image_path: Path | str,
+    *,
+    output: Optional[Path | str] = None,
+    params: Optional[DetectionParams] = None,
+    **flat_overrides: Any,
+) -> DetectionResult:
+    """Detect the pith and the annual rings of one cross-section image.
+
+    Args:
+        image_path: Image file (any format PIL reads).
+        output: If given, write a TRAS label file (JSON) with rings and pith here.
+        params: Full parameter set. Defaults to ``DetectionParams()``.
+        **flat_overrides: Legacy flat keywords (``ring_method``, ``cstrd_sigma``,
+            ``pith_x``, ...). See ``tras.params.flat_parameter_names()``.
+
+    Returns:
+        ``DetectionResult`` with the (preprocessed) image, pith and rings. Each ring is an
+        ``(sampling_nr, 2)`` array of ``(x, y)`` points ordered by angle around the pith.
+    """
+    params = (params or DetectionParams()).with_flat_overrides(**flat_overrides)
+    path = Path(image_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Image file not found: {path}")
+
+    image, preprocessing = preprocess(load_image(path), params)
+    pith_xy = locate_pith(image, params)
+    rings, pith_xy = detect_rings(image, pith_xy, params)
+    logger.info("Detected {} rings; resampling to {} points", len(rings), params.sampling_nr)
+    rings = resample_rings_by_rays(rings, pith_xy, params.sampling_nr)
+
+    output_path = Path(output) if output is not None else None
+    if output_path is not None:
+        payload = preprocessing.to_flag_payload() if preprocessing else None
+        _save_detection_results(output_path, image, pith_xy, rings, payload)
+
+    return DetectionResult(
+        image=image,
+        pith_xy=pith_xy,
+        rings=rings,
+        preprocessing=preprocessing,
+        output_path=output_path,
+        params=params,
+    )
+
+
+def load_image(image_path: Path) -> npt.NDArray[np.uint8]:
+    """Load an image from disk as an RGB uint8 array."""
+    logger.info("Loading image from {}", image_path)
+    with PILImage.open(image_path) as pil_img:
+        return np.array(pil_img.convert("RGB"), dtype=np.uint8)
+
+
+# Kept for callers that used the private name.
+_load_image = load_image
+
+
+def preprocess(
+    image: npt.NDArray[np.uint8], params: DetectionParams
+) -> tuple[npt.NDArray[np.uint8], Optional[PreprocessingInfo]]:
+    """Resize and/or remove the background when requested; otherwise return as-is."""
+    if params.resize_scale is None and not params.remove_background:
+        return image, None
+
+    from tras.utils.preprocess_helper import preprocess_image
+
+    scale = params.resize_scale or 1.0
+    logger.info(
+        "Preprocessing (scale={}, remove_background={})", scale, params.remove_background
+    )
+    processed = preprocess_image(
+        image,
+        scale_factor=scale,
+        crop_rect=None,
+        remove_background=params.remove_background,
+    )
+    info = PreprocessingInfo(
+        scale_factor=scale,
+        remove_background=params.remove_background,
+        original_size=(int(image.shape[1]), int(image.shape[0])),
+        processed_size=(int(processed.shape[1]), int(processed.shape[0])),
+    )
+    return processed, info
+
+
+def locate_pith(
+    image: npt.NDArray[np.uint8], params: DetectionParams
+) -> Optional[tuple[float, float]]:
+    """Return the pith from manual coordinates or APD.
+
+    Returns ``None`` when INBD will locate the pith itself, so APD is not run for nothing.
+    """
+    if params.pith.manual_xy is not None:
+        logger.info("Using manual pith {}", params.pith.manual_xy)
+        return params.pith.manual_xy
+    if params.ring_method == "inbd" and params.inbd.auto_pith:
+        return None
+    if not params.pith.auto:
+        raise ValueError(
+            "Pith coordinates required. Provide pith_x/pith_y or enable auto pith detection."
+        )
+
+    from tras.utils.apd_helper import detect_pith_apd
+
+    logger.info("Detecting pith with {}", params.pith.method)
+    return detect_pith_apd(image, method=params.pith.method)
+
+
+def detect_rings(
+    image: npt.NDArray[np.uint8],
+    pith_xy: Optional[tuple[float, float]],
+    params: DetectionParams,
+) -> tuple[RingList, tuple[float, float]]:
+    """Run the selected ring detector. Returns ``(rings, pith_xy)``.
+
+    The pith is returned because INBD may refine or detect it.
+    """
+    logger.info("Detecting rings with {}", params.ring_method)
+    if params.ring_method == "inbd":
+        return _detect_rings_inbd(image, pith_xy, params)
+    if pith_xy is None:
+        raise ValueError(f"{params.ring_method} needs a pith location.")
+    if params.ring_method == "cstrd":
+        return _detect_rings_cstrd(image, pith_xy, params), pith_xy
+    return _detect_rings_deepcstrd(image, pith_xy, params), pith_xy
+
+
+def _detect_rings_cstrd(
+    image: npt.NDArray[np.uint8], pith_xy: tuple[float, float], params: DetectionParams
+) -> RingList:
+    from tras.utils.cstrd_helper import detect_rings_cstrd
+
+    p = params.cstrd
+    return detect_rings_cstrd(
+        image,
+        pith_xy,
+        sigma=p.sigma,
+        th_low=p.th_low,
+        th_high=p.th_high,
+        alpha=p.alpha,
+        nr=p.nr,
+    )
+
+
+def _detect_rings_deepcstrd(
+    image: npt.NDArray[np.uint8], pith_xy: tuple[float, float], params: DetectionParams
+) -> RingList:
+    from tras.utils.deepcstrd_helper import detect_rings_deepcstrd
+
+    p = params.deepcstrd
+    return detect_rings_deepcstrd(
+        image,
+        pith_xy,
+        model_id=p.model,
+        tile_size=p.tile_size,
+        alpha=p.alpha,
+        nr=p.nr,
+        total_rotations=p.rotations,
+        prediction_map_threshold=p.threshold,
+        width=p.width,
+        height=p.height,
+    )
+
+
+def _detect_rings_inbd(
+    image: npt.NDArray[np.uint8],
+    pith_xy: Optional[tuple[float, float]],
+    params: DetectionParams,
+) -> tuple[RingList, tuple[float, float]]:
+    from tras.utils.inbd_helper import detect_rings_inbd
+
+    center = None if params.inbd.auto_pith else pith_xy
+    rings, pith = detect_rings_inbd(
+        image, center_xy=center, model_id=params.inbd.model, return_pith=True
+    )
+    return rings, (float(pith[0]), float(pith[1]))
+
+
+def build_label_shapes(
+    pith_xy: tuple[float, float], rings: RingList
+) -> list[dict[str, Any]]:
+    """Convert rings and pith to labelme-compatible shape dicts."""
+    shapes: list[dict[str, Any]] = [
+        _shape_dict(f"ring_{idx}", [[float(x), float(y)] for x, y in ring], "polygon")
+        for idx, ring in enumerate(rings, start=1)
+    ]
+    shapes.append(_shape_dict("pith", [[float(pith_xy[0]), float(pith_xy[1])]], "point"))
+    return shapes
+
+
+def _shape_dict(label: str, points: list[list[float]], shape_type: str) -> dict[str, Any]:
+    return {
+        "label": label,
+        "points": points,
+        "group_id": None,
+        "shape_type": shape_type,
+        "flags": {},
+        "description": "",
+    }
 
 
 def _save_detection_results(
     output_path: Path,
     image: npt.NDArray[np.uint8],
     pith_xy: tuple[float, float],
-    rings: list[npt.NDArray[np.float32]],
+    rings: RingList,
     preprocessing_info: Optional[dict] = None,
 ) -> None:
-    """Serialize detection results to TRAS LabelFile JSON format."""
-    shapes = []
-    for ring_idx, ring in enumerate(rings):
-        points = [[float(p[0]), float(p[1])] for p in ring]
-        shapes.append(
-            {
-                "label": f"ring_{ring_idx + 1}",
-                "points": points,
-                "group_id": None,
-                "shape_type": "polygon",
-                "flags": {},
-                "description": "",
-            }
-        )
-
-    shapes.append(
-        {
-            "label": "pith",
-            "points": [[float(pith_xy[0]), float(pith_xy[1])]],
-            "group_id": None,
-            "shape_type": "point",
-            "flags": {},
-            "description": "",
-        }
-    )
-
-    # Create LabelFile instance (empty, will be populated by save())
-    label_file = LabelFile(filename=None, enforce_image_data=False)
-    
-    # Prepare image path (relative to label file)
-    image_path_rel = str(output_path.parent / output_path.stem)
-    
-    # Convert image to bytes (save() will encode to base64)
-    image_data_bytes = img_arr_to_data(image)
-    
-    # Prepare flags
+    """Serialize detection results to the TRAS label file (JSON) format."""
     flags = {}
     if preprocessing_info:
         flags["preprocessing"] = json.dumps(preprocessing_info)
-    
-    # Save using the save() method
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    label_file = LabelFile(filename=None, enforce_image_data=False)
     label_file.save(
         filename=str(output_path),
-        shapes=shapes,
-        imagePath=image_path_rel,
+        shapes=build_label_shapes(pith_xy, rings),
+        imagePath=str(output_path.parent / output_path.stem),
         imageHeight=image.shape[0],
         imageWidth=image.shape[1],
-        imageData=image_data_bytes,
+        imageData=img_arr_to_data(image),
         flags=flags,
     )
-    logger.info("Saved detection results to %s", output_path)
-
-
-_DEFAULTS = get_detection_defaults()
-
-
-def detect(
-    image_path: Path | str,
-    *,
-    output: Optional[Path] = None,
-    pith_x: Optional[float] = None,
-    pith_y: Optional[float] = None,
-    auto_pith: bool = _DEFAULTS["pith"]["auto"],
-    pith_method: str = _DEFAULTS["pith"]["method"],
-    ring_method: str = _DEFAULTS["method"],
-    scale: Optional[float] = None,
-    remove_background: bool = False,
-    sampling_nr: int = _DEFAULTS["sampling"]["nr"],
-    cstrd_sigma: float = _DEFAULTS["cstrd"]["sigma"],
-    cstrd_th_low: float = _DEFAULTS["cstrd"]["th_low"],
-    cstrd_th_high: float = _DEFAULTS["cstrd"]["th_high"],
-    cstrd_alpha: int = _DEFAULTS["cstrd"]["alpha"],
-    cstrd_nr: int = _DEFAULTS["cstrd"]["nr"],
-    deepcstrd_model: str = _DEFAULTS["deepcstrd"]["model"],
-    deepcstrd_tile_size: int = _DEFAULTS["deepcstrd"]["tile_size"],
-    deepcstrd_alpha: int = _DEFAULTS["deepcstrd"]["alpha"],
-    deepcstrd_nr: int = _DEFAULTS["deepcstrd"]["nr"],
-    deepcstrd_rotations: int = _DEFAULTS["deepcstrd"]["rotations"],
-    deepcstrd_threshold: float = _DEFAULTS["deepcstrd"]["threshold"],
-    deepcstrd_width: int = _DEFAULTS["deepcstrd"]["width"],
-    deepcstrd_height: int = _DEFAULTS["deepcstrd"]["height"],
-    inbd_model: str = _DEFAULTS["inbd"]["model"],
-    inbd_auto_pith: bool = _DEFAULTS["inbd"]["auto_pith"],
-) -> DetectionResult:
-    """
-    Perform pith and ring detection for an input image.
-
-    This mirrors the CLI workflow but exposes a pure Python API.
-    """
-    path = Path(image_path)
-    if not path.exists():
-        raise FileNotFoundError(f"Image file not found: {path}")
-
-    logger.info("Loading image from %s", path)
-    image = _load_image(path)
-    original_shape = image.shape
-    preprocessing_meta: Optional[PreprocessingInfo] = None
-
-    if scale is not None or remove_background:
-        logger.info("Applying preprocessing (scale=%s, remove_background=%s)", scale, remove_background)
-        processed = preprocess_image(
-            image,
-            scale_factor=scale or 1.0,
-            crop_rect=None,
-            remove_background=remove_background,
-        )
-        preprocessing_meta = PreprocessingInfo(
-            scale_factor=scale or 1.0,
-            remove_background=remove_background,
-            original_size=(int(original_shape[1]), int(original_shape[0])),
-            processed_size=(int(processed.shape[1]), int(processed.shape[0])),
-        )
-        image = processed
-
-    if pith_x is not None and pith_y is not None:
-        pith_xy = (float(pith_x), float(pith_y))
-        logger.info("Using manual pith coordinates: (%.1f, %.1f)", pith_xy[0], pith_xy[1])
-    elif auto_pith:
-        logger.info("Detecting pith using %s", pith_method)
-        pith_xy = detect_pith_apd(image, method=pith_method)
-    else:
-        raise ValueError("Pith coordinates required. Provide --pith-x/--pith-y or enable auto detection.")
-
-    logger.info("Detecting rings via %s", ring_method)
-    pith_for_sampling = pith_xy
-    
-    if ring_method == "cstrd":
-        rings = detect_rings_cstrd(
-            image,
-            pith_xy,
-            sigma=cstrd_sigma,
-            th_low=cstrd_th_low,
-            th_high=cstrd_th_high,
-            alpha=cstrd_alpha,
-            nr=cstrd_nr,
-        )
-    elif ring_method == "deepcstrd":
-        logger.info(f"Calling detect_rings_deepcstrd with model_id='{deepcstrd_model}', tile_size={deepcstrd_tile_size}")
-        rings = detect_rings_deepcstrd(
-            image,
-            pith_xy,
-            model_id=deepcstrd_model,
-            tile_size=deepcstrd_tile_size,
-            alpha=deepcstrd_alpha,
-            nr=deepcstrd_nr,
-            total_rotations=deepcstrd_rotations,
-            prediction_map_threshold=deepcstrd_threshold,
-            width=deepcstrd_width,
-            height=deepcstrd_height,
-        )
-    elif ring_method == "inbd":
-        if inbd_auto_pith:
-            rings, pith_for_sampling = detect_rings_inbd(
-                image,
-                center_xy=None,
-                model_id=inbd_model,
-                return_pith=True,
-            )
-        else:
-            rings, pith_for_sampling = detect_rings_inbd(
-                image,
-                center_xy=pith_xy,
-                model_id=inbd_model,
-                return_pith=True,
-        )
-    else:
-        raise ValueError(f"Unknown ring detection method: {ring_method}")
-
-    logger.info("Detected %d rings", len(rings))
-    
-    # Apply postprocess resampling
-    logger.info("Resampling rings to %d points using pith (%.1f, %.1f)", sampling_nr, pith_for_sampling[0], pith_for_sampling[1])
-    rings = resample_rings_by_rays(rings, pith_for_sampling, sampling_nr)
-    logger.info("Resampled to %d rings", len(rings))
-
-    preprocessing_payload = None
-    if preprocessing_meta:
-        preprocessing_payload = {
-            "scale_factor": preprocessing_meta.scale_factor,
-            "remove_background": preprocessing_meta.remove_background,
-            "original_size": list(preprocessing_meta.original_size),
-            "processed_size": list(preprocessing_meta.processed_size),
-        }
-
-    if output is not None:
-        _save_detection_results(Path(output), image, pith_for_sampling, rings, preprocessing_payload)
-
-    return DetectionResult(
-        image=image,
-        pith_xy=pith_for_sampling,
-        rings=rings,
-        preprocessing=preprocessing_meta,
-        output_path=Path(output) if output is not None else None,
-    )
+    logger.info("Saved detection results to {}", output_path)

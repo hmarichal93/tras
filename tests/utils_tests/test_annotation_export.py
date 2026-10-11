@@ -12,6 +12,17 @@ from tras._label_file import LabelFile
 from tras.utils.annotation_export import export_annotations_json
 
 
+def _png_bytes() -> bytes:
+    """A real 200x100 PNG: the exporter decodes the embedded image."""
+    import io
+
+    from PIL import Image
+
+    buffer = io.BytesIO()
+    Image.fromarray(np.zeros((100, 200, 3), dtype=np.uint8)).save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
 class MockShape:
     """Mock shape object for testing."""
     
@@ -45,7 +56,7 @@ class MockWindow:
     
     def __init__(self):
         self.imagePath = "/test/image.png"
-        self.imageData = b"fake_image_data"
+        self.imageData = _png_bytes()
         self.image = MagicMock()
         self.image.height.return_value = 100
         self.image.width.return_value = 200
@@ -73,7 +84,7 @@ def test_export_empty_shapes():
         # Load and verify structure
         label_file = LabelFile(str(output_file))
         assert label_file.shapes == []
-        assert label_file.imagePath == "image.png"  # Relative path
+        assert label_file.imagePath.endswith("image.png")  # relative to the output file
         assert label_file.imageData is not None
 
 
@@ -127,7 +138,7 @@ def test_export_preserves_preprocessing_info():
         # Load and verify preprocessing info is present
         label_file = LabelFile(str(output_file))
         assert "preprocessing" in label_file.otherData
-        assert label_file.otherData["preprocessing"]["crop_rect"] == (10, 20, 100, 150)
+        assert label_file.otherData["preprocessing"]["crop_rect"] == [10, 20, 100, 150]  # JSON stores tuples as lists
         assert label_file.otherData["preprocessing"]["scale_factor"] == 0.8
 
 
@@ -182,7 +193,7 @@ def test_export_preserves_pith_xy():
         # Load and verify pith_xy is present
         label_file = LabelFile(str(output_file))
         assert "pith_xy" in label_file.otherData
-        assert label_file.otherData["pith_xy"] == (50, 75)
+        assert label_file.otherData["pith_xy"] == [50, 75]
 
 
 def test_export_respects_store_data_config():
