@@ -823,7 +823,8 @@ class Canvas(QtWidgets.QWidget):
         Shape.scale = self.scale
         for shape in self.shapes:
             if (shape.selected or not self._hideBackround) and self.isVisible(shape):
-                shape.fill = shape.selected or shape == self.hShape
+                shape.hovered = shape is self.hShape
+                shape.fill = shape.selected or shape.hovered
                 shape.paint(p)
         if self.current:
             self.current.paint(p)

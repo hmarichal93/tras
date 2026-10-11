@@ -5,6 +5,7 @@ from pathlib import Path
 
 from loguru import logger
 
+from tras.params import InbdParams
 from tras.utils.image_preprocessing import normalize_to_rgb_uint8
 from tras.utils.image_preprocessing import pad_for_edge_detection
 
@@ -12,37 +13,39 @@ from tras.utils.image_preprocessing import pad_for_edge_detection
 _inbd_path = Path(__file__).parent.parent / "tree_ring_methods" / "inbd" / "src"
 sys.path.insert(0, str(_inbd_path))
 
+
 def detect_rings_inbd(
-    image: np.ndarray, 
+    image: np.ndarray,
     center_xy: Optional[Tuple[float, float]] = None,
-    model_id: str = "INBD_EH",
+    model_id: Optional[str] = None,
     output_format: str = "polylines",
-    return_pith: bool = False
+    return_pith: bool = False,
 ) -> Union[List[np.ndarray], Tuple[List[np.ndarray], Tuple[float, float]]]:
     """
     Run INBD on the given image and return a list of ring polylines (Nx2 arrays).
-    
+
     INBD (Iterative Next Boundary Detection) is a CVPR 2023 method for instance
     segmentation of tree rings in microscopy images.
-    
+
     Args:
         image: Input image as numpy array (H x W x 3)
-        center_xy: Pith center coordinates (x, y). Optional - if None, INBD will 
+        center_xy: Pith center coordinates (x, y). Optional - if None, INBD will
                    attempt to detect the pith automatically or use its own method.
-        model_id: Model identifier ("INBD_EH", "INBD_DO", "INBD_VM", "INBD_UruDendro1")
+        model_id: Model identifier (``None`` = default from detection_defaults.yaml;
+                   "INBD_EH", "INBD_DO", "INBD_VM", "INBD_UruDendro1")
                    or filesystem path to model checkpoint (.pt.zip file)
             - INBD_EH: Empetrum hermaphroditum (shrub)
             - INBD_DO: Dryas octopetala (shrub)
             - INBD_VM: Vaccinium myrtillus (shrub)
             - INBD_UruDendro1: Pinus taeda (tree)
         output_format: Output format ("polylines" or "masks")
-    
+
     Returns:
         If return_pith=False: List of ring polylines, each as Nx2 array of (x, y) points
         If return_pith=True: Tuple of (rings, pith_xy) where pith_xy is (x, y) tuple
             - Auto mode (center_xy=None): pith_xy is the computed pith from innermost region
             - Manual mode (center_xy provided): pith_xy is the provided center_xy
-    
+
     Raises:
         ImportError: If INBD source code is not available
         FileNotFoundError: If model file is not found
@@ -62,10 +65,10 @@ def detect_rings_inbd(
             "   python fetch_pretrained_models.py\n\n"
             "See tras/tree_ring_methods/inbd/README.md for complete instructions."
         )
-    
+
     # INBD uses a CLI interface through main.py, so we'll call it as a subprocess
     # rather than trying to import modules directly
-    
+
     # Import cv2 at the beginning
     import cv2
 
@@ -73,7 +76,7 @@ def detect_rings_inbd(
     image = normalize_to_rgb_uint8(image)
 
     # Get model path
-    model_path = _get_model_path(model_id)
+    model_path = _get_model_path(InbdParams().model if model_id is None else model_id)
 
     # Handle optional pith coordinates
     # Track the final pith used (for return_pith=True)
@@ -91,38 +94,37 @@ def detect_rings_inbd(
         if any([pad_top, pad_bottom, pad_left, pad_right]):
             logger.debug(
                 "INBD: Added padding - top={}, bottom={}, left={}, right={}; adjusted pith=({:.1f}, {:.1f})",
-                pad_top, pad_bottom, pad_left, pad_right, cx, cy,
+                pad_top,
+                pad_bottom,
+                pad_left,
+                pad_right,
+                cx,
+                cy,
             )
     else:
         logger.debug("INBD: Running without explicit pith coordinates (auto-detection mode)")
-    
+
     # Create temporary output directory for INBD
     import tempfile
     import os
     import subprocess
     import json
-    
+
     temp_dir = tempfile.mkdtemp(prefix="inbd_")
     temp_image_path = os.path.join(temp_dir, "input_image.jpg")
     temp_output_path = os.path.join(temp_dir, "output.json")
-    
+
     # Save image temporarily
     cv2.imwrite(temp_image_path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
-    
+
     try:
         # Run INBD as subprocess
         # INBD CLI: python main.py inference model_path image_path --cx X --cy Y
         main_py = _inbd_path / "main.py"
-        
+
         # Build command - INBD expects --cy before --cx based on their examples
-        cmd = [
-            "python",
-            str(main_py),
-            "inference",
-            model_path,
-            temp_image_path
-        ]
-        
+        cmd = ["python", str(main_py), "inference", model_path, temp_image_path]
+
         # Add pith coordinates only if provided
         if cx is not None and cy is not None:
             cmd.extend(["--cy", str(int(cy))])
@@ -133,25 +135,30 @@ def detect_rings_inbd(
 
         logger.debug(f"INBD: Command: {' '.join(cmd)}")
         logger.debug(f"INBD: Working directory: {_inbd_path}")
-        
+
         # Run INBD
         result = subprocess.run(
             cmd,
             cwd=str(_inbd_path),
             capture_output=True,
             text=True,
-            timeout=300  # 5 minute timeout
+            timeout=300,  # 5 minute timeout
         )
-        
+
         # Check if INBD completed (note: it may fail at contour conversion but still create labelmap)
         logger.debug(f"INBD: Process returned with code {result.returncode}")
         logger.debug(f"INBD stdout: {result.stdout}")
-        
+
         if result.returncode != 0:
             # INBD may fail at the contour conversion step but still create the labelmap
             # Check if it's the cy/cx NoneType error
-            if "TypeError: must be real number, not NoneType" in result.stderr or "cy" in result.stderr.lower():
-                logger.debug("INBD: Process failed at contour conversion (expected with auto-detection)")
+            if (
+                "TypeError: must be real number, not NoneType" in result.stderr
+                or "cy" in result.stderr.lower()
+            ):
+                logger.debug(
+                    "INBD: Process failed at contour conversion (expected with auto-detection)"
+                )
                 logger.debug("INBD: Will attempt to process labelmap directly")
             else:
                 # Other errors should be raised
@@ -162,16 +169,16 @@ def detect_rings_inbd(
                 )
         else:
             logger.debug("INBD: Process completed successfully")
-        
+
         # INBD outputs labelmap PNG files, not JSON
         # Look for labelmap output in the inference directory
         inference_dir = _inbd_path / "inference"
         labelmap_files = []
-        
+
         if inference_dir.exists():
             # Look for .labelmap.png files
             labelmap_files = list(inference_dir.rglob("*.labelmap.png"))
-        
+
         if labelmap_files:
             # Use the most recent labelmap file
             labelmap_file = max(labelmap_files, key=lambda p: p.stat().st_mtime)
@@ -188,7 +195,7 @@ def detect_rings_inbd(
             else:
                 # Manual mode: use provided pith (already set above)
                 final_pith_xy = (cx - pad_left, cy - pad_top)  # Adjust for padding
-            
+
             # Extract rings from labelmap
             rings = _extract_rings_from_labelmap(labelmap_file, cx, cy, pad_left, pad_top)
         else:
@@ -196,10 +203,10 @@ def detect_rings_inbd(
             output_files = list(Path(temp_dir).glob("*.json"))
             if not output_files:
                 output_files = list((_inbd_path / "output").glob("*.json"))
-            
+
             if output_files:
                 output_file = max(output_files, key=lambda p: p.stat().st_mtime)
-                with open(output_file, 'r') as f:
+                with open(output_file, "r") as f:
                     inbd_result = json.load(f)
                 rings = _extract_rings_from_inbd_result(inbd_result, pad_left, pad_top)
                 # Set final_pith_xy if not already set (fallback path)
@@ -213,11 +220,12 @@ def detect_rings_inbd(
                 if final_pith_xy is None:
                     if cx is not None and cy is not None:
                         final_pith_xy = (cx - pad_left, cy - pad_top)
-        
+
         # Clean up temporary files
         import shutil
+
         shutil.rmtree(temp_dir, ignore_errors=True)
-        
+
         # Return rings and optionally pith
         if return_pith:
             if final_pith_xy is None:
@@ -227,21 +235,23 @@ def detect_rings_inbd(
             return rings, final_pith_xy
         else:
             return rings
-        
+
     except subprocess.TimeoutExpired:
         import shutil
+
         shutil.rmtree(temp_dir, ignore_errors=True)
         raise RuntimeError("INBD inference timed out after 5 minutes")
     except Exception as e:
         # Clean up on error
         import shutil
+
         shutil.rmtree(temp_dir, ignore_errors=True)
         raise RuntimeError(f"INBD inference failed: {str(e)}")
 
 
 def _get_model_path(model_id: str) -> str:
     """Get path to INBD model checkpoint.
-    
+
     Supports both model IDs (e.g., "INBD_EH") and filesystem paths.
     If model_id is a filesystem path that exists, it's returned as-is.
     Otherwise, it's treated as a model ID and resolved from standard locations.
@@ -250,27 +260,29 @@ def _get_model_path(model_id: str) -> str:
     model_path_obj = Path(model_id)
     if model_path_obj.exists() and model_path_obj.is_file():
         return str(model_path_obj.resolve())
-    
+
     # Treat as model ID and resolve from standard locations
     # Look in downloaded_assets first (for consistency with DeepCS-TRD)
     base_path = Path(__file__).parent.parent.parent / "downloaded_assets" / "inbd"
-    
+
     # Also check in INBD source directory
-    inbd_checkpoints = Path(__file__).parent.parent / "tree_ring_methods" / "inbd" / "src" / "checkpoints"
-    
+    inbd_checkpoints = (
+        Path(__file__).parent.parent / "tree_ring_methods" / "inbd" / "src" / "checkpoints"
+    )
+
     # Model filename format: INBD_EH/model.pt.zip
     model_file = f"{model_id}/model.pt.zip"
-    
+
     # Try downloaded_assets first
     model_path = base_path / model_file
     if model_path.exists():
         return str(model_path)
-    
+
     # Try INBD checkpoints directory
     model_path = inbd_checkpoints / model_file
     if model_path.exists():
         return str(model_path)
-    
+
     # Model not found - provide detailed setup instructions
     raise FileNotFoundError(
         f"INBD model '{model_id}' not found.\n\n"
@@ -293,31 +305,29 @@ def _get_model_path(model_id: str) -> str:
 
 
 def _extract_rings_from_inbd_result(
-    result: any,
-    pad_left: int = 0,
-    pad_top: int = 0
+    result: any, pad_left: int = 0, pad_top: int = 0
 ) -> List[np.ndarray]:
     """
     Extract ring polylines from INBD result.
-    
+
     INBD returns results in a format that we need to convert to our standard
     polyline format (list of Nx2 arrays).
     """
     rings = []
-    
+
     # The exact format depends on INBD's implementation
     # We'll need to adapt this based on what INBD actually returns
-    
+
     if result is None:
         return rings
-    
+
     # Handle different possible return formats from INBD
     if isinstance(result, dict):
         # If result is a dict with 'rings' or 'shapes' key
-        if 'rings' in result:
-            ring_data = result['rings']
-        elif 'shapes' in result:
-            ring_data = result['shapes']
+        if "rings" in result:
+            ring_data = result["rings"]
+        elif "shapes" in result:
+            ring_data = result["shapes"]
         else:
             ring_data = result
     elif isinstance(result, list):
@@ -326,54 +336,50 @@ def _extract_rings_from_inbd_result(
         # Unknown format
         logger.warning(f"Unexpected INBD result format: {type(result)}")
         return rings
-    
+
     # Convert to polylines
     for ring in ring_data:
         if isinstance(ring, dict):
-            if 'points' in ring:
-                pts = np.array(ring['points'], dtype=np.float32)
-            elif 'coordinates' in ring:
-                pts = np.array(ring['coordinates'], dtype=np.float32)
+            if "points" in ring:
+                pts = np.array(ring["points"], dtype=np.float32)
+            elif "coordinates" in ring:
+                pts = np.array(ring["coordinates"], dtype=np.float32)
             else:
                 continue
         elif isinstance(ring, (list, np.ndarray)):
             pts = np.array(ring, dtype=np.float32)
         else:
             continue
-        
+
         # Ensure proper shape
         if len(pts.shape) == 1:
             pts = pts.reshape(-1, 2)
-        
+
         if len(pts.shape) == 2 and pts.shape[1] == 2:
             # Adjust coordinates back if padding was added
             if pad_left > 0 or pad_top > 0:
                 pts[:, 0] -= pad_left  # x coordinates
-                pts[:, 1] -= pad_top   # y coordinates
+                pts[:, 1] -= pad_top  # y coordinates
             rings.append(pts)
-    
+
     return rings
 
 
-def _parse_rings_from_stdout(
-    stdout: str,
-    pad_left: int = 0,
-    pad_top: int = 0
-) -> List[np.ndarray]:
+def _parse_rings_from_stdout(stdout: str, pad_left: int = 0, pad_top: int = 0) -> List[np.ndarray]:
     """
     Parse ring polylines from INBD stdout output.
-    
+
     This is a fallback method if INBD doesn't create output files.
     """
     rings = []
-    
+
     # Try to find JSON-like output in stdout
     import json
     import re
-    
+
     # Look for JSON blocks in the output
-    json_matches = re.findall(r'\{[^{}]*\}', stdout, re.MULTILINE | re.DOTALL)
-    
+    json_matches = re.findall(r"\{[^{}]*\}", stdout, re.MULTILINE | re.DOTALL)
+
     for json_str in json_matches:
         try:
             data = json.loads(json_str)
@@ -381,24 +387,24 @@ def _parse_rings_from_stdout(
             rings.extend(extracted)
         except json.JSONDecodeError:
             continue
-    
+
     return rings
 
 
 def _compute_pith_from_labelmap(labelmap_path: Path) -> Tuple[Optional[float], Optional[float]]:
     """
     Compute pith coordinates from the innermost region in the labelmap.
-    
+
     Args:
         labelmap_path: Path to the labelmap PNG file
-        
+
     Returns:
         Tuple of (cx, cy) or (None, None) if computation fails
     """
     try:
         import cv2
         from scipy import ndimage
-        
+
         # Load labelmap
         labelmap = cv2.imread(str(labelmap_path), cv2.IMREAD_GRAYSCALE)
         if labelmap is None:
@@ -412,20 +418,20 @@ def _compute_pith_from_labelmap(labelmap_path: Path) -> Tuple[Optional[float], O
         if len(unique_labels) == 0:
             logger.warning("No labeled regions found in labelmap")
             return None, None
-        
+
         # The innermost ring should be the first label (smallest label number)
         innermost_label = min(unique_labels)
-        innermost_mask = (labelmap == innermost_label)
-        
+        innermost_mask = labelmap == innermost_label
+
         # Compute center of mass (centroid) of the innermost region
         center_of_mass = ndimage.center_of_mass(innermost_mask)
-        
+
         if center_of_mass is not None and len(center_of_mass) == 2:
             cy, cx = center_of_mass  # ndimage returns (row, col) = (y, x)
             return float(cx), float(cy)
-        
+
         return None, None
-        
+
     except Exception as e:
         logger.exception(f"Error computing pith from labelmap: {e}")
         return None, None
@@ -436,66 +442,65 @@ def _extract_rings_from_labelmap(
     cx: Optional[float],
     cy: Optional[float],
     pad_left: int = 0,
-    pad_top: int = 0
+    pad_top: int = 0,
 ) -> List[np.ndarray]:
     """
     Extract ring contours from INBD labelmap.
-    
+
     Args:
         labelmap_path: Path to the labelmap PNG file
         cx: Pith x coordinate (optional)
         cy: Pith y coordinate (optional)
         pad_left: Padding to adjust coordinates
         pad_top: Padding to adjust coordinates
-        
+
     Returns:
         List of ring polylines as Nx2 arrays
     """
     try:
         import cv2
-        
+
         # Load labelmap
         labelmap = cv2.imread(str(labelmap_path), cv2.IMREAD_GRAYSCALE)
         if labelmap is None:
             logger.warning(f"Could not load labelmap from {labelmap_path}")
             return []
-        
+
         rings = []
-        
+
         # Get unique labels (each label represents a ring)
         unique_labels = np.unique(labelmap)
         unique_labels = unique_labels[unique_labels > 0]  # Exclude background
-        
+
         logger.debug(f"INBD: Found {len(unique_labels)} ring labels in labelmap")
-        
+
         # Extract contour for each ring
         for label in sorted(unique_labels):
             # Create binary mask for this ring
             mask = (labelmap == label).astype(np.uint8) * 255
-            
+
             # Find contours
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            
+
             if contours:
                 # Use the largest contour
                 largest_contour = max(contours, key=cv2.contourArea)
-                
+
                 # Convert to Nx2 array
                 pts = largest_contour.squeeze()
-                
+
                 if len(pts.shape) == 2 and pts.shape[1] == 2:
                     # Adjust for padding if needed
                     if pad_left > 0 or pad_top > 0:
                         pts = pts.astype(np.float32)
                         pts[:, 0] -= pad_left  # x
-                        pts[:, 1] -= pad_top   # y
-                    
+                        pts[:, 1] -= pad_top  # y
+
                     rings.append(pts.astype(np.float32))
-        
+
         logger.debug(f"INBD: Extracted {len(rings)} ring contours")
         return rings
 
     except Exception as e:
         logger.exception(f"Error extracting rings from labelmap: {e}")
         return []
-

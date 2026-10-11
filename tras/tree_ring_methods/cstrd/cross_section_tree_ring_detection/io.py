@@ -17,8 +17,14 @@ def load_image(image_name):
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     return img
 
+def runtime_config_path(repo_path="./") -> str:
+    """Per-run config file. TRAS sets CSTRD_RUNTIME_CONFIG to a temp file so concurrent runs
+    do not race on, or modify, the packaged config/general.json."""
+    return os.environ.get("CSTRD_RUNTIME_CONFIG") or os.path.join(repo_path, "config", "general.json")
+
+
 def load_config(default=True) -> dict:
-    config_path = os.path.join("./config", "default.json" if default else "general.json")
+    config_path = os.path.join("./config", "default.json") if default else runtime_config_path()
     return load_json(config_path)
 def load_json(filepath: str) -> dict:
     """

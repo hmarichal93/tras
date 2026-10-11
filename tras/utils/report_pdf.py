@@ -55,9 +55,11 @@ def generate_pdf_report(
 
         # Analysis plots
         if ring_properties:
-            _create_analysis_plots(
-                pdf, ring_properties, scale_value, scale_unit, harvested_year
-            )
+            _create_analysis_plots(pdf, ring_properties, scale_value, scale_unit, harvested_year)
+
+        # Ring widths around the stem and rings to review
+        if len(rings) >= 2:
+            _create_width_qc_page(pdf, rings, pith_xy, scale_value, scale_unit, harvested_year)
 
         # PDF metadata
         pdf_metadata = pdf.infodict()
@@ -159,7 +161,7 @@ def _create_cover_page(
         fontsize=11,
         color="#666666",
     )
-    ax.plot([0.1, 0.9], [divider_y, divider_y], "k-", linewidth=1.5, color="#8b4513")
+    ax.plot([0.1, 0.9], [divider_y, divider_y], "-", linewidth=1.5, color="#8b4513")
 
     y = divider_y - 0.05
     ax.text(0.1, y, "Sample", fontsize=11, fontweight="bold", color="#2d5016")
@@ -183,10 +185,8 @@ def _create_cover_page(
 
     if ring_properties:
         total_area_px = sum(p["area"] for p in ring_properties)
-        total_area_phys = total_area_px * (scale_value ** 2)
-        ax.text(
-            0.1, y, f"Total area: {total_area_phys:.1f} {scale_unit}²", fontsize=9
-        )
+        total_area_phys = total_area_px * (scale_value**2)
+        ax.text(0.1, y, f"Total area: {total_area_phys:.1f} {scale_unit}²", fontsize=9)
         y -= 0.02
 
     ax.text(
@@ -225,11 +225,7 @@ def _create_ring_overlay_page(
     """
     fig, ax = plt.subplots(figsize=(8.5, 11))
     if title is None:
-        title = (
-            "Tree Rings with Detected Boundaries"
-            if show_labels
-            else "Tree Rings (Overlay)"
-        )
+        title = "Tree Rings with Detected Boundaries" if show_labels else "Tree Rings (Overlay)"
     ax.imshow(image)
     ax.set_title(title, fontsize=16, fontweight="bold", pad=20)
     img_height, img_width = image.shape[:2]
@@ -301,10 +297,8 @@ def _create_analysis_plots(
 
     # Annual growth area
     ax1 = fig.add_subplot(gs[0, 0])
-    annual_growth_scaled = [a * (scale_value ** 2) for a in annual_growth]
-    ax1.plot(
-        x_values, annual_growth_scaled, "o-", color="#8b4513", linewidth=2, markersize=4
-    )
+    annual_growth_scaled = [a * (scale_value**2) for a in annual_growth]
+    ax1.plot(x_values, annual_growth_scaled, "o-", color="#8b4513", linewidth=2, markersize=4)
     ax1.set_ylabel(f"Annual Growth Area ({scale_unit}²)", fontsize=10, fontweight="bold")
     ax1.set_xlabel(x_label, fontsize=10, fontweight="bold")
     ax1.set_title("Annual Growth Area", fontsize=12, fontweight="bold")
@@ -312,10 +306,8 @@ def _create_analysis_plots(
 
     # Cumulative area
     ax2 = fig.add_subplot(gs[0, 1])
-    cumulative_scaled = [c * (scale_value ** 2) for c in cumulative_areas]
-    ax2.plot(
-        x_values, cumulative_scaled, "o-", color="#2d5016", linewidth=2, markersize=4
-    )
+    cumulative_scaled = [c * (scale_value**2) for c in cumulative_areas]
+    ax2.plot(x_values, cumulative_scaled, "o-", color="#2d5016", linewidth=2, markersize=4)
     ax2.set_ylabel(f"Cumulative Area ({scale_unit}²)", fontsize=10, fontweight="bold")
     ax2.fill_between(x_values, cumulative_scaled, alpha=0.3, color="#2d5016")
     ax2.set_xlabel(x_label, fontsize=10, fontweight="bold")
@@ -343,7 +335,7 @@ def _create_analysis_plots(
             annual_growth[i] - annual_growth[i - 1] for i in range(1, len(annual_growth))
         ]
         growth_x = x_values[1:]
-        growth_scaled = [g * (scale_value ** 2) for g in growth_rates]
+        growth_scaled = [g * (scale_value**2) for g in growth_rates]
         ax4.bar(growth_x, growth_scaled, color="#228b22", alpha=0.7, edgecolor="black")
         ax4.set_ylabel(f"Growth Change ({scale_unit}²)", fontsize=10, fontweight="bold")
         ax4.axhline(y=0, color="red", linestyle="--", linewidth=1, alpha=0.5)
@@ -370,3 +362,66 @@ def _create_analysis_plots(
     pdf.savefig(fig)
     plt.close()
 
+
+# Most QC flags listed on the page (the rest are summarised in a count).
+_MAX_LISTED_FLAGS = 25
+
+
+def _create_width_qc_page(
+    pdf: PdfPages,
+    rings: list[npt.NDArray[np.float32]],
+    pith_xy: tuple[float, float],
+    scale_value: float,
+    scale_unit: str,
+    harvested_year: Optional[int],
+) -> None:
+    """Mean ring width with its min–max range around the stem, and QC flags."""
+    from tras.analysis.qc import flag_rings
+    from tras.analysis.rings import measure_rings
+    from tras.analysis.rings import order_rings_by_area
+    from tras.analysis.rings import radial_profiles
+    from tras.analysis.rings import radial_widths
+
+    measurements = measure_rings(rings, pith_xy, outer_year=harvested_year)
+    ordered = [np.asarray(rings[i], dtype=np.float64) for i in order_rings_by_area(rings)]
+    flags = flag_rings(measurements, radial_widths(radial_profiles(ordered, pith_xy, 360)))
+    flagged = {f.ring_index for f in flags}
+
+    x = [m.year if m.year is not None else m.index for m in measurements]
+    mean = np.array([m.mean_width for m in measurements]) * scale_value
+    low = np.array([m.min_width for m in measurements]) * scale_value
+    high = np.array([m.max_width for m in measurements]) * scale_value
+
+    fig, (ax_plot, ax_text) = plt.subplots(
+        2, 1, figsize=(8.5, 11), gridspec_kw={"height_ratios": [1.2, 1]}
+    )
+    ax_plot.fill_between(x, low, high, color="#8b4513", alpha=0.2, label="min–max over 360°")
+    ax_plot.plot(x, mean, "o-", color="#8b4513", linewidth=2, markersize=4, label="mean")
+    bad = [i for i, m in enumerate(measurements) if m.index in flagged]
+    ax_plot.plot([x[i] for i in bad], mean[bad], "o", color="red", markersize=8, label="flagged")
+    ax_plot.set_xlabel("Year" if harvested_year else "Ring index (inner → outer)")
+    ax_plot.set_ylabel(f"Ring width ({scale_unit})")
+    ax_plot.set_title("Ring width around the stem", fontweight="bold")
+    ax_plot.grid(True, alpha=0.3)
+    ax_plot.legend(loc="upper right", fontsize=8)
+
+    ax_text.axis("off")
+    ax_text.text(0, 1, _qc_text(flags), va="top", family="monospace", fontsize=9)
+    plt.suptitle("Ring Widths & Quality Control", fontsize=14, fontweight="bold", y=0.98)
+    pdf.savefig(fig)
+    plt.close(fig)
+
+
+def _qc_text(flags: list) -> str:
+    if not flags:
+        return "Quality control: no ring flagged."
+    lines = [f"Quality control: {len(flags)} flag(s) — review these rings", ""]
+    lines += [f"  [{f.code:>8}] {f.message}" for f in flags[:_MAX_LISTED_FLAGS]]
+    if len(flags) > _MAX_LISTED_FLAGS:
+        lines.append(f"  ... and {len(flags) - _MAX_LISTED_FLAGS} more")
+    lines += [
+        "",
+        "crossing: boundary crosses its inner neighbour   partial: covers part of the stem",
+        "narrow: possible false ring                      wide: possible missed ring",
+    ]
+    return "\n".join(lines)

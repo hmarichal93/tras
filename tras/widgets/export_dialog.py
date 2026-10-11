@@ -79,6 +79,16 @@ class ExportDialog(QtWidgets.QDialog):
                    "Only available if radial measurements have been performed.")
         )
         options_layout.addWidget(self.export_pos_checkbox)
+
+        # Tucson .rwl checkbox (cross-section radii)
+        self.export_rwl_checkbox = QtWidgets.QCheckBox(
+            self.tr("Export ring widths as Tucson .rwl (N/E/S/W radii)")
+        )
+        self.export_rwl_checkbox.setToolTip(
+            self.tr("Ring-width series along four compass radii (image top = north), for\n"
+                   "crossdating in dplR/COFECHA. Needs rings, a scale and the harvested year.")
+        )
+        options_layout.addWidget(self.export_rwl_checkbox)
         
         # PDF report checkbox
         self.export_pdf_checkbox = QtWidgets.QCheckBox(
@@ -135,6 +145,7 @@ class ExportDialog(QtWidgets.QDialog):
         self.export_image_checkbox.toggled.connect(self._update_status)
         self.export_csv_checkbox.toggled.connect(self._update_status)
         self.export_pos_checkbox.toggled.connect(self._update_status)
+        self.export_rwl_checkbox.toggled.connect(self._update_status)
         self.export_pdf_checkbox.toggled.connect(self._update_status)
     
     def _update_status(self):
@@ -161,6 +172,18 @@ class ExportDialog(QtWidgets.QDialog):
         else:
             self.export_csv_checkbox.setEnabled(True)
         
+        metadata = getattr(self.parent_window, "sample_metadata", None) or {}
+        can_rwl = (
+            has_rings
+            and getattr(self.parent_window, "image_scale", None) is not None
+            and bool(metadata.get("harvested_year"))
+        )
+        self.export_rwl_checkbox.setEnabled(can_rwl)
+        if not can_rwl:
+            self.export_rwl_checkbox.setToolTip(
+                self.tr("Needs detected rings, a scale (Set Scale) and the harvested year (Metadata).")
+            )
+
         if not has_radial_measurements:
             self.export_pos_checkbox.setEnabled(False)
             self.export_pos_checkbox.setToolTip(
@@ -179,6 +202,8 @@ class ExportDialog(QtWidgets.QDialog):
             selected.append(self.tr("CSV"))
         if self.export_pos_checkbox.isChecked() and self.export_pos_checkbox.isEnabled():
             selected.append(self.tr(".POS"))
+        if self.export_rwl_checkbox.isChecked() and self.export_rwl_checkbox.isEnabled():
+            selected.append(self.tr(".rwl"))
         if self.export_pdf_checkbox.isChecked():
             selected.append(self.tr("PDF"))
         
@@ -220,6 +245,7 @@ class ExportDialog(QtWidgets.QDialog):
             self.export_image_checkbox.isChecked(),
             self.export_csv_checkbox.isChecked() and self.export_csv_checkbox.isEnabled(),
             self.export_pos_checkbox.isChecked() and self.export_pos_checkbox.isEnabled(),
+            self.export_rwl_checkbox.isChecked() and self.export_rwl_checkbox.isEnabled(),
             self.export_pdf_checkbox.isChecked(),
         ]):
             QtWidgets.QMessageBox.warning(
@@ -287,6 +313,16 @@ class ExportDialog(QtWidgets.QDialog):
                     errors.append(f".POS: {str(e)}")
                     logger.error(f"Failed to export .POS: {e}", exc_info=True)
             
+            # Export Tucson ring widths along compass radii
+            if self.export_rwl_checkbox.isChecked() and self.export_rwl_checkbox.isEnabled():
+                try:
+                    rwl_file = self._export_rwl(output_path)
+                    if rwl_file:
+                        exported_files.append(rwl_file)
+                except Exception as e:
+                    errors.append(f".rwl: {str(e)}")
+                    logger.error(f"Failed to export .rwl: {e}", exc_info=True)
+
             # Export PDF report
             if self.export_pdf_checkbox.isChecked():
                 try:
@@ -323,6 +359,29 @@ class ExportDialog(QtWidgets.QDialog):
                 error_msg
             )
     
+    def _export_rwl(self, output_dir: Path) -> str | None:
+        """Tucson .rwl with N/E/S/W radius series of the open cross-section."""
+        from tras.analysis.rings import compass_series
+        from tras.io.tucson import write_rwl
+        from tras.utils.pos_exporter import mm_per_pixel
+        from tras.utils.shape_rings import innermost_centroid
+        from tras.utils.shape_rings import shape_points
+        from tras.utils.shape_rings import split_ring_shapes
+
+        window = self.parent_window
+        ring_shapes, _ = split_ring_shapes(window.canvas.shapes)
+        mm_px = mm_per_pixel(window.image_scale)
+        if len(ring_shapes) < 2 or mm_px is None:
+            return None
+        rings = [shape_points(s) for s in ring_shapes]
+        pith = window.pith_xy or innermost_centroid(rings)
+        metadata = window.sample_metadata or {}
+        name = metadata.get("sample_code") or "sample"
+        series = compass_series(rings, pith, int(metadata["harvested_year"]), mm_px, name)
+        rwl_file = output_dir / f"{name}.rwl"
+        write_rwl(rwl_file, series)
+        return str(rwl_file)
+
     def _export_json(self, output_dir: Path) -> str | None:
         """Export annotations as JSON using shared exporter."""
         if not self.parent_window:
@@ -435,81 +494,13 @@ class ExportDialog(QtWidgets.QDialog):
             return None
         
         import csv
-        from tras.shape import Shape
-        
-        # Get ring shapes (polygons, not linestrips)
-        ring_shapes = [
-            s for s in self.parent_window.canvas.shapes 
-            if getattr(s, "shape_type", "") == "polygon"
-        ]
-        
-        if not ring_shapes:
-            return None
-        
-        # Calculate properties using the same method as _action_ring_properties
-        def _polygon_area(shape: Shape) -> float:
-            points = [(p.x(), p.y()) for p in shape.points]
-            if len(points) < 3:
-                return 0.0
-            area = 0.0
-            for j in range(len(points)):
-                x1, y1 = points[j]
-                x2, y2 = points[(j + 1) % len(points)]
-                area += x1 * y2 - x2 * y1
-            return abs(area) / 2.0
-        
-        # Sort by area (smallest to largest)
-        ring_shapes.sort(key=_polygon_area)
-        
-        measurements_dict = {}
-        if hasattr(self.parent_window, 'radial_line_measurements') and self.parent_window.radial_line_measurements:
-            measurements_dict = self.parent_window.radial_line_measurements.get("measurements", {})
-        
-        ring_properties = []
-        prev_outer_area = 0.0
-        
-        for shape in ring_shapes:
-            points = [(p.x(), p.y()) for p in shape.points]
-            if len(points) < 3:
-                continue
-            
-            # Calculate area
-            area = 0.0
-            n = len(points)
-            for j in range(n):
-                x1, y1 = points[j]
-                x2, y2 = points[(j + 1) % n]
-                area += x1 * y2 - x2 * y1
-            area = abs(area) / 2.0
-            
-            # Calculate perimeter
-            perimeter = 0.0
-            for j in range(n):
-                x1, y1 = points[j]
-                x2, y2 = points[(j + 1) % n]
-                perimeter += ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
-            
-            outer_area = area
-            ring_area = max(outer_area - prev_outer_area, 0.0)
-            
-            props = {
-                "label": shape.label,
-                "area": ring_area,
-                "cumulative_area": outer_area,
-                "perimeter": perimeter,
-            }
-            prev_outer_area = outer_area
-            
-            if shape.label in measurements_dict:
-                props["radial_width_px"] = measurements_dict[shape.label]["radial_width"]
-            else:
-                props["radial_width_px"] = None
-            
-            ring_properties.append(props)
-        
+
+        # Same measurements as the Ring Properties dialog (exclusion zones are not rings).
+        prepared = self.parent_window._prepare_ring_properties_data()
+        ring_properties = prepared[0] if prepared else []
         if not ring_properties:
             return None
-        
+
         # Determine filename
         metadata = getattr(self.parent_window, 'sample_metadata', None) or {}
         if metadata.get('sample_code'):

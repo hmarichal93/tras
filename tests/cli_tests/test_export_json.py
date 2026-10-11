@@ -10,7 +10,7 @@ def test_export_json_with_valid_labels(tmp_path: Path):
     """Test export_json with valid labels."""
     # Create a test JSON file with valid labels
     test_json = tmp_path / "test.json"
-    
+
     # Create JSON directly
     json_data = {
         "version": "5.0.0",
@@ -32,7 +32,7 @@ def test_export_json_with_valid_labels(tmp_path: Path):
         "imageHeight": 1,
         "imageWidth": 1,
     }
-    
+
     with open(test_json, "w", encoding="utf-8") as f:
         json.dump(json_data, f)
 
@@ -62,7 +62,7 @@ def test_export_json_with_none_label(tmp_path: Path):
     """Test export_json handles None labels gracefully."""
     # Create a test JSON file with None label
     test_json = tmp_path / "test.json"
-    
+
     # Create JSON directly with None label (simulating corrupted data)
     json_data = {
         "version": "5.0.0",
@@ -79,7 +79,7 @@ def test_export_json_with_none_label(tmp_path: Path):
         "imageHeight": 1,
         "imageWidth": 1,
     }
-    
+
     with open(test_json, "w", encoding="utf-8") as f:
         json.dump(json_data, f)
 
@@ -107,7 +107,7 @@ def test_export_json_with_none_label(tmp_path: Path):
 def test_export_json_with_empty_label(tmp_path: Path):
     """Test export_json handles empty labels gracefully."""
     test_json = tmp_path / "test.json"
-    
+
     json_data = {
         "version": "5.0.0",
         "flags": {},
@@ -123,7 +123,7 @@ def test_export_json_with_empty_label(tmp_path: Path):
         "imageHeight": 1,
         "imageWidth": 1,
     }
-    
+
     with open(test_json, "w", encoding="utf-8") as f:
         json.dump(json_data, f)
 
@@ -142,4 +142,3 @@ def test_export_json_with_empty_label(tmp_path: Path):
     finally:
         sys.argv = old_argv
         sys.stdout = old_stdout
-

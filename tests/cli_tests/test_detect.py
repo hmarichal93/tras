@@ -1,181 +1,176 @@
-"""Tests for unified tras_detect CLI command."""
+"""Tests for the unified tras_detect CLI command."""
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
+from unittest.mock import patch
 
 import pytest
+from typer.testing import CliRunner
+
+from tras.cli.detect import _config_overrides
+from tras.cli.detect import _process_folder
+from tras.cli.detect import _process_single_image
+from tras.cli.detect import app
+from tras.config.detection_defaults import get_detection_defaults
+from tras.params import DetectionParams
 
 
-def test_detect_routes_file_correctly(tmp_path):
-    """Test that file path routes to single-image processing."""
-    from tras.cli.detect import _process_single_image
+def _mock_detection(tmp_path: Path) -> MagicMock:
+    result = MagicMock()
+    result.output_path = tmp_path / "test_detected.json"
+    result.pith_xy = (100.0, 200.0)
+    result.rings = []
+    return result
 
+
+def test_single_image_passes_params_to_api(tmp_path):
     image_file = tmp_path / "test.jpg"
     image_file.write_bytes(b"fake image data")
+    params = DetectionParams(ring_method="cstrd")
 
     with patch("tras.cli.detect.detect_api") as mock_detect:
-        mock_result = MagicMock()
-        mock_result.output_path = tmp_path / "test_detected.json"
-        mock_result.pith_xy = (100.0, 200.0)
-        mock_result.rings = []
-        mock_detect.return_value = mock_result
+        mock_detect.return_value = _mock_detection(tmp_path)
+        _process_single_image(image_file, None, params)
 
-        _process_single_image(
-            image_path=image_file,
-            output=None,
-            pith_x=None,
-            pith_y=None,
-            auto_pith=True,
-            pith_method="apd_dl",
-            ring_method="deepcstrd",
-            scale=None,
-            remove_background=False,
-            sampling_nr=360,
-            cstrd_sigma=3.0,
-            cstrd_th_low=5.0,
-            cstrd_th_high=20.0,
-            cstrd_alpha=30,
-            cstrd_nr=360,
-            deepcstrd_model="generic",
-            deepcstrd_tile_size=0,
-            deepcstrd_alpha=45,
-            deepcstrd_nr=360,
-            deepcstrd_rotations=5,
-            deepcstrd_threshold=0.5,
-            inbd_model="INBD_EH",
-            inbd_auto_pith=True,
+    call_kwargs = mock_detect.call_args.kwargs
+    assert call_kwargs["image_path"] == image_file
+    assert call_kwargs["params"].ring_method == "cstrd"
+    assert call_kwargs["output"] == tmp_path / "test_detected.json"
+
+
+def test_single_image_cli_uses_yaml_defaults(tmp_path):
+    """Regression: the CLI used to hardcode DeepCS-TRD defaults that disagreed with the YAML."""
+    image_file = tmp_path / "test.jpg"
+    image_file.write_bytes(b"fake")
+    defaults = get_detection_defaults()
+
+    with patch("tras.cli.detect.detect_api") as mock_detect:
+        mock_detect.return_value = _mock_detection(tmp_path)
+        result = CliRunner().invoke(app, [str(image_file)])
+
+    assert result.exit_code == 0, result.output
+    params = mock_detect.call_args.kwargs["params"]
+    assert params.deepcstrd.alpha == defaults["deepcstrd"]["alpha"]
+    assert params.deepcstrd.rotations == defaults["deepcstrd"]["rotations"]
+    assert params.deepcstrd.threshold == defaults["deepcstrd"]["threshold"]
+    assert params.ring_method == defaults["method"]
+
+
+def test_single_image_cli_flags_override_defaults(tmp_path):
+    image_file = tmp_path / "test.jpg"
+    image_file.write_bytes(b"fake")
+
+    with patch("tras.cli.detect.detect_api") as mock_detect:
+        mock_detect.return_value = _mock_detection(tmp_path)
+        result = CliRunner().invoke(
+            app,
+            [
+                str(image_file),
+                "--ring-method",
+                "cstrd",
+                "--cstrd-sigma",
+                "2.5",
+                "--pith-x",
+                "10",
+                "--pith-y",
+                "20",
+            ],
         )
 
-        mock_detect.assert_called_once()
-        call_kwargs = mock_detect.call_args[1]
-        assert call_kwargs["image_path"] == image_file
-        assert call_kwargs["ring_method"] == "deepcstrd"
+    assert result.exit_code == 0, result.output
+    params = mock_detect.call_args.kwargs["params"]
+    assert params.ring_method == "cstrd"
+    assert params.cstrd.sigma == 2.5
+    assert params.pith.manual_xy == (10.0, 20.0)
 
 
-def test_detect_routes_directory_correctly(tmp_path):
-    """Test that directory path routes to batch processing."""
-    from tras.cli.detect import _process_folder
+def test_invalid_ring_method_exits_with_error(tmp_path):
+    image_file = tmp_path / "test.jpg"
+    image_file.write_bytes(b"fake")
+    result = CliRunner().invoke(app, [str(image_file), "--ring-method", "bogus"])
+    assert result.exit_code == 1
 
-    # Create test images
-    (tmp_path / "image1.jpg").write_bytes(b"fake")
-    (tmp_path / "image2.png").write_bytes(b"fake")
-    (tmp_path / "image3.jpeg").write_bytes(b"fake")
-    (tmp_path / "not_image.txt").write_text("not an image")
 
-    output_dir = tmp_path / "output"
-    output_dir.mkdir()
+def test_config_overrides_translate_flag_names():
+    overrides = _config_overrides(
+        {"scale": 0.5, "auto_pith": False, "cstrd_sigma": 2.0, "ring_method": None}
+    )
+    assert overrides == {
+        "preprocess_resize_scale": 0.5,
+        "pith_auto": False,
+        "cstrd_sigma": 2.0,
+    }
 
-    with patch("tras.cli.detect.detect_api") as mock_detect, patch(
-        "tras.cli.detect.compute_ring_properties"
-    ) as mock_props, patch("tras.cli.detect.write_ring_properties_csv") as mock_csv, patch(
-        "tras.cli.detect.generate_pdf_report"
-    ) as mock_pdf:
-        mock_result = MagicMock()
-        mock_result.rings = [MagicMock()]  # Non-empty rings
-        mock_result.pith_xy = (100.0, 200.0)
-        mock_result.image = b"fake image"
-        mock_detect.return_value = mock_result
-        mock_props.return_value = [{"label": "ring_1", "area": 100.0}]
 
+def test_folder_mode_routes_to_run_batch(tmp_path):
+    with patch("tras.cli.detect.run_batch") as mock_batch:
+        mock_batch.return_value = MagicMock(total=3, processed=3, skipped=0, errors=0)
         _process_folder(
-            input_dir=tmp_path,
-            output_dir=output_dir,
-            config=None,
-            scale_value=0.0213,
-            scale_unit="mm",
-            preprocess_resize_scale=None,
-            preprocess_remove_background=None,
-            postprocess_sampling_nr=None,
-            pith_auto=None,
-            pith_method=None,
-            ring_method=None,
-            cstrd_sigma=None,
-            cstrd_th_low=None,
-            cstrd_th_high=None,
-            cstrd_alpha=None,
-            cstrd_nr=None,
-            deepcstrd_model=None,
-            deepcstrd_tile_size=None,
-            deepcstrd_alpha=None,
-            deepcstrd_nr=None,
-            deepcstrd_rotations=None,
-            deepcstrd_threshold=None,
-            inbd_model=None,
-            inbd_auto_pith=None,
+            tmp_path,
+            tmp_path / "out",
+            None,
+            {"scale_value": 0.0213, "scale_unit": "mm", "ring_method": "cstrd"},
         )
 
-        # Should process 3 images (jpg, png, jpeg) but not txt
-        assert mock_detect.call_count == 3
+    args, kwargs = mock_batch.call_args
+    assert args[0] == tmp_path
+    assert args[1] == tmp_path / "out"
+    config = args[2]
+    assert config["physical_scale"] == {"value": 0.0213, "unit": "mm"}
+    assert config["rings"]["method"] == "cstrd"
+    assert kwargs["per_image_reports"] is True
 
 
-def test_image_extension_filtering(tmp_path):
-    """Test that only JPEG/PNG images are processed."""
-    from tras.cli.detect import _process_folder
+def test_folder_mode_processes_supported_images(tmp_path, monkeypatch):
+    """Folder mode runs detection on every supported image (case-insensitive extensions)."""
+    from tras.utils import batch_helper
 
-    # Create various files
-    (tmp_path / "image1.jpg").write_bytes(b"fake")
-    (tmp_path / "image2.JPG").write_bytes(b"fake")  # Uppercase
-    (tmp_path / "image3.png").write_bytes(b"fake")
-    (tmp_path / "image4.jpeg").write_bytes(b"fake")
-    (tmp_path / "image5.JPEG").write_bytes(b"fake")  # Uppercase
-    (tmp_path / "image6.gif").write_bytes(b"fake")  # Not supported
-    (tmp_path / "image7.tiff").write_bytes(b"fake")  # Not supported
-    (tmp_path / "readme.txt").write_text("text file")
+    for name in ("a.jpg", "b.JPG", "c.png", "d.tif", "e.gif", "readme.txt"):
+        (tmp_path / name).write_bytes(b"fake")
 
-    output_dir = tmp_path / "output"
-    output_dir.mkdir()
+    seen: list[str] = []
 
-    processed_files = []
+    def fake_detect(image_path, output=None, params=None):
+        seen.append(Path(image_path).name)
+        raise RuntimeError("stop after recording")
 
-    def capture_detect_call(*args, **kwargs):
-        processed_files.append(kwargs.get("image_path"))
+    monkeypatch.setattr(batch_helper, "detect", fake_detect)
+    _process_folder(tmp_path, tmp_path / "out", None, {})
 
-    with patch("tras.cli.detect.detect_api", side_effect=capture_detect_call), patch(
-        "tras.cli.detect.compute_ring_properties"
-    ) as mock_props, patch("tras.cli.detect.write_ring_properties_csv"), patch(
-        "tras.cli.detect.generate_pdf_report"
-    ):
-        mock_props.return_value = [{"label": "ring_1", "area": 100.0}]
+    assert sorted(seen) == ["a.jpg", "b.JPG", "c.png", "d.tif"]
 
-        # This will fail validation, but we can check which files were attempted
-        try:
-            _process_folder(
-                input_dir=tmp_path,
-                output_dir=output_dir,
-                config=None,
-                scale_value=0.0213,
-                scale_unit="mm",
-                preprocess_resize_scale=None,
-                preprocess_remove_background=None,
-                postprocess_sampling_nr=None,
-                pith_auto=None,
-                pith_method=None,
-                ring_method=None,
-                cstrd_sigma=None,
-                cstrd_th_low=None,
-                cstrd_th_high=None,
-                cstrd_alpha=None,
-                cstrd_nr=None,
-                deepcstrd_model=None,
-                deepcstrd_tile_size=None,
-                deepcstrd_alpha=None,
-                deepcstrd_nr=None,
-                deepcstrd_rotations=None,
-                deepcstrd_threshold=None,
-                inbd_model=None,
-                inbd_auto_pith=None,
-            )
-        except Exception:
-            pass  # Expected to fail due to missing config, but we check files first
 
-    # Check that only JPEG/PNG files were processed (case-insensitive)
-    processed_names = {f.name for f in processed_files if f}
-    assert "image1.jpg" in processed_names
-    assert "image2.JPG" in processed_names
-    assert "image3.png" in processed_names
-    assert "image4.jpeg" in processed_names
-    assert "image5.JPEG" in processed_names
-    assert "image6.gif" not in processed_names
-    assert "image7.tiff" not in processed_names
-    assert "readme.txt" not in processed_names
+def test_outer_year_flag_reaches_batch_config(tmp_path):
+    (tmp_path / "a.jpg").write_bytes(b"fake")
+    with patch("tras.cli.detect.run_batch") as mock_batch:
+        mock_batch.return_value = MagicMock(total=1, processed=1, skipped=0, errors=0)
+        result = CliRunner().invoke(
+            app,
+            [str(tmp_path), "--outer-year", "2021", "--scale-value", "0.02", "--scale-unit", "mm"],
+        )
+    assert result.exit_code == 0, result.output
+    config = mock_batch.call_args.args[2]
+    assert config["dating"] == {"outer_year": 2021}
 
+
+# Regression: --pith-x/--pith-y were silently ignored in folder mode.
+def test_pith_flags_are_rejected_in_folder_mode(tmp_path, monkeypatch):
+    from tras.utils import batch_helper
+
+    (tmp_path / "a.jpg").write_bytes(b"fake")
+    monkeypatch.setattr(batch_helper, "detect", lambda *a, **k: pytest.fail("detect ran"))
+    result = CliRunner().invoke(app, [str(tmp_path), "--pith-x", "10", "--pith-y", "20"])
+    assert result.exit_code == 1
+    assert not (tmp_path / "tras_out").exists()
+
+
+# Regression: a misspelled key in --config (rings.deepcstrd.treshold) was silently dropped.
+def test_unknown_config_key_exits_with_error_in_folder_mode(tmp_path, monkeypatch):
+    from tras.utils import batch_helper
+
+    (tmp_path / "a.jpg").write_bytes(b"fake")
+    config = tmp_path / "config.yml"
+    config.write_text("rings:\n  deepcstrd:\n    treshold: 0.3\n", encoding="utf-8")
+    monkeypatch.setattr(batch_helper, "detect", lambda *a, **k: pytest.fail("detect ran"))
+    result = CliRunner().invoke(app, [str(tmp_path), "--config", str(config)])
+    assert result.exit_code == 1

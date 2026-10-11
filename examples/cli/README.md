@@ -7,7 +7,7 @@ This directory contains example configurations and usage instructions for TRAS c
 TRAS provides a unified `tras_detect` command that automatically detects whether the input is a single image file or a directory:
 
 - **Single image file**: Runs detection and saves JSON output
-- **Directory**: Batch processes all JPEG/PNG images, generates JSON/CSV/PDF per image
+- **Directory**: Batch processes all JPEG/PNG/TIFF/BMP images, generates JSON/CSV/PDF per image
 
 ## Quick Start
 
@@ -18,14 +18,14 @@ TRAS provides a unified `tras_detect` command that automatically detects whether
 tras_detect image.jpg -o output.json
 
 # With custom parameters
-tras_detect image.jpg --ring-method deepcstrd --pith-method apd_dl
+tras_detect image.jpg --ring-method cstrd --pith-method apd
 ```
 
 ### Batch Processing Mode
 
 #### 1. Basic Usage (CLI flags only)
 
-Process all JPEG/PNG images in a folder with minimal configuration:
+Process all JPEG/PNG/TIFF/BMP images in a folder with minimal configuration:
 
 ```bash
 tras_detect /path/to/images \
@@ -64,7 +64,7 @@ tras_detect /path/to/images \
 
 The YAML configuration file supports:
 
-- **Physical Scale** (required): `physical_scale.value` and `physical_scale.unit`
+- **Physical Scale** (optional; without it outputs are in pixels): `physical_scale.value` and `physical_scale.unit`
 - **Preprocessing**: `preprocess.resize_scale`, `preprocess.remove_background`
 - **Postprocessing**: `postprocess.sampling_nr`
 - **Pith Detection**: `pith.auto`, `pith.method`
@@ -72,14 +72,27 @@ The YAML configuration file supports:
   - **CS-TRD**: `rings.cstrd.*` parameters
   - **DeepCS-TRD**: `rings.deepcstrd.*` parameters (including `model` as ID or path)
   - **INBD**: `rings.inbd.*` parameters (including `model` as ID or path)
+- **Dating**: `dating.outer_year` (also writes `radii.rwl`; needs a physical scale)
+
+Every key and its default: [`tras/config/detection_defaults.yaml`](../../tras/config/detection_defaults.yaml).
 
 ## Output Files
 
-For each input image (e.g., `sample_001.jpg`), `tras_detect` generates:
+Batch outputs go to `<input>/tras_out/` (or the folder given with `--output-dir`). For each input
+image (e.g., `sample_001.jpg`), `tras_detect` writes:
 
 - `sample_001.json` - Detection results (rings + pith coordinates)
 - `sample_001.csv` - Ring measurements (area, perimeter, cumulative area)
 - `sample_001.pdf` - Analysis report with plots
+
+Once per folder it also writes:
+
+- `summary.pdf` - One page per image with the detected rings
+- `batch_config.yml` - The settings actually used (reusable with `--config`)
+- `radii.rwl` - Tucson ring widths along N/E/S/W radii, only with `--outer-year` (or
+  `dating.outer_year`) and a physical scale
+- `radii_ids.csv` - Maps series IDs to image names, only when two image names share their first
+  7 characters
 
 ## Model Paths
 
@@ -99,5 +112,5 @@ rings:
 
 ## Examples
 
-See `process_config.yml` for a complete configuration template with all available options.
+See `process_config.yml` for a configuration template. Every key and its default: `tras/config/detection_defaults.yaml`.
 

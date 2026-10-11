@@ -1,11 +1,11 @@
 # TRAS Batch Processing Configuration Example
 # Use this file with: tras_detect /path/to/images --config process_config.yml
 #
-# Only `physical_scale` is required. Every detection parameter you omit falls back
-# to the TRAS defaults in tras/config/detection_defaults.yaml — so list a value here
-# only when you want to override the default. The blocks below show the common knobs.
+# Every key is optional. Every detection parameter you omit falls back to the TRAS
+# defaults in tras/config/detection_defaults.yaml — so list a value here only when you
+# want to override the default. The blocks below show the common knobs.
 
-# REQUIRED: Physical scale for measurement outputs
+# Physical scale (optional): without it, CSV and PDF outputs are in pixels
 physical_scale:
   value: 0.0213  # unit per pixel (e.g., 0.0213 mm/px)
   unit: mm       # unit name (mm, cm, etc.)
@@ -14,6 +14,10 @@ physical_scale:
 preprocess:
   resize_scale: 0.7            # resize image (0.1-1.0); omit to disable
   remove_background: false     # remove background with U2Net
+
+# Postprocessing (optional)
+# postprocess:
+#   sampling_nr: 360           # points per ring after radial resampling
 
 # Pith detection (optional; defaults: auto=true, method=apd_dl)
 pith:
@@ -36,3 +40,7 @@ rings:
 
   # inbd:
   #   model: INBD_EH           # model ID, or a path to a .pt.zip checkpoint
+
+# Dating (optional)
+# dating:
+#   outer_year: 2023           # also writes radii.rwl (needs physical_scale)

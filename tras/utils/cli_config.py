@@ -4,21 +4,28 @@ from __future__ import annotations
 
 import copy
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 from loguru import logger
 
-from tras.config.detection_defaults import get_detection_defaults
+from tras.params import DETECTION_CONFIG_KEYS
+from tras.params import DetectionParams
+from tras.params import check_section_keys
+
+# Config sections that are not detection parameters: section -> valid keys.
+# Detection sections and their keys are owned by ``tras.params.DETECTION_CONFIG_KEYS``.
+NON_DETECTION_CONFIG_KEYS: dict[str, tuple[str, ...]] = {
+    "physical_scale": ("value", "unit"),
+    "dating": ("outer_year",),
+}
 
 
-class ConfigError(Exception):
+class ConfigError(ValueError):
     """Raised when configuration is invalid."""
 
-    pass
 
-
-def load_config(config_path: Optional[Path]) -> dict[str, Any]:
+def load_config(config_path: Path | None) -> dict[str, Any]:
     """Load YAML configuration file.
 
     Args:
@@ -34,15 +41,11 @@ def load_config(config_path: Optional[Path]) -> dict[str, Any]:
         raise ConfigError(f"Config file not found: {config_path}")
 
     try:
-        with open(config_path, "r", encoding="utf-8") as f:
+        with open(config_path, encoding="utf-8") as f:
             config = yaml.safe_load(f)
         if config is None:
             config = {}
         logger.info(f"Loaded config from {config_path}")
-        # Debug: log deepcstrd model value if present
-        if "rings" in config and "deepcstrd" in config.get("rings", {}):
-            deepcstrd_model = config["rings"]["deepcstrd"].get("model", "NOT_SET")
-            logger.info(f"After loading YAML, deepcstrd.model = '{deepcstrd_model}'")
         return config
     except yaml.YAMLError as e:
         raise ConfigError(f"Invalid YAML in config file: {e}") from e
@@ -124,201 +127,75 @@ def normalize_model_path(model_value: str, method: str) -> str:
 
 
 def merge_config(config: dict[str, Any], cli_overrides: dict[str, Any]) -> dict[str, Any]:
-    """Merge CLI overrides into config (CLI wins).
+    """Merge flat CLI overrides into a YAML config dict (CLI wins).
 
-    Args:
-        config: Base configuration from YAML
-        cli_overrides: CLI-provided overrides
-
-    Returns:
-        Merged configuration dictionary
+    Override keys use the CLI spelling: ``scale_value``, ``scale_unit``,
+    ``preprocess_<name>``, ``postprocess_<name>``, ``pith_<name>``, ``ring_method`` and
+    ``<method>_<name>`` for ``cstrd``/``deepcstrd``/``inbd``. Neither input is modified.
+    Model values that point to existing files are resolved to absolute paths.
     """
-    # Use deep copy to avoid modifying nested dicts in the original config
     merged = copy.deepcopy(config)
-    
-    # Debug: log deepcstrd model value right after copy
-    if "rings" in merged and "deepcstrd" in merged.get("rings", {}):
-        logger.debug(f"After deepcopy, deepcstrd.model = '{merged['rings']['deepcstrd'].get('model', 'NOT_SET')}'")
-    
-    # Debug: log CLI overrides
-    if cli_overrides:
-        logger.debug(f"CLI overrides keys: {list(cli_overrides.keys())}")
-        deepcstrd_overrides = {k: v for k, v in cli_overrides.items() if k.startswith("deepcstrd_")}
-        if deepcstrd_overrides:
-            logger.debug(f"deepcstrd CLI overrides: {deepcstrd_overrides}")
+    for key, value in cli_overrides.items():
+        section, name = _config_location(key)
+        target = merged
+        for part in section:
+            target = target.setdefault(part, {})
+        target[name] = value
 
-    # Handle physical_scale separately
-    if "scale_value" in cli_overrides or "scale_unit" in cli_overrides:
-        if "physical_scale" not in merged:
-            merged["physical_scale"] = {}
-        if "scale_value" in cli_overrides:
-            merged["physical_scale"]["value"] = cli_overrides.pop("scale_value")
-        if "scale_unit" in cli_overrides:
-            merged["physical_scale"]["unit"] = cli_overrides.pop("scale_unit")
-
-    # Handle preprocess section
-    if any(k.startswith("preprocess_") for k in cli_overrides):
-        if "preprocess" not in merged:
-            merged["preprocess"] = {}
-        for key, value in list(cli_overrides.items()):
-            if key.startswith("preprocess_"):
-                merged["preprocess"][key.replace("preprocess_", "")] = value
-                cli_overrides.pop(key)
-
-    # Handle postprocess section
-    if any(k.startswith("postprocess_") for k in cli_overrides):
-        if "postprocess" not in merged:
-            merged["postprocess"] = {}
-        for key, value in list(cli_overrides.items()):
-            if key.startswith("postprocess_"):
-                merged["postprocess"][key.replace("postprocess_", "")] = value
-                cli_overrides.pop(key)
-
-    # Handle pith section
-    if any(k.startswith("pith_") for k in cli_overrides):
-        if "pith" not in merged:
-            merged["pith"] = {}
-        for key, value in list(cli_overrides.items()):
-            if key.startswith("pith_"):
-                merged["pith"][key.replace("pith_", "")] = value
-                cli_overrides.pop(key)
-
-    # Handle rings section
-    if "ring_method" in cli_overrides:
-        if "rings" not in merged:
-            merged["rings"] = {}
-        merged["rings"]["method"] = cli_overrides.pop("ring_method")
-
-    # Handle method-specific parameters
-    for method in ["cstrd", "deepcstrd", "inbd"]:
-        prefix = f"{method}_"
-        if any(k.startswith(prefix) for k in cli_overrides):
-            if "rings" not in merged:
-                merged["rings"] = {}
-            # Don't overwrite existing method config - merge into it
-            if method not in merged["rings"]:
-                merged["rings"][method] = {}
-            else:
-                # Debug: log existing config before merging CLI overrides
-                logger.debug(f"Before merging CLI overrides, {method} config: {merged['rings'][method]}")
-            for key, value in list(cli_overrides.items()):
-                if key.startswith(prefix):
-                    param_name = key.replace(prefix, "")
-                    logger.debug(f"Merging {method}.{param_name} = {value}")
-                    merged["rings"][method][param_name] = value
-                    cli_overrides.pop(key)
-            # Debug: log config after merging CLI overrides
-            if method == "deepcstrd":
-                logger.debug(f"After merging CLI overrides, deepcstrd config: {merged['rings'][method]}")
-
-    # Normalize model paths for methods that use models
-    if "rings" in merged:
-        rings_config = merged["rings"]
-        logger.debug(f"After merge, rings_config keys: {list(rings_config.keys())}")
-        
-        # Log final values for each method to verify YAML config is preserved
-        for method in ["cstrd", "deepcstrd", "inbd"]:
-            if method in rings_config:
-                method_config = rings_config[method]
-                logger.info(f"Final {method.upper()} config values: {method_config}")
-        
-        if "deepcstrd" in rings_config:
-            logger.debug(f"deepcstrd keys: {list(rings_config['deepcstrd'].keys())}")
-            logger.debug(f"deepcstrd.model value before normalization: {rings_config['deepcstrd'].get('model', 'NOT_SET')}")
-
-        # DeepCS-TRD model
-        if "deepcstrd" in rings_config and "model" in rings_config["deepcstrd"]:
-            model_value = rings_config["deepcstrd"]["model"]
-            logger.info(f"Normalizing DeepCS-TRD model: '{model_value}'")
-            normalized_model = normalize_model_path(model_value, "deepcstrd")
-            logger.info(f"Normalized DeepCS-TRD model: '{normalized_model}'")
-            rings_config["deepcstrd"]["model"] = normalized_model
-        elif "deepcstrd" in rings_config:
-            logger.warning(f"deepcstrd section exists but 'model' key is missing. Keys: {list(rings_config['deepcstrd'].keys())}")
-
-        # INBD model
-        if "inbd" in rings_config and "model" in rings_config["inbd"]:
-            model_value = rings_config["inbd"]["model"]
-            rings_config["inbd"]["model"] = normalize_model_path(model_value, "inbd")
-
-    # Any remaining CLI overrides go to top level
-    merged.update(cli_overrides)
-
+    _normalize_model_paths(merged.get("rings") or {})
     return merged
 
 
-def get_detection_params(config: dict[str, Any]) -> dict[str, Any]:
-    """Extract detection parameters from merged config for tras.api.detect().
+_SECTION_PREFIXES: list[tuple[str, tuple[str, ...]]] = [
+    ("preprocess_", ("preprocess",)),
+    ("postprocess_", ("postprocess",)),
+    ("pith_", ("pith",)),
+    ("deepcstrd_", ("rings", "deepcstrd")),
+    ("cstrd_", ("rings", "cstrd")),
+    ("inbd_", ("rings", "inbd")),
+    ("dating_", ("dating",)),
+]
 
-    Args:
-        config: Merged configuration dictionary
 
-    Returns:
-        Dictionary of parameters for tras.api.detect()
+def _config_location(key: str) -> tuple[tuple[str, ...], str]:
+    """Map a flat override key to its (section path, field name) in the YAML schema."""
+    if key == "scale_value":
+        return ("physical_scale",), "value"
+    if key == "scale_unit":
+        return ("physical_scale",), "unit"
+    if key == "ring_method":
+        return ("rings",), "method"
+    for prefix, section in _SECTION_PREFIXES:
+        if key.startswith(prefix):
+            return section, key[len(prefix) :]
+    return (), key
+
+
+def _normalize_model_paths(rings_config: dict[str, Any]) -> None:
+    for method in ("deepcstrd", "inbd"):
+        method_config = rings_config.get(method)
+        if isinstance(method_config, dict) and "model" in method_config:
+            method_config["model"] = normalize_model_path(method_config["model"], method)
+
+
+def check_config_keys(config: dict[str, Any]) -> None:
+    """Raise ``ValueError`` on an unknown top-level section or non-detection key.
+
+    Keys inside the detection sections are checked by ``DetectionParams.from_config``.
     """
-    params = {}
-    defaults = get_detection_defaults()
+    detection_sections = tuple(s for s in DETECTION_CONFIG_KEYS if "." not in s)
+    check_section_keys("<top level>", config, (*NON_DETECTION_CONFIG_KEYS, *detection_sections))
+    for section, valid in NON_DETECTION_CONFIG_KEYS.items():
+        check_section_keys(section, config.get(section), valid)
 
-    # Physical scale (required, but not passed to detect API)
-    # It's used separately for CSV/PDF generation
 
-    # Preprocessing
-    preprocess = config.get("preprocess", {})
-    if "resize_scale" in preprocess:
-        params["scale"] = float(preprocess["resize_scale"])
-    params["remove_background"] = preprocess.get("remove_background", False)
+def get_detection_params(config: dict[str, Any]) -> DetectionParams:
+    """Build typed detection parameters from a merged config dict.
 
-    # Postprocessing
-    postprocess = config.get("postprocess", {})
-    params["sampling_nr"] = postprocess.get("sampling_nr", defaults["sampling"]["nr"])
-
-    # Pith detection
-    pith = config.get("pith", {})
-    params["auto_pith"] = pith.get("auto", defaults["pith"]["auto"])
-    params["pith_method"] = pith.get("method", defaults["pith"]["method"])
-
-    # Ring detection method
-    rings_config = config.get("rings", {})
-    params["ring_method"] = rings_config.get("method", defaults["method"])
-
-    # CS-TRD parameters
-    if "cstrd" in rings_config:
-        cstrd = rings_config["cstrd"]
-        cstrd_defaults = defaults["cstrd"]
-        params["cstrd_sigma"] = cstrd.get("sigma", cstrd_defaults["sigma"])
-        params["cstrd_th_low"] = cstrd.get("th_low", cstrd_defaults["th_low"])
-        params["cstrd_th_high"] = cstrd.get("th_high", cstrd_defaults["th_high"])
-        params["cstrd_alpha"] = cstrd.get("alpha", cstrd_defaults["alpha"])
-        params["cstrd_nr"] = cstrd.get("nr", cstrd_defaults["nr"])
-        logger.info(f"CS-TRD config values: {[(k, v) for k, v in params.items() if k.startswith('cstrd_')]}")
-
-    # DeepCS-TRD parameters
-    if "deepcstrd" in rings_config:
-        deepcstrd = rings_config["deepcstrd"]
-        deep_defaults = defaults["deepcstrd"]
-        # Get model value - should be set after normalization in merge_config
-        model_value = deepcstrd.get("model", deep_defaults["model"])
-        params["deepcstrd_model"] = model_value
-        params["deepcstrd_tile_size"] = deepcstrd.get("tile_size", deep_defaults["tile_size"])
-        params["deepcstrd_alpha"] = deepcstrd.get("alpha", deep_defaults["alpha"])
-        params["deepcstrd_nr"] = deepcstrd.get("nr", deep_defaults["nr"])
-        params["deepcstrd_rotations"] = deepcstrd.get("rotations", deep_defaults["rotations"])
-        params["deepcstrd_threshold"] = deepcstrd.get("threshold", deep_defaults["threshold"])
-        params["deepcstrd_width"] = deepcstrd.get("width", deep_defaults["width"])
-        params["deepcstrd_height"] = deepcstrd.get("height", deep_defaults["height"])
-        deep_logged = {k: v for k, v in params.items() if k.startswith("deepcstrd_")}
-        logger.info(f"DeepCS-TRD config values: {deep_logged}")
-
-    # INBD parameters
-    if "inbd" in rings_config:
-        inbd = rings_config["inbd"]
-        inbd_defaults = defaults["inbd"]
-        params["inbd_model"] = inbd.get("model", inbd_defaults["model"])
-        params["inbd_auto_pith"] = inbd.get("auto_pith", inbd_defaults["auto_pith"])
-        logger.info(
-            f"INBD config values: model='{params['inbd_model']}', "
-            f"auto_pith={params['inbd_auto_pith']}"
-        )
-
+    Missing values fall back to ``tras/config/detection_defaults.yaml``. Unknown keys
+    anywhere in the config raise ``ValueError`` (a typo must not silently change results).
+    """
+    check_config_keys(config)
+    params = DetectionParams.from_config(config)
+    logger.info("Detection parameters: {}", params)
     return params
-

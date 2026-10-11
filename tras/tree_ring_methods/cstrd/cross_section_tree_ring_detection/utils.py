@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import List
 import pickle
 
-from cross_section_tree_ring_detection.io import write_json, load_config
+from cross_section_tree_ring_detection.io import write_json, load_config, runtime_config_path
 import cross_section_tree_ring_detection.chain as ch
 from cross_section_tree_ring_detection.preprocessing import resize
 
@@ -44,7 +44,7 @@ def save_config(args, output_dir, repo_path="./"):
         config['debug'] = True
 
     config['devernay_path'] = str(Path(repo_path) / "devernay")
-    write_json(config, Path(repo_path) / 'config/general.json')
+    write_json(config, runtime_config_path(repo_path))
     return 0
 def saving_results( res, output_dir, save_imgs=True):
     im_seg, im_pre, ch_e, ch_f, ch_s, ch_c, ch_p, rings = res

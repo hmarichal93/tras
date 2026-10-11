@@ -43,6 +43,16 @@ shape:
   select_fill_color: [255, 215, 0, 100]    # Gold fill selected
   hvertex_fill_color: [255, 191, 0, 255]  # Amber highlight
   point_size: 8
+  # Ring overlay (screen px, independent of zoom)
+  line_width: 2                          # idle ring outline; selected/hovered draw 4 px
+  halo_color: [0, 0, 0, 150]             # dark halo under every outline
+  # Ring colours cycled by label order (Okabe-Ito, colour-blind safe, no black)
+  ring_palette:
+    - [86, 180, 233]   # sky blue
+    - [240, 228, 66]   # yellow
+    - [0, 158, 115]    # bluish green
+    - [204, 121, 167]  # reddish purple
+    - [0, 114, 178]    # blue
 
 # AI settings (kept for compatibility, not used)
 ai:
@@ -147,6 +157,7 @@ shortcuts:
   detect_tree_rings: Ctrl+T
   measure_radial_width: Ctrl+G
   view_ring_properties: Ctrl+K
+  draw_core_boundary: Ctrl+B
   
   # Help
   show_shortcuts: F1

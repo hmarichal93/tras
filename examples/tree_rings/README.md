@@ -26,7 +26,7 @@ tras examples/tree_rings/sample.jpg
 
 ### Step 2: Set Scale (Optional but Recommended)
 
-1. **Tools > Set Image Scale**
+1. **Tools > Cross-section > Set Image Scale**
 2. Two options:
    - **Draw line**: Click two points on a known-length reference (e.g., ruler)
    - **Direct input**: Enter known scale factor
@@ -40,7 +40,7 @@ tras examples/tree_rings/sample.jpg
 
 ### Step 3: Add Sample Metadata (Optional)
 
-1. **Tools > Sample Metadata**
+1. **Tools > Cross-section > Sample Metadata**
 2. Fill in:
    - **Harvested Year**: When the tree was cut (e.g., 2024)
    - **Sample Code**: Your sample identifier (e.g., "P001")
@@ -54,11 +54,11 @@ tras examples/tree_rings/sample.jpg
 
 ### Step 4: Preprocess Image (Optional)
 
-1. **Tools > Preprocess Image**
+1. **Tools > Cross-section > Preprocess Image**
 2. Available operations:
    - **Crop**: Remove unwanted regions (⚠️ keep >100px margin!)
    - **Resize**: Scale down large images (10-100%)
-   - **Background Removal**: Use U2Net to remove background (10-30s)
+   - **Background Removal**: Use U2Net to remove background (10-30 s, estimate)
 3. Click **Preview** to see changes
 4. Click **Apply** when satisfied
 
@@ -71,16 +71,16 @@ tras examples/tree_rings/sample.jpg
 
 ### Step 5: Detect Tree Rings
 
-1. **Tools > Tree Ring Detection**
+1. **Tools > Cross-section > Detect Tree Rings**
 2. The dialog opens with two steps:
 
 #### Step 5a: Set Pith Location
 
 Choose one method:
 - **Click on image**: Click button, then click pith center on image
-- **Auto-detect (APD)**: Automatic pith detection (~1 second)
+- **Auto-detect (APD)**: Automatic pith detection (~1 second, estimate)
   - Expand "APD Advanced Parameters" to customize
-  - Choose method: `apd` (default) or `apd_pcl` (for unclear rings)
+  - Choose method: `apd_dl` (default, YOLO-based), `apd`, or `apd_pcl` (for unclear rings)
 
 #### Step 5b: Detect Tree Rings
 
@@ -88,7 +88,7 @@ Choose one method:
 
 **CS-TRD (Classical Method)**
 - Edge-based detection
-- Fast (~73s on CPU)
+- 131 s per disc on CPU ([benchmarks](../../docs/benchmarks.md), 2026-10-10)
 - Good for clear, regular rings
 - **Linux/macOS only** (disabled on Windows)
 - Expand "CS-TRD Advanced Parameters" to customize:
@@ -99,7 +99,7 @@ Choose one method:
 
 **DeepCS-TRD (Deep Learning)**
 - U-Net based detection
-- Slower (~101s with GPU)
+- 45 s per disc on a GTX 1650 GPU ([benchmarks](../../docs/benchmarks.md), 2026-10-10)
 - Better for irregular/challenging rings
 - **Works on all platforms**
 - Expand "DeepCS-TRD Model & Parameters":
@@ -113,15 +113,15 @@ Choose one method:
   - **Rotations (TTA)**: More = accurate but slower
   - **Prediction Threshold**: Adjust sensitivity
 
-3. Click **Detect with CS-TRD** or **Detect with DeepCS-TRD**
+3. Click **Detect with CS-TRD (CPU)**, **Detect with DeepCSTRD (GPU)** or **Detect with INBD (GPU)**
 4. Wait for processing (watch cursor change to ⏳)
 5. Rings appear as green polygons on the image
 6. Click **OK** to close dialog
 
 **Which method to use?**
 - **Try APD first** for pith detection (very fast)
-- **Try CS-TRD first** if on Linux/macOS (faster than DeepCS-TRD)
-- **Use DeepCS-TRD** for challenging samples or if CS-TRD fails
+- **Use DeepCS-TRD (the default) first**: it is the most accurate ([benchmarks](../../docs/benchmarks.md))
+- **Use CS-TRD** when you have no GPU (Linux/macOS only)
 - **Experiment with parameters** if results are poor
 
 ### Step 6: Manual Editing (Optional)
@@ -150,7 +150,7 @@ After detection, you can manually adjust rings:
 
 ### Step 7: Measure Radial Width (Optional)
 
-1. **Tools > Measure Ring Width**
+1. **Tools > Cross-section > Measure Ring Width**
 2. Dialog opens showing current pith location
 3. Choose action:
    - **Set Direction**: Click to define radial line from pith
@@ -178,7 +178,7 @@ After detection, you can manually adjust rings:
 
 ### Step 8: View Ring Properties
 
-1. **Tools > Ring Properties**
+1. **Tools > Cross-section > View Ring Properties**
 2. Auto-relabeling occurs (rings numbered/dated)
 3. Table displays for each ring:
    - **Label**: Ring identifier (or year if metadata provided)
@@ -325,7 +325,7 @@ Separate detection from measurement for efficiency.
 
 If you have trained your own model:
 
-1. Open **Tools > Tree Ring Detection**
+1. Open **Tools > Cross-section > Detect Tree Rings**
 2. Expand "DeepCS-TRD Model & Parameters"
 3. Click **📁 Upload** button
 4. Select your `.pth` model file
@@ -335,36 +335,22 @@ If you have trained your own model:
 
 Your model is saved to:
 ```
-tras/tree_ring_methods/deepcstrd/models/deep_cstrd/0_eucalyptus_1504.pth
+downloaded_assets/0_eucalyptus_1504.pth
 ```
 
 ### Batch Processing with Python
 
-For processing multiple images programmatically, use the TRAS Python API:
+Detect the pith and rings of one image with the Python API (defaults from
+`tras/config/detection_defaults.yaml`):
 
 ```python
-from tras.utils.cstrd_helper import detect_rings_cstrd
-from tras.utils.deepcstrd_helper import detect_rings_deepcstrd
-from tras.utils.apd_helper import detect_pith_apd
-import cv2
+from tras.api import detect
 
-# Load image
-image = cv2.imread("sample.jpg")
-image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-# Detect pith
-cx, cy = detect_pith_apd(image)
-
-# Detect rings with DeepCS-TRD
-rings = detect_rings_deepcstrd(
-    image, 
-    center_xy=(cx, cy),
-    model_id="generic",
-    tile_size=0
-)
-
-print(f"Detected {len(rings)} rings")
+result = detect("examples/tree_rings/sample.jpg", output="sample.json")
+print(f"Detected {len(result.rings)} rings, pith at {result.pith_xy}")
 ```
+
+For a whole folder, use the CLI: `tras_detect <folder>` (see [examples/cli](../cli/README.md)).
 
 ## 📞 Support
 

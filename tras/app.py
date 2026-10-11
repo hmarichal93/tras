@@ -13,7 +13,6 @@ import webbrowser
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
-import imgviz
 import natsort
 import numpy as np
 from loguru import logger
@@ -48,9 +47,16 @@ from tras.widgets import MetadataDialog
 from tras.widgets import ShortcutsDialog
 from tras.widgets import UpdateCheckDialog
 from tras.widgets import BatchProcessDialog
+from tras.widgets import CoreDialog
+from tras.cores.edit import CORE_BOUNDARY_LABEL
+from tras.cores.edit import HAND_DRAWN_DESCRIPTION
+from tras.cores.export import CORE_PATH_LABEL
 
 from . import utils
 from tras.utils.qt_image import qimage_to_numpy
+from tras.utils.shape_rings import ring_property_rows
+from tras.utils.shape_rings import rings_inner_to_outer
+from tras.utils.shape_rings import split_ring_shapes
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
@@ -62,7 +68,48 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 # - Zoom is too "steppy".
 
 
-LABEL_COLORMAP: NDArray[np.uint8] = imgviz.label_colormap()
+# Ring outline palette: Okabe & Ito (2008) colour-blind-safe set without black, orange
+# and vermillion (they vanish on wood). Cycled by label order so neighbouring rings
+# differ. Overridden by config ``shape.ring_palette``.
+DEFAULT_RING_PALETTE: NDArray[np.uint8] = np.array(
+    [[86, 180, 233], [240, 228, 66], [0, 158, 115], [204, 121, 167], [0, 114, 178]],
+    dtype=np.uint8,
+)
+DEFAULT_LINE_WIDTH_PX = 2  # idle ring stroke in screen px
+DEFAULT_HALO_RGBA = (0, 0, 0, 150)  # dark halo under every stroke
+SELECTED_RING_RGB = (255, 255, 255)  # selected outline is white
+
+# Exclusion areas: red outline and a light red fill (stronger when selected).
+EXCLUSION_LABEL = "exclusion"
+EXCLUSION_LINE_RGBA = (255, 0, 0, 200)
+EXCLUSION_FILL_RGBA = (255, 0, 0, 50)
+EXCLUSION_SELECT_FILL_RGBA = (255, 0, 0, 155)
+
+
+def style_shape(shape: Shape, rgb: tuple[int, int, int]) -> None:
+    """Set the colours of ``shape`` from its label colour ``rgb``.
+
+    Rings and lines are outlines only (alpha-0 fills, white when selected); exclusion
+    areas are red and keep their fill.
+    """
+    shape.hvertex_fill_color = QtGui.QColor(*SELECTED_RING_RGB)
+    shape.select_line_color = QtGui.QColor(*SELECTED_RING_RGB)
+    if shape.label == EXCLUSION_LABEL:
+        shape.line_color = QtGui.QColor(*EXCLUSION_LINE_RGBA)
+        shape.vertex_fill_color = QtGui.QColor(*EXCLUSION_LINE_RGBA[:3])
+        shape.fill_color = QtGui.QColor(*EXCLUSION_FILL_RGBA)
+        shape.select_fill_color = QtGui.QColor(*EXCLUSION_SELECT_FILL_RGBA)
+        return
+    shape.line_color = QtGui.QColor(*rgb)
+    shape.vertex_fill_color = QtGui.QColor(*rgb)
+    shape.fill_color = QtGui.QColor(*rgb, 0)
+    shape.select_fill_color = QtGui.QColor(*rgb, 0)
+
+
+def load_ring_palette(shape_config: dict) -> NDArray[np.uint8]:
+    """Palette from config ``shape.ring_palette``; the default when missing or empty."""
+    palette = shape_config.get("ring_palette") or DEFAULT_RING_PALETTE
+    return np.asarray(palette, dtype=np.uint8).reshape(-1, 3)
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -109,6 +156,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Set point size from config file
         Shape.point_size = self._config["shape"]["point_size"]
+        # Ring overlay (T10); older ~/.trasrc files may lack these keys
+        shape_config = self._config["shape"]
+        Shape.line_width = shape_config.get("line_width", DEFAULT_LINE_WIDTH_PX)
+        Shape.halo_color = QtGui.QColor(*shape_config.get("halo_color", DEFAULT_HALO_RGBA))
+        self._ring_palette = load_ring_palette(shape_config)
 
         super().__init__()
         self.setWindowTitle(f"{__appname__} - Tree Ring Analyzer Suite")
@@ -385,6 +437,27 @@ class MainWindow(QtWidgets.QMainWindow):
             "objects",
             self.tr("Draw an open ring (line strip). Ctrl+LeftClick ends creation."),
             enabled=False,
+        )
+        drawCorePath = action(
+            self.tr("Draw Core Path"),
+            lambda: self.toggleDrawMode(False, createMode="linestrip", core_path_mode=True),
+            None,
+            "objects",
+            self.tr(
+                "Draw the measurement path along a core, from pith to bark. "
+                "Ctrl+LeftClick ends creation."
+            ),
+            enabled=False,
+        )
+        self.actions_draw_core_path = drawCorePath
+        drawCoreBoundary = action(
+            self.tr("Draw Core Boundary"),
+            lambda: self.toggleDrawMode(False, createMode="line", core_boundary_mode=True),
+            shortcuts["draw_core_boundary"],
+            "objects",
+            self.tr("Click two points across a ring boundary; it joins the core path it crosses."),
+            enabled=False,
+            checkable=True,
         )
         createExclusionMode = action(
             self.tr("Draw Exclusion Area"),
@@ -716,6 +789,7 @@ class MainWindow(QtWidgets.QMainWindow):
             createPointMode=createPointMode,
             createLineStripMode=createLineStripMode,
             createExclusionMode=createExclusionMode,
+            drawCoreBoundary=drawCoreBoundary,
             zoom=zoom,
             zoomIn=zoomIn,
             zoomOut=zoomOut,
@@ -747,6 +821,25 @@ class MainWindow(QtWidgets.QMainWindow):
             enabled=False,
         )
         
+        # Core Analysis action (increment cores / measurement paths)
+        coreAnalysis = action(
+            self.tr("Core Analysis..."),
+            self._action_core_analysis,
+            None,
+            "tree_ring",
+            self.tr("Detect rings along increment cores or drawn paths (CooRecorder-style)"),
+            enabled=False,
+        )
+        self.actions_core_analysis = coreAnalysis
+        exportCoreMeasurements = action(
+            self.tr("Export Core Measurements..."),
+            self._action_export_core_measurements,
+            None,
+            "save",
+            self.tr("Export the core measurements as they are on the image (.pos / .rwl / .csv)."),
+            enabled=False,
+        )
+
         # Preprocess Image action
         preprocessImage = action(
             self.tr("Preprocess Image"),
@@ -819,7 +912,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Batch processing action (works on a folder, not the open image)
         batchProcess = action(
-            self.tr("Batch Processing..."),
+            self.tr("Batch Processing (Cross-sections)..."),
             self._action_batch_process,
             None,
             "objects",
@@ -844,6 +937,10 @@ class MainWindow(QtWidgets.QMainWindow):
             editMode,
             brightnessContrast,
             detectTreeRings,  # Keep enabled but not in toolbar
+            coreAnalysis,
+            drawCorePath,
+            drawCoreBoundary,
+            exportCoreMeasurements,
             preprocessImage,
             clearAllRings,
             ringProperties,
@@ -915,8 +1012,10 @@ class MainWindow(QtWidgets.QMainWindow):
         )
         utils.addActions(self.menus.help, (help, keyboardShortcuts, None, checkUpdates, None, about))
         # Tools menu: "Single" submenu (open-image workflow) + "Batch" entry (folder).
-        self.menus.tools_single = QtWidgets.QMenu(self.tr("Single"))
-        utils.addActions(self.menus.tools_single, (
+        # Tools menu: one submenu per sample type (each lists its workflow in order), then
+        # batch. Metadata and scale are shared, so they appear in both submenus.
+        self.menus.tools_cross_section = QtWidgets.QMenu(self.tr("Cross-section"))
+        utils.addActions(self.menus.tools_cross_section, (
             metadata,           # Step 1: Sample Metadata (optional, before starting)
             None,
             setScale,           # Step 2: Set Scale
@@ -929,10 +1028,22 @@ class MainWindow(QtWidgets.QMainWindow):
             ringProperties,     # Step 7: View Properties
             exportData,         # Step 8: Export Data
         ))
-        utils.addActions(self.menus.tools, (
-            self.menus.tools_single,
+        self.menus.tools_core = QtWidgets.QMenu(self.tr("Increment Core"))
+        utils.addActions(self.menus.tools_core, (
+            metadata,           # Step 1: Sample Metadata (outer year for dating)
+            setScale,           # Step 2: Set Scale (or DPI)
             None,
-            batchProcess,       # Batch: process a whole folder
+            drawCorePath,       # Step 3 (optional): draw the path pith → bark
+            coreAnalysis,       # Step 4: detect, review, add to image
+            None,
+            drawCoreBoundary,   # Step 5: correct (add missed boundaries)
+            exportCoreMeasurements,  # Step 6: export the corrected .pos/.rwl/.csv
+        ))
+        utils.addActions(self.menus.tools, (
+            self.menus.tools_cross_section,
+            self.menus.tools_core,
+            None,
+            batchProcess,       # Batch: process a whole folder of cross-sections
         ))
         utils.addActions(
             self.menus.view,
@@ -1066,7 +1177,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.populateModeActions()
 
         # Check for updates at startup (delayed to not block initialization)
-        QtCore.QTimer.singleShot(3000, self._check_for_updates_startup)
+        # TRAS_NO_UPDATE_CHECK=1 disables the online check (offline labs, CI, tests).
+        if not os.environ.get("TRAS_NO_UPDATE_CHECK"):
+            QtCore.QTimer.singleShot(3000, self._check_for_updates_startup)
 
         # self.firstStart = True
         # if self.firstStart:
@@ -1434,8 +1547,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if dlg.exec_() != QtWidgets.QDialog.Accepted:
             return
         
-        # Store metadata
-        self.sample_metadata = dlg.get_metadata()
+        # Store metadata (keeping keys the dialog does not edit, e.g. outer_ring_year)
+        self.sample_metadata = {**(self.sample_metadata or {}), **dlg.get_metadata()}
         
         logger.info(f"Sample metadata updated:")
         logger.info(f"  - Harvested Year: {self.sample_metadata['harvested_year']}")
@@ -1478,27 +1591,12 @@ class MainWindow(QtWidgets.QMainWindow):
         if not self.sample_metadata or 'harvested_year' not in self.sample_metadata:
             return
         
-        # Get all polygon shapes (each polygon is treated as a ring)
-        ring_shapes = [
-            s for s in self.canvas.shapes if getattr(s, "shape_type", "") == "polygon"
-        ]
+        # Exclusion zones are polygons too, but must keep their label.
+        ring_shapes, _ = split_ring_shapes(self.canvas.shapes)
         if not ring_shapes:
             return
-        
-        def polygon_area(shape: Shape) -> float:
-            points = [(p.x(), p.y()) for p in shape.points]
-            if len(points) < 3:
-                return 0.0
-            area = 0.0
-            for j in range(len(points)):
-                x1, y1 = points[j]
-                x2, y2 = points[(j + 1) % len(points)]
-                area += x1 * y2 - x2 * y1
-            return abs(area) / 2.0
-        
-        # Smallest area ≈ innermost ring
-        ring_shapes.sort(key=polygon_area)
-        
+        ring_shapes = rings_inner_to_outer(ring_shapes)
+
         # Relabel: Sorted rings go from innermost to outermost (ring_1 to ring_N)
         # Innermost (ring_1) gets oldest year, outermost (ring_N) gets harvested_year
         harvested_year = self.sample_metadata['harvested_year']
@@ -2048,120 +2146,20 @@ class MainWindow(QtWidgets.QMainWindow):
         if not self.canvas.shapes and not self.radial_line_measurements:
             return None
         
-        # Filter ring shapes (exclude exclusion areas) and sort by label (ring_1, ring_2, ...)
-        ring_shapes = [
-            s for s in self.canvas.shapes 
-            if getattr(s, "shape_type", "") == "polygon" 
-            and getattr(s, "label", "") != "exclusion"
-        ]
-        # Get exclusion areas
-        exclusion_shapes = [
-            s for s in self.canvas.shapes 
-            if getattr(s, "shape_type", "") == "polygon" 
-            and getattr(s, "label", "") == "exclusion"
-        ]
+        ring_shapes, exclusion_shapes = split_ring_shapes(self.canvas.shapes)
         use_polygon_metrics = len(ring_shapes) > 0
         measurements_dict = (self.radial_line_measurements or {}).get("measurements", {})
-        
+
         ring_properties: list[dict] = []
         radial_measurements: list[dict] = []
-        
-        def _polygon_area(shape: Shape) -> float:
-            points = [(p.x(), p.y()) for p in shape.points]
-            if len(points) < 3:
-                return 0.0
-            area = 0.0
-            for j in range(len(points)):
-                x1, y1 = points[j]
-                x2, y2 = points[(j + 1) % len(points)]
-                area += x1 * y2 - x2 * y1
-            return abs(area) / 2.0
-        
+
         if use_polygon_metrics:
-            # Automatically re-label rings before computing properties
-            # (in case user added/removed rings manually)
-            logger.info("Auto-relabeling rings before computing properties...")
+            # Re-label first, in case the user added or removed rings by hand.
             self._relabel_rings_with_years()
-            ring_shapes.sort(key=_polygon_area)
-            logger.info(f"Computing properties for {len(ring_shapes)} rings...")
-            
-            prev_outer_area = 0.0
-            prev_outer_area_no_exclusion = 0.0
-            for shape in ring_shapes:
-                points = [(p.x(), p.y()) for p in shape.points]
-                if len(points) < 3:
-                    logger.warning(f"Skipping {shape.label}: too few points ({len(points)})")
-                    continue
-                
-                area = 0.0
-                n = len(points)
-                for j in range(n):
-                    x1, y1 = points[j]
-                    x2, y2 = points[(j + 1) % n]
-                    area += x1 * y2 - x2 * y1
-                area = abs(area) / 2.0
-                
-                perimeter = 0.0
-                for j in range(n):
-                    x1, y1 = points[j]
-                    x2, y2 = points[(j + 1) % n]
-                    perimeter += ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
-                
-                outer_area = area
-                outer_area_no_exclusion = area  # Store original area before exclusion
-                
-                # Subtract exclusion areas that intersect with this ring's cumulative area
-                excluded_area = 0.0
-                if exclusion_shapes:
-                    from shapely.geometry import Polygon as ShapelyPolygon
-                    try:
-                        # Create Shapely polygon for the ring (cumulative area)
-                        ring_poly = ShapelyPolygon(points)
-                        if not ring_poly.is_valid:
-                            ring_poly = ring_poly.buffer(0)  # Fix invalid polygon
-                        
-                        # Calculate excluded area that intersects with this ring
-                        for excl_shape in exclusion_shapes:
-                            excl_points = [(p.x(), p.y()) for p in excl_shape.points]
-                            if len(excl_points) >= 3:
-                                excl_poly = ShapelyPolygon(excl_points)
-                                if not excl_poly.is_valid:
-                                    excl_poly = excl_poly.buffer(0)
-                                
-                                # Find intersection with current ring
-                                if ring_poly.intersects(excl_poly):
-                                    intersection = ring_poly.intersection(excl_poly)
-                                    if intersection.area > 0:
-                                        excluded_area += intersection.area
-                        
-                        # Subtract excluded area from cumulative area
-                        outer_area = max(outer_area - excluded_area, 0.0)
-                    except Exception as e:
-                        logger.warning(f"Error computing exclusion areas for ring {shape.label}: {e}")
-                
-                # Compute ring area (growth area) after exclusion
-                ring_area = max(outer_area - prev_outer_area, 0.0)
-                # Compute ring area without exclusion (for comparison)
-                ring_area_no_exclusion = max(outer_area_no_exclusion - prev_outer_area_no_exclusion, 0.0)
-                
-                props = {
-                    "label": shape.label,
-                    "area": ring_area,  # Area with exclusion subtracted
-                    "area_no_exclusion": ring_area_no_exclusion,  # Area without exclusion
-                    "cumulative_area": outer_area,  # Cumulative area with exclusion subtracted
-                    "cumulative_area_no_exclusion": outer_area_no_exclusion,  # Cumulative area without exclusion
-                    "perimeter": perimeter,
-                }
-                prev_outer_area = outer_area
-                prev_outer_area_no_exclusion = outer_area_no_exclusion
-                
-                if shape.label in measurements_dict:
-                    props["radial_width_px"] = measurements_dict[shape.label]["radial_width"]
-                else:
-                    props["radial_width_px"] = None
-                
-                ring_properties.append(props)
-            
+            ring_properties = ring_property_rows(
+                ring_shapes, exclusion_shapes, self.pith_xy, measurements_dict
+            )
+            logger.info(f"Computed properties for {len(ring_properties)} rings")
             if not ring_properties:
                 return None
         if measurements_dict:
@@ -2224,6 +2222,149 @@ class MainWindow(QtWidgets.QMainWindow):
         
         dlg = ExportDialog(parent=self)
         dlg.exec_()
+
+    def _action_core_analysis(self) -> None:
+        """Detect ring boundaries along increment cores or drawn linestrip paths."""
+        from tras.utils.pos_exporter import mm_per_pixel
+
+        if self.image.isNull():
+            self.errorMessage(self.tr("No image"), self.tr("Please open an image first."))
+            return
+        image_np = self.imageArray if self.imageArray is not None else qimage_to_numpy(self.image)
+        # Paths drawn with "Draw Core Path" (label core_path). Open rings are linestrips too,
+        # and earlier results (core_path_<k>) are replaced, not re-measured.
+        drawn_paths = [
+            np.array([(p.x(), p.y()) for p in shape.points], dtype=np.float64)
+            for shape in self.canvas.shapes
+            if shape.shape_type == "linestrip"
+            and len(shape.points) >= 2
+            and shape.label == CORE_PATH_LABEL
+        ]
+        dlg = CoreDialog(
+            image_np, drawn_paths, mm_per_pixel(self.image_scale), self._core_outer_year(),
+            parent=self,
+        )
+        if dlg.exec_() != QtWidgets.QDialog.Accepted or not dlg.results:
+            return
+        self._store_outer_ring_year(dlg.outer_ring_year())
+        self._replace_core_shapes(dlg.label_shapes(), CORE_PATH_LABEL)
+
+    def _core_outer_year(self) -> int | None:
+        """Year of the outermost complete ring: set in Core Analysis, else harvested year."""
+        metadata = self.sample_metadata or {}
+        return metadata.get("outer_ring_year") or metadata.get("harvested_year")
+
+    def _store_outer_ring_year(self, year: int | None) -> None:
+        """Keep the outer ring year in the sample metadata (saved in the label file)."""
+        metadata = dict(self.sample_metadata or {})
+        if year is None:
+            metadata.pop("outer_ring_year", None)
+        else:
+            metadata["outer_ring_year"] = year
+        self.sample_metadata = metadata
+        if self.otherData is None:
+            self.otherData = {}
+        self.otherData["sample_metadata"] = metadata
+
+    def _replace_core_shapes(self, shape_dicts: list[dict], path_label: str) -> None:
+        """Swap previous core results for new ones, keeping every other shape.
+
+        Boundaries the user drew by hand are kept, even after export relabelled them.
+        """
+        from tras.cores.edit import is_hand_drawn
+        from tras.cores.edit import shape_to_dict
+        from tras.cores.export import is_core_result_label
+
+        self.canvas.storeShapes()
+        old = [
+            s
+            for s in self.canvas.shapes
+            if is_core_result_label(s.label) and not is_hand_drawn(shape_to_dict(s))
+        ]
+        if old:
+            self.remLabels(old)
+            self.canvas.shapes = [s for s in self.canvas.shapes if s not in old]
+        shapes = []
+        for d in shape_dicts:
+            shape = Shape(
+                label=d["label"],
+                shape_type=d["shape_type"],
+                group_id=d["group_id"],
+                description=d["description"],
+            )
+            for x, y in d["points"]:
+                shape.addPoint(QtCore.QPointF(x, y))
+            shapes.append(shape)
+        self.loadShapes(shapes, replace=False)
+        self.setDirty()
+        self.show_status_message(
+            self.tr("Added %d core shape(s) — Ctrl+Z to undo") % len(shapes), delay=5000
+        )
+
+    def _action_export_core_measurements(self) -> None:
+        """Export the cores as corrected on the canvas to .pos / .rwl / .csv."""
+        from tras.cores import edit as core_edit
+        from tras.cores import export_results
+        from tras.utils.pos_exporter import mm_per_pixel
+
+        shapes = [core_edit.shape_to_dict(shape) for shape in self.canvas.shapes]
+        outer_year = self._core_outer_year()
+        cores = core_edit.cores_from_shapes(
+            shapes, mm_per_px=mm_per_pixel(self.image_scale), outer_year=outer_year
+        )
+        if not cores:
+            self.errorMessage(
+                self.tr("Export Core Measurements"),
+                self.tr(
+                    "No measured core on the image. Run Tools → Increment Core → "
+                    "Core Analysis… and click Add to image."
+                ),
+            )
+            return
+        folder = QtWidgets.QFileDialog.getExistingDirectory(
+            self, self.tr("Export folder"), self.currentPath()
+        )
+        if not folder:
+            return
+        image_file = osp.basename(self.filename) if self.filename else None
+        stem = osp.splitext(image_file)[0] if image_file else "core"
+        # Keyed by k of core_path_<k>: files keep the core's number when others are deleted.
+        written = export_results(cores, folder, stem, image_file=image_file)
+        unassigned = core_edit.unassigned_boundaries(shapes)
+        warnings = core_edit.export_warnings(
+            cores,
+            n_unassigned=len(unassigned),
+            n_duplicates=len(core_edit.duplicate_boundaries(shapes)),
+            tr=self.tr,
+        )
+        self._relabel_core_boundaries(core_edit.boundary_labels(shapes, outer_year), unassigned)
+        self._show_core_export_summary(
+            core_edit.export_summary(cores, written, warnings, tr=self.tr), bool(warnings)
+        )
+
+    def _relabel_core_boundaries(self, labels: dict[int, str], unassigned: list[int]) -> None:
+        """Apply re-numbered year labels (undoable) and select the ignored lines."""
+        for index, label in labels.items():
+            shape = self.canvas.shapes[index]
+            shape.label = label
+            self._refresh_label_item(self.labelList.findItemByShape(shape), shape)
+        # The undo stack holds the state after each edit: Ctrl+Z restores the old labels,
+        # and undoing a later edit keeps the new ones.
+        self.canvas.storeShapes()
+        self.actions.undo.setEnabled(self.canvas.isShapeRestorable)
+        self.setDirty()
+        if unassigned:
+            self.setEditMode()
+            self.canvas.selectShapes([self.canvas.shapes[i] for i in unassigned])
+
+    def _show_core_export_summary(self, lines: list[str], has_warnings: bool) -> None:
+        box = QtWidgets.QMessageBox(self)
+        box.setIcon(
+            QtWidgets.QMessageBox.Warning if has_warnings else QtWidgets.QMessageBox.Information
+        )
+        box.setWindowTitle(self.tr("Export complete"))
+        box.setText("\n".join(lines))
+        box.exec_()
 
     def _action_batch_process(self) -> None:
         """Detect rings over every image in a folder (batch processing)."""
@@ -2519,11 +2660,24 @@ class MainWindow(QtWidgets.QMainWindow):
         self.actions.undo.setEnabled(not drawing)
         self.actions.delete.setEnabled(not drawing)
 
-    def toggleDrawMode(self, edit=True, createMode="polygon", exclusion_mode=False):
+    def toggleDrawMode(
+        self,
+        edit=True,
+        createMode="polygon",
+        exclusion_mode=False,
+        core_path_mode=False,
+        core_boundary_mode=False,
+    ):
         self.canvas.setEditing(edit)
         self.canvas.createMode = createMode
         # Store exclusion mode state
         self._exclusion_mode = exclusion_mode
+        # Linestrips drawn in core-path mode are labelled "core_path", not open rings.
+        self._core_path_mode = core_path_mode and not edit
+        # Lines drawn in core-boundary mode are labelled "core_boundary" (no popup).
+        self._core_boundary_mode = core_boundary_mode and not edit
+        if hasattr(self, "actions") and hasattr(self.actions, "drawCoreBoundary"):
+            self.actions.drawCoreBoundary.setChecked(self._core_boundary_mode)
         if edit:
             for _, draw_action in self.draw_actions:
                 draw_action.setEnabled(True)
@@ -2650,20 +2804,24 @@ class MainWindow(QtWidgets.QMainWindow):
             if edit_description:
                 shape.description = description
 
-            self._update_shape_color(shape)
-            if shape.group_id is None:
-                r, g, b = shape.fill_color.getRgb()[:3]
-                item.setText(
-                    f"{html.escape(shape.label)} "
-                    f'<font color="#{r:02x}{g:02x}{b:02x}">●</font>'
-                )
-            else:
-                item.setText(f"{shape.label} ({shape.group_id})")
+            self._refresh_label_item(item, shape)
             self.setDirty()
-            if self.uniqLabelList.find_label_item(shape.label) is None:
-                self.uniqLabelList.add_label_item(
-                    label=shape.label, color=self._get_rgb_by_label(label=shape.label)
-                )
+
+    def _refresh_label_item(self, item, shape: Shape) -> None:
+        """Update colour and label-list text after ``shape.label`` changed."""
+        self._update_shape_color(shape)
+        if shape.group_id is None:
+            r, g, b = shape.fill_color.getRgb()[:3]
+            item.setText(
+                f"{html.escape(shape.label)} "
+                f'<font color="#{r:02x}{g:02x}{b:02x}">●</font>'
+            )
+        else:
+            item.setText(f"{shape.label} ({shape.group_id})")
+        if self.uniqLabelList.find_label_item(shape.label) is None:
+            self.uniqLabelList.add_label_item(
+                label=shape.label, color=self._get_rgb_by_label(label=shape.label)
+            )
 
     def fileSearchChanged(self):
         self.importDirImages(
@@ -2728,22 +2886,7 @@ class MainWindow(QtWidgets.QMainWindow):
         )
 
     def _update_shape_color(self, shape):
-        # Exclusion areas always use red color
-        if shape.label == "exclusion":
-            shape.line_color = QtGui.QColor(255, 0, 0, 200)  # Red with transparency
-            shape.vertex_fill_color = QtGui.QColor(255, 0, 0, 255)
-            shape.hvertex_fill_color = QtGui.QColor(255, 255, 255)
-            shape.fill_color = QtGui.QColor(255, 0, 0, 50)   # Light red fill
-            shape.select_line_color = QtGui.QColor(255, 255, 255)
-            shape.select_fill_color = QtGui.QColor(255, 0, 0, 155)
-        else:
-            r, g, b = self._get_rgb_by_label(shape.label)
-            shape.line_color = QtGui.QColor(r, g, b)
-            shape.vertex_fill_color = QtGui.QColor(r, g, b)
-            shape.hvertex_fill_color = QtGui.QColor(255, 255, 255)
-            shape.fill_color = QtGui.QColor(r, g, b, 128)
-            shape.select_line_color = QtGui.QColor(255, 255, 255)
-            shape.select_fill_color = QtGui.QColor(r, g, b, 155)
+        style_shape(shape, self._get_rgb_by_label(shape.label))
 
     def _get_rgb_by_label(self, label: str) -> tuple[int, int, int]:
         if self._config["shape_color"] == "auto":
@@ -2753,14 +2896,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 if item
                 else self.uniqLabelList.count()
             )
-            label_id: int = (
-                1  # skip black color by default
-                + item_index
-                + self._config["shift_auto_shape_color"]
-            )
-            rgb: tuple[int, int, int] = tuple(
-                LABEL_COLORMAP[label_id % len(LABEL_COLORMAP)].tolist()
-            )
+            label_id: int = item_index + self._config["shift_auto_shape_color"]
+            palette = self._ring_palette
+            rgb: tuple[int, int, int] = tuple(palette[label_id % len(palette)].tolist())
             return rgb
         elif (
             self._config["shape_color"] == "manual"
@@ -2913,6 +3051,18 @@ class MainWindow(QtWidgets.QMainWindow):
             flags = {}
             group_id = None
             description = ""
+        elif getattr(self, '_core_path_mode', False):
+            # Core path mode: the measurement path for Core Analysis
+            text = CORE_PATH_LABEL
+            flags = {}
+            group_id = None
+            description = "Core measurement path (pith → bark)"
+        elif getattr(self, '_core_boundary_mode', False):
+            # Core boundary mode: a hand-drawn ring boundary across a core path
+            text = CORE_BOUNDARY_LABEL
+            flags = {}
+            group_id = None
+            description = HAND_DRAWN_DESCRIPTION
         elif getattr(self, '_exclusion_mode', False):
             # Exclusion mode: automatically set label to "exclusion"
             text = "exclusion"
@@ -2946,11 +3096,7 @@ class MainWindow(QtWidgets.QMainWindow):
             shape = self.canvas.setLastLabel(text, flags)
             shape.group_id = group_id
             shape.description = description
-            # Set visual style for exclusion areas (red color)
-            if text == "exclusion":
-                shape.line_color = QtGui.QColor(255, 0, 0, 200)  # Red with transparency
-                shape.fill_color = QtGui.QColor(255, 0, 0, 50)   # Light red fill
-            self.addLabel(shape)
+            self.addLabel(shape)  # styles the shape via _update_shape_color
             self.actions.editMode.setEnabled(True)
             self.actions.undoLastPoint.setEnabled(False)
             self.actions.undo.setEnabled(True)
@@ -3669,6 +3815,50 @@ class MainWindow(QtWidgets.QMainWindow):
             )
         )
         self.importDirImages(targetDirPath)
+
+    def importDirImages(self, dirpath, pattern=None, load=True):
+        """List every image under ``dirpath`` in the file list and open the first one."""
+        self.actions.openNextImg.setEnabled(True)
+        self.actions.openPrevImg.setEnabled(True)
+
+        if not self.mayContinue() or not dirpath:
+            return
+
+        self.lastOpenDir = dirpath
+        self.filename = None
+        self.fileListWidget.clear()
+
+        filenames = self.scanAllImages(dirpath)
+        if pattern:
+            try:
+                filenames = [f for f in filenames if re.search(pattern, f)]
+            except re.error:
+                pass
+        for filename in filenames:
+            label_file = f"{osp.splitext(filename)[0]}.json"
+            if self.output_dir:
+                label_file = osp.join(self.output_dir, osp.basename(label_file))
+            item = QtWidgets.QListWidgetItem(filename)
+            item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+            if QtCore.QFile.exists(label_file) and LabelFile.is_label_file(label_file):
+                item.setCheckState(Qt.Checked)
+            else:
+                item.setCheckState(Qt.Unchecked)
+            self.fileListWidget.addItem(item)
+        self.openNextImg(load=load)
+
+    def scanAllImages(self, folderPath):
+        """Image files (any format Qt reads) under ``folderPath``, naturally sorted."""
+        extensions = tuple(
+            f".{fmt.data().decode().lower()}"
+            for fmt in QtGui.QImageReader.supportedImageFormats()
+        )
+        images = []
+        for root, _dirs, files in os.walk(folderPath):
+            for file in files:
+                if file.lower().endswith(extensions):
+                    images.append(os.path.normpath(osp.join(root, file)))
+        return natsort.os_sorted(images)
 
     @property
     def imageList(self) -> list[str]:
