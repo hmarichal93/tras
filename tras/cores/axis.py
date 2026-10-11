@@ -117,6 +117,11 @@ def _centreline(points: npt.NDArray[np.float64], factor: float) -> DetectedCore 
     mean = points.mean(axis=0)
     _, vectors = np.linalg.eigh(np.cov(points.T))
     major, minor = vectors[:, 1], vectors[:, 0]
+    # Canonical direction (eigenvector signs are arbitrary): left→right, or top→bottom for
+    # mostly vertical cores, so "start of path" in the GUI means a predictable end.
+    dominant = 0 if abs(major[0]) >= abs(major[1]) else 1
+    if major[dominant] < 0:
+        major = -major
     u = (points - mean) @ major
     v = (points - mean) @ minor
 

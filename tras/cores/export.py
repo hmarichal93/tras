@@ -10,6 +10,7 @@ measures ``|a → c|`` (perpendicular), and the next ring starts again from ``b`
 from __future__ import annotations
 
 import csv
+import re
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -27,6 +28,13 @@ from tras.io.tucson import sanitize_series_id
 from tras.io.tucson import write_rwl
 
 CORE_PATH_LABEL = "core_path"
+# Labels TRAS writes for core results: core_path_<k> and core<k>_<year or b<i>>.
+_CORE_RESULT_LABEL = re.compile(r"^(core_path_\d+|core\d+_(\d+|b\d+))$")
+
+
+def is_core_result_label(label: str) -> bool:
+    """True for shapes created by core analysis (not for user shapes like ``core1``)."""
+    return bool(_CORE_RESULT_LABEL.match(label or ""))
 
 
 def boundary_direction(result: CoreResult, boundary: CoreBoundary) -> np.ndarray:

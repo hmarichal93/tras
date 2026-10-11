@@ -51,8 +51,9 @@ BOUNDARY_STEPS = ("dark_to_light", "light_to_dark")
 
 @dataclass(frozen=True)
 class CoreParams:
-    """Parameters of the core boundary detector. Lengths are in grid samples (= px for
-    typical photos; see ``sampling_step``).
+    """Parameters of the core boundary detector. Lengths are in grid samples: 1 sample =
+    1 px for photos and scans up to ~1270 dpi; finer scans with a known scale are analysed
+    at 0.02 mm per sample (see ``sampling_step``).
 
     Attributes:
         half_width: Ribbon half-width across the path. Wider = more lanes for the median
@@ -230,7 +231,7 @@ def detect_core_rings(
     ]
     score = evidence.score
     if not pith_at_start:
-        _, boundaries, score = _reverse(ribbon, boundaries, score)
+        _, boundaries, score = _reverse(ribbon, boundaries, score, _arc_length(path))
     measured = sample_path(
         user_path, step=step, smoothing_px=ribbon.path.step * params.half_width / 2
     )
@@ -256,9 +257,16 @@ def _trim(evidence: Evidence, n: int) -> Evidence:
     return Evidence(score=evidence.score[n:-n], tilt=evidence.tilt[n:-n])
 
 
+def _arc_length(polyline: npt.ArrayLike) -> float:
+    pts = np.asarray(polyline, dtype=np.float64)
+    return float(np.linalg.norm(np.diff(pts, axis=0), axis=1).sum())
+
+
 def extend_polyline(polyline: npt.ArrayLike, margin: float) -> FloatArray:
     """Prolong a polyline by ``margin`` px beyond both ends along its end directions."""
     pts = np.asarray(polyline, dtype=np.float64)
+    # Repeated points (e.g. a double-click ending a GUI linestrip) give no direction.
+    pts = pts[np.r_[True, np.any(np.diff(pts, axis=0) != 0, axis=1)]]
     if margin <= 0 or len(pts) < 2:
         return pts
     start_dir = pts[0] - pts[1]
@@ -507,10 +515,13 @@ def _robust_sigma(values: FloatArray) -> float:
 
 
 def _reverse(
-    ribbon: Ribbon, boundaries: list[CoreBoundary], score: FloatArray
+    ribbon: Ribbon, boundaries: list[CoreBoundary], score: FloatArray, length: float
 ) -> tuple[SampledPath, list[CoreBoundary], FloatArray]:
-    """Re-express results with ``s = 0`` at the path end (the pith side)."""
-    length = ribbon.path.length
+    """Re-express results with ``s = 0`` at the path end (the pith side).
+
+    ``length`` is the exact arc length of the analysed path; the sample grid may stop up
+    to one step before its end.
+    """
     flipped = [
         CoreBoundary(s=length - b.s, xy=b.xy, tilt=b.tilt, strength=b.strength)
         for b in reversed(boundaries)

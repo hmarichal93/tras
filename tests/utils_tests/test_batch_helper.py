@@ -152,3 +152,25 @@ def test_run_batch_skips_rwl_without_scale(input_dir: Path, tmp_path: Path, monk
     )
     config = {"rings": {"method": "deepcstrd"}, "dating": {"outer_year": 2020}}
     assert batch_helper.run_batch(input_dir, tmp_path / "out", config).rwl_path is None
+
+
+def test_radii_rwl_with_colliding_names_and_resize(tmp_path: Path):
+    """Regression: names sharing 7 characters crashed run_batch; resize ignored the scale."""
+    from tras.io.tucson import read_rwl
+
+    results = [
+        {"name": n, "image": None, "pith_xy": (60.0, 60.0), "rings": _fake_concentric(None).rings}
+        for n in ("disc_001.jpg", "disc_002.jpg")
+    ]
+    config = {
+        "physical_scale": {"value": 0.5, "unit": "mm"},
+        "preprocess": {"resize_scale": 0.5},
+        "dating": {"outer_year": 2020},
+    }
+    path = batch_helper.write_radii_rwl(tmp_path / "radii.rwl", results, config)
+
+    series = read_rwl(path)
+    assert len({s.series_id for s in series}) == 8
+    assert (tmp_path / "radii_ids.csv").read_text().splitlines()[1] == "R0001,disc_001"
+    # 0.5 mm per original px, image halved: 1 mm per processed px; first ring 10 px.
+    assert series[0].widths_mm[0] == pytest.approx(10.0, abs=0.05)

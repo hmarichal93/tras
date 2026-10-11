@@ -110,9 +110,15 @@ def main(
     evidence: Optional[str] = typer.Option(
         None, "--evidence", help="classical | deep | hybrid (default: best available)"
     ),
-    half_width: Optional[int] = typer.Option(None, "--half-width", help="Ribbon half-width (px)"),
+    half_width: Optional[int] = typer.Option(
+        None,
+        "--half-width",
+        help="Ribbon half-width (samples; 1 sample = 1 px, or 0.02 mm on scans >1270 dpi)",
+    ),
     min_ring_width: Optional[float] = typer.Option(
-        None, "--min-ring-width", help="Minimum ring width (px)"
+        None,
+        "--min-ring-width",
+        help="Minimum ring width (samples; 1 sample = 1 px, or 0.02 mm on scans >1270 dpi)",
     ),
     sensitivity: Optional[float] = typer.Option(
         None, "--sensitivity", help="Classical threshold (noise units)"

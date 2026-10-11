@@ -85,26 +85,35 @@ def _to_units(width_mm: float, precision: float) -> int:
 
 def read_rwl(path: Path | str) -> list[RingWidthSeries]:
     """Read a Tucson ``.rwl`` file (header lines are skipped)."""
-    data: dict[str, dict[int, int]] = {}
-    stops: dict[str, int] = {}
+    lines: dict[str, list[tuple[int, list[int]]]] = {}
     for line in Path(path).read_text(encoding="utf-8", errors="replace").splitlines():
         parsed = _parse_data_line(line)
-        if parsed is None:
-            continue
-        sid, year, values = parsed
-        for offset, value in enumerate(values):
-            if value in (999, -9999):
-                stops[sid] = value
-                break
-            data.setdefault(sid, {})[year + offset] = value
+        if parsed is not None:
+            sid, year, values = parsed
+            lines.setdefault(sid, []).append((year, values))
 
     series = []
-    for sid, by_year in data.items():
-        precision = 0.001 if stops.get(sid) == -9999 else 0.01
+    for sid, rows in lines.items():
+        # The stop marker decides the precision; at 0.001 mm a value of 999 is real data.
+        stop = -9999 if any(-9999 in values for _, values in rows) else 999
+        precision = 0.001 if stop == -9999 else 0.01
+        by_year = _values_until_stop(rows, stop)
+        if not by_year:
+            continue
         first, last = min(by_year), max(by_year)
         widths = tuple(by_year.get(y, 0) * precision for y in range(first, last + 1))
         series.append(RingWidthSeries(sid, first, widths))
     return series
+
+
+def _values_until_stop(rows: list[tuple[int, list[int]]], stop: int) -> dict[int, int]:
+    by_year: dict[int, int] = {}
+    for year, values in rows:
+        for offset, value in enumerate(values):
+            if value == stop:
+                return by_year
+            by_year[year + offset] = value
+    return by_year
 
 
 def _parse_data_line(line: str) -> tuple[str, int, list[int]] | None:

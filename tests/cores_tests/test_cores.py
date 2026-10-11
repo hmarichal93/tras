@@ -170,8 +170,52 @@ def test_fill_gaps_recovers_missing_boundary():
     classical[200] = 12.0  # but the classical edge is clearly there
     classical[120] = 12.0  # a strong edge inside a normal-width gap must be ignored
     score = np.zeros(n)
-    found, strengths = fill_gaps(peaks, score, classical, min_distance=5, ratio=1.8, sensitivity=3.0)
+    found, strengths = fill_gaps(
+        peaks, score, classical, min_distance=5, ratio=1.8, sensitivity=3.0
+    )
     assert 200 in found
     assert 120 not in found
     assert len(found) == len(peaks) + 1
     assert strengths[list(found).index(200)] == 0.0
+
+
+def test_auto_found_path_runs_left_to_right():
+    """Regression: the centreline direction followed the arbitrary eigenvector sign."""
+    canvas = place_on_background(synthetic_core(length=600))
+    (core,) = find_cores(canvas)
+    assert core.path_xy[0][0] < core.path_xy[-1][0]
+
+
+def test_repeated_end_point_keeps_positions():
+    """Regression: a duplicated last point disabled the end extension and shifted s."""
+    from tras.cores.detect import extend_polyline
+
+    ext = extend_polyline(np.array([[0.0, 0], [10, 0], [10, 0]]), 5)
+    np.testing.assert_allclose(ext[[0, -1]], [[-5, 0], [15, 0]])
+
+    image = synthetic_core(flip=True)
+    path = np.vstack([horizontal_path(image), horizontal_path(image)[-1:]])
+    params = CoreParams(evidence="classical", half_width=8, pith_side="end", end_margin=2)
+    found = np.array([b.s for b in detect_core_rings(image, path, params).boundaries])
+    expected = BOUNDARIES - 1  # pith at x = length - 1 after the flip
+    matched = [np.min(np.abs(found - b)) < 2 for b in expected]
+    assert np.mean(matched) >= 0.9
+
+
+def test_reversed_positions_use_exact_path_length():
+    """Regression: s was measured from the end of the sample grid, not the path."""
+    image = synthetic_core(flip=True)
+    path = np.array([[0.0, 20.0], [498.5, 20.0]])  # not a multiple of the step
+    params = CoreParams(evidence="classical", half_width=4, pith_side="end", sampling_step=3.0)
+    for b in detect_core_rings(image, path, params).boundaries:
+        assert b.s == pytest.approx(498.5 - b.xy[0], abs=0.5)
+
+
+def test_core_result_labels():
+    from tras.cores.export import is_core_result_label
+
+    assert is_core_result_label("core_path_1")
+    assert is_core_result_label("core2_2019")
+    assert is_core_result_label("core1_b3")
+    assert not is_core_result_label("core1")
+    assert not is_core_result_label("my core path")

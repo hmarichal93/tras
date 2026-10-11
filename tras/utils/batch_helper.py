@@ -27,6 +27,7 @@ from PIL import Image as PILImage
 from tras._label_file import LabelFile
 from tras.analysis.rings import compass_series
 from tras.api import detect
+from tras.io.tucson import sanitize_series_id
 from tras.io.tucson import write_rwl
 from tras.params import DetectionParams
 from tras.utils.cli_config import dump_config
@@ -67,14 +68,20 @@ def find_images(input_dir: Path) -> list[Path]:
 
 
 def _scale_from_config(config: dict[str, Any]) -> tuple[float | None, str | None]:
-    """Extract optional (value, unit) physical scale from the config dict."""
+    """Optional (value, unit) physical scale of the *processed* image's pixels.
+
+    ``physical_scale`` refers to the original image; after resizing by ``resize_scale``
+    every processed pixel covers ``1 / resize_scale`` original pixels.
+    """
     scale = config.get("physical_scale")
     if not isinstance(scale, dict):
         return None, None
     try:
-        return float(scale["value"]), str(scale["unit"])
+        value, unit = float(scale["value"]), str(scale["unit"])
     except (KeyError, TypeError, ValueError):
         return None, None
+    resize = (config.get("preprocess") or {}).get("resize_scale")
+    return (value / float(resize) if resize else value), unit
 
 
 def _decode_embedded_image(image_data: bytes) -> npt.NDArray[np.uint8]:
@@ -122,24 +129,46 @@ def write_radii_rwl(
     """Tucson file with N/E/S/W radius series of every image, when dated and scaled.
 
     Needs ``dating.outer_year`` and a physical scale in ``config``; returns None otherwise.
+    Series IDs are ``<name[:7]><N|E|S|W>``; if two names share their first 7 characters,
+    IDs become ``R<index>`` and ``radii_ids.csv`` maps them back to image names.
     """
     outer_year = (config.get("dating") or {}).get("outer_year")
-    mm_px = mm_per_pixel(config.get("physical_scale"))
-    if not outer_year or mm_px is None:
+    mm_px = output_mm_per_pixel(config)
+    usable = [r for r in results if len(r["rings"]) >= 2]
+    if not outer_year or mm_px is None or not usable:
         return None
+    names = [Path(r["name"]).stem for r in usable]
+    stems = [sanitize_series_id(n)[:7] for n in names]
+    if len(set(stems)) < len(stems):
+        stems = [f"R{i:04d}" for i in range(1, len(usable) + 1)]
+        id_map = path.with_name("radii_ids.csv")
+        id_map.write_text(
+            "series_stem,image\n" + "".join(f"{s},{n}\n" for s, n in zip(stems, names)),
+            encoding="utf-8",
+        )
     series = [
         s
-        for r in results
-        if len(r["rings"]) >= 2
+        for r, name, stem in zip(usable, names, stems)
         for s in compass_series(
-            r["rings"], r["pith_xy"], int(outer_year), mm_px, Path(r["name"]).stem
+            r["rings"], r["pith_xy"], int(outer_year), mm_px, name, id_stem=stem
         )
     ]
-    if not series:
-        return None
     write_rwl(path, series)
     logger.info(f"Wrote {len(series)} radius series to {path}")
     return path
+
+
+def output_mm_per_pixel(config: dict[str, Any]) -> float | None:
+    """Millimetres per pixel of the *processed* image the rings are measured on.
+
+    ``physical_scale`` refers to the original image; resizing by ``resize_scale`` makes
+    each processed pixel ``1 / resize_scale`` times larger.
+    """
+    mm_px = mm_per_pixel(config.get("physical_scale"))
+    if mm_px is None:
+        return None
+    resize = (config.get("preprocess") or {}).get("resize_scale")
+    return mm_px / float(resize) if resize else mm_px
 
 
 def write_image_reports(

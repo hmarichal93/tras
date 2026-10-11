@@ -2132,16 +2132,20 @@ class MainWindow(QtWidgets.QMainWindow):
     def _action_core_analysis(self) -> None:
         """Detect ring boundaries along increment cores or drawn linestrip paths."""
         from tras.cores.export import CORE_PATH_LABEL
+        from tras.cores.export import is_core_result_label
         from tras.utils.pos_exporter import mm_per_pixel
 
         if self.image.isNull():
             self.errorMessage(self.tr("No image"), self.tr("Please open an image first."))
             return
         image_np = self.imageArray if self.imageArray is not None else qimage_to_numpy(self.image)
+        # User-drawn paths only: earlier results (core_path_<k>) are replaced, not re-measured.
         drawn_paths = [
             np.array([(p.x(), p.y()) for p in shape.points], dtype=np.float64)
             for shape in self.canvas.shapes
-            if shape.shape_type == "linestrip" and len(shape.points) >= 2
+            if shape.shape_type == "linestrip"
+            and len(shape.points) >= 2
+            and not is_core_result_label(shape.label)
         ]
         outer_year = (self.sample_metadata or {}).get("harvested_year")
         stem = osp.splitext(osp.basename(self.filename))[0] if self.filename else "core"
@@ -2153,9 +2157,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self._replace_core_shapes(dlg.label_shapes(), CORE_PATH_LABEL)
 
     def _replace_core_shapes(self, shape_dicts: list[dict], path_label: str) -> None:
-        """Swap previous core results (labels ``core*``) for new ones, keeping other shapes."""
+        """Swap previous core results for new ones, keeping every other shape."""
+        from tras.cores.export import is_core_result_label
+
         self.canvas.storeShapes()
-        old = [s for s in self.canvas.shapes if s.label.startswith(("core", path_label))]
+        old = [s for s in self.canvas.shapes if is_core_result_label(s.label)]
         if old:
             self.remLabels(old)
             self.canvas.shapes = [s for s in self.canvas.shapes if s not in old]

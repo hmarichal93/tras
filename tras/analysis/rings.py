@@ -218,6 +218,7 @@ def compass_series(
     mm_per_px: float,
     sample_name: str,
     directions: str = "NESW",
+    id_stem: str | None = None,
 ) -> list[RingWidthSeries]:
     """Ring-width series (mm) along compass radii, IDs ``<sample[:7]><letter>``.
 
@@ -227,7 +228,7 @@ def compass_series(
 
     degrees = [COMPASS_DEGREES[d] for d in directions]
     series = radial_width_series(rings, pith_xy, degrees, outer_year, unit_per_px=mm_per_px)
-    stem = sanitize_series_id(sample_name)[:7]
+    stem = (id_stem or sanitize_series_id(sample_name))[:7]
     return [
         RingWidthSeries(f"{stem}{letter}", s.first_year, s.widths_mm)
         for letter, s in zip(directions, series)

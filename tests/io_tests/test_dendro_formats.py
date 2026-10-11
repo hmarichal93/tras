@@ -161,3 +161,11 @@ def test_radial_export_is_coorecorder_compatible(tmp_path: Path):
     assert pos.pith_first() is False  # bark first, CooRecorder convention
     # Widths oldest first; the pith closes the innermost ring.
     assert pos.chronological_widths_mm() == pytest.approx([0.2, 0.3, 0.5])
+
+
+def test_rwl_value_999_is_data_at_0001_mm(tmp_path: Path):
+    """Regression: 999 (0.999 mm) was taken as the 0.01 mm stop marker."""
+    path = tmp_path / "x.rwl"
+    write_rwl(path, [RingWidthSeries("A", 2000, (1.2, 0.999, 1.5, 2.0))], precision=0.001)
+    (s,) = read_rwl(path)
+    assert s.widths_mm == pytest.approx((1.2, 0.999, 1.5, 2.0))

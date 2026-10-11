@@ -67,7 +67,7 @@ The scale comes from the image's DPI metadata, which flatbed scanners write. Oth
 
 | Symptom | Change |
 |---------|--------|
-| Extra boundaries inside latewood bands | Raise `--min-ring-width` (px) |
+| Extra boundaries inside latewood bands | Raise `--min-ring-width` (samples: 1 px, or 0.02 mm on scans finer than ~1270 dpi) |
 | Faint rings missed (classical) | Lower `--sensitivity` (default 2.5) |
 | Faint rings missed (deep) | Lower `--deep-threshold` (default 0.15) |
 | Ring count must be complete (dating) | `--fill-gaps`: recovers rings from width continuity (slightly lower precision) |

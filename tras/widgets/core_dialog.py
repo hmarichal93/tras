@@ -136,8 +136,13 @@ class CoreDialog(QtWidgets.QDialog):
         self.min_ring_width = QtWidgets.QDoubleSpinBox()
         self.min_ring_width.setRange(1.0, 500.0)
         self.min_ring_width.setValue(5.0)
-        self.min_ring_width.setSuffix(" px")
-        self.min_ring_width.setToolTip(self.tr("Closest allowed spacing of two boundaries"))
+        self.min_ring_width.setSuffix(self.tr(" samples"))
+        self.min_ring_width.setToolTip(
+            self.tr(
+                "Closest allowed spacing of two boundaries. 1 sample = 1 px, or 0.02 mm "
+                "on scans finer than ~1270 dpi when the scale is set."
+            )
+        )
         form.addRow(self.tr("Minimum ring width:"), self.min_ring_width)
         self.sensitivity = QtWidgets.QDoubleSpinBox()
         self.sensitivity.setRange(0.5, 10.0)
