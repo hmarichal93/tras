@@ -50,6 +50,7 @@ from tras.widgets import UpdateCheckDialog
 from tras.widgets import BatchProcessDialog
 from tras.widgets import CoreDialog
 from tras.cores.edit import CORE_BOUNDARY_LABEL
+from tras.cores.edit import HAND_DRAWN_DESCRIPTION
 from tras.cores.export import CORE_PATH_LABEL
 
 from . import utils
@@ -2221,11 +2222,20 @@ class MainWindow(QtWidgets.QMainWindow):
         self.otherData["sample_metadata"] = metadata
 
     def _replace_core_shapes(self, shape_dicts: list[dict], path_label: str) -> None:
-        """Swap previous core results for new ones, keeping every other shape."""
+        """Swap previous core results for new ones, keeping every other shape.
+
+        Boundaries the user drew by hand are kept, even after export relabelled them.
+        """
+        from tras.cores.edit import is_hand_drawn
+        from tras.cores.edit import shape_to_dict
         from tras.cores.export import is_core_result_label
 
         self.canvas.storeShapes()
-        old = [s for s in self.canvas.shapes if is_core_result_label(s.label)]
+        old = [
+            s
+            for s in self.canvas.shapes
+            if is_core_result_label(s.label) and not is_hand_drawn(shape_to_dict(s))
+        ]
         if old:
             self.remLabels(old)
             self.canvas.shapes = [s for s in self.canvas.shapes if s not in old]
@@ -3027,7 +3037,7 @@ class MainWindow(QtWidgets.QMainWindow):
             text = CORE_BOUNDARY_LABEL
             flags = {}
             group_id = None
-            description = "Ring boundary added by hand"
+            description = HAND_DRAWN_DESCRIPTION
         elif getattr(self, '_exclusion_mode', False):
             # Exclusion mode: automatically set label to "exclusion"
             text = "exclusion"

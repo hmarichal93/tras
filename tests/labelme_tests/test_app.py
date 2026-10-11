@@ -486,3 +486,37 @@ def test_undo_after_core_export_relabel(qtbot: QtBot, data_dir, tmp_path, monkey
     assert [shape.label for shape in win.canvas.shapes] == before
     win.setClean()
     win.close()
+
+
+@pytest.mark.gui
+def test_rerun_core_analysis_keeps_hand_drawn_boundaries(qtbot: QtBot, data_dir) -> None:
+    """A hand-drawn boundary survives re-running Core Analysis, even after export relabelled it."""
+    from PyQt5.QtCore import QPointF
+
+    from tras.shape import Shape
+
+    win = _core_window(qtbot, data_dir)
+    win.setClean()  # a failing assertion must not leave a "save changes?" prompt open
+    win.actions.drawCoreBoundary.trigger()
+    _draw_line(win, (100.0, 100.0), (100.0, 140.0))
+    hand = win.canvas.shapes[-1]
+    hand.label = "core1_2019"  # as relabelled by an export
+    detected = Shape(label="core1_2018", shape_type="line", description="strength=3.00")
+    detected.addPoint(QPointF(50.0, 100.0))
+    detected.addPoint(QPointF(50.0, 140.0))
+    win.loadShapes([detected], replace=False)
+
+    new_path = {
+        "label": "core_path_1",
+        "points": [[0.0, 120.0], [200.0, 120.0]],
+        "shape_type": "linestrip",
+        "group_id": 1,
+        "description": "",
+    }
+    win._replace_core_shapes([new_path], "core_path")
+
+    labels = [s.label for s in win.canvas.shapes]
+    win.setClean()
+    win.close()
+    assert "core1_2019" in labels  # hand-drawn kept
+    assert "core1_2018" not in labels  # old detection replaced

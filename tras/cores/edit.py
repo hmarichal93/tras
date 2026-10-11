@@ -39,6 +39,9 @@ from tras.cores.ribbon import sample_path
 FloatArray = npt.NDArray[np.float64]
 
 CORE_BOUNDARY_LABEL = "core_boundary"
+# Description of boundaries drawn with Draw Core Boundary; it survives relabelling, so
+# re-running Core Analysis can keep the user's corrections.
+HAND_DRAWN_DESCRIPTION = "Ring boundary added by hand"
 _PATH_LABEL = re.compile(r"^core_path_(\d+)$")
 _BOUNDARY_LABEL = re.compile(r"^core(\d+)_(\d+|b\d+)$")
 
@@ -383,3 +386,8 @@ def export_summary(
         lines += ["", *warnings]
     lines += ["", tr("Files written:"), *(str(path) for path in written)]
     return lines
+
+
+def is_hand_drawn(shape: ShapeDict) -> bool:
+    """True for a boundary the user drew (kept when Core Analysis is re-run)."""
+    return (shape.get("description") or "") == HAND_DRAWN_DESCRIPTION
