@@ -21,6 +21,9 @@ from tras.cores.detect import detect_core_rings
 # (The end margin hurts classical evidence, so it is not a global default.)
 DEEP_DEFAULTS = {"half_width": 5, "deep_threshold": 0.15, "end_margin": 2.0}
 
+# A core with fewer boundaries than this has no measurable ring width.
+MIN_BOUNDARIES_FOR_WIDTHS = 2
+
 
 def deep_model_available(model_id: str = "generic") -> bool:
     """True if torch, segmentation_models_pytorch and the model weights are present."""
@@ -82,11 +85,34 @@ def analyze_core_image(
     if paths is None:
         found = find_cores(image)
         logger.info("Found {} core(s)", len(found))
+        if not found:
+            logger.warning("No core found in the image; draw or pass a measurement path.")
         # Stay inside the core: never wider than ~30 % of its diameter on each side.
         jobs = [(core.path_xy, _fit_to_core(params, core)) for core in found]
     else:
         jobs = [(np.asarray(p, dtype=np.float64), params) for p in paths]
-    return [
+    results = [
         detect_core_rings(image, path, job_params, mm_per_px=mm_per_px, outer_year=outer_year)
         for path, job_params in jobs
     ]
+    warn_about_sparse_cores(results, params.evidence)
+    return results
+
+
+def warn_about_sparse_cores(results: Sequence[CoreResult], evidence: str) -> None:
+    """Log a hint for every core whose deep evidence found too few boundaries to measure.
+
+    The learned map can miss every boundary on wood unlike its training data, which
+    otherwise ends as silently empty CSV/.pos files.
+    """
+    if evidence == "classical":
+        return
+    for k, result in enumerate(results, start=1):
+        if len(result.boundaries) < MIN_BOUNDARIES_FOR_WIDTHS:
+            logger.warning(
+                "Core {}: only {} boundary(ies) found with '{}' evidence, so no ring widths. "
+                "Try classical evidence (tras_core --evidence classical).",
+                k,
+                len(result.boundaries),
+                evidence,
+            )
