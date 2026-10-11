@@ -96,6 +96,26 @@ The Tools menu has **Cross-section** and **Increment Core** submenus (per-image 
   `--split tune`, report on `--split test` and the CooRecorder set.
 - UruDendro's `pith_location.csv` header says `cy,cx` but the columns are x, y.
 
+## How work is organized (team of skills)
+
+The `cv-pi` skill is the orchestrator: it decides what to build, delegates each job to a
+**fresh subagent** of the matching role, judges the results and lands them. Start every
+autonomous session by invoking `cv-pi`.
+
+| Role agent (`.claude/agents/`) | Skill (`.claude/skills/`) | Job |
+|--------------------------------|---------------------------|-----|
+| — (main session) | `cv-pi` | Plan, decide, delegate, judge, land |
+| `product-engineer` | `senior-product-engineer` | Problem, metric, options, MVP, done-when |
+| `domain-expert` | `dendro-domain-expert` | Dating, units, formats, lab practice |
+| `gui-designer` | `senior-gui-designer` | Screens, menus, workflow, screenshots |
+| `python-engineer` | `senior-python-engineer` | Code, API, refactors, tests |
+| `qa-engineer` | `senior-qa-engineer` | Test plan, edge cases, merge gate |
+| `benchmark-analyst` | `tras-benchmark` | Accuracy numbers |
+| — | `github-workflow` | Branch → PR → CI → merge, task board |
+
+The task board is in `docs/product-roadmap.md`. Push/PR/merge need the user's authorization
+(see `github-workflow`). A missing role gets a new skill and agent before work is delegated.
+
 ## Testing conventions
 
 - Tests live in `tests/`, mirroring the package structure

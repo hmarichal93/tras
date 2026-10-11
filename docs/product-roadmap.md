@@ -66,6 +66,17 @@ parallel boundaries. The same engine also measures a path drawn on a cross-secti
 - Project Claude skills in `.claude/skills/` for recurring dev tasks (add a detector, run the
   benchmark, release).
 
+## Task board
+
+Managed by the `cv-pi` orchestrator (see `CLAUDE.md`, "How work is organized").
+
+| # | Task | User job | Metric / done when | State |
+|---|------|----------|--------------------|-------|
+| T1 | Phases 1–3 above | All | 135 tests, benchmarks in `docs/benchmarks.md` | Done (2026-10-11) |
+| T2 | Export core measurements from the edited canvas (not the raw detection); *Draw Core Boundary* tool | Lab researcher correcting cores | Dragged/added/deleted boundaries change .pos/.rwl/CSV; years relabelled; GUI test | In progress |
+| T3 | Crossdating entry point (`tras_dating` CLI + report): series vs master, COFECHA-style flags | Lab researcher dating series | Flags a shifted series in a synthetic set; reads TRAS and dplR `.rwl` | Next |
+| T4 | QC flags visible on the canvas and in the ring list | Anyone reviewing detections | Flagged rings highlighted; GUI test | Next |
+
 ## How progress is checked
 
 - Every phase lands with unit tests; `make test` and `make check` must pass.
