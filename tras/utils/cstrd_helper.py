@@ -96,6 +96,8 @@ def detect_rings_cstrd(
         env["PYTHONPATH"] = str(cstrd_root)
         env["QT_QPA_PLATFORM"] = "offscreen"  # Run Qt in headless mode
         env["MPLBACKEND"] = "Agg"  # Use non-interactive matplotlib backend
+        # Keep the run's config in its temp dir: never rewrite the packaged general.json.
+        env["CSTRD_RUNTIME_CONFIG"] = str(temp_dir / "general.json")
         
         # Run CS-TRD
         result = subprocess.run(
