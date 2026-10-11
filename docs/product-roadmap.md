@@ -87,6 +87,7 @@ Managed by the `tras-pi` orchestrator (see `CLAUDE.md`, "How work is organized")
 | T14 | Heidelberg `.fh` reader/writer (TSAP-Win, LignoVision, CDendro) | Labs using Rinntech tools | Round-trip tests; domain review | Next |
 | T15 | Earlywood/latewood boundaries and widths: port `hmarichal93/cstrd` branch `early_late_wood` (check its licence first), EW/LW in cores and `.rwl` | Lab researchers (paper already claims EW/LW areas) | EW/LW widths exported; benchmarked where GT exists | Later |
 | T16 | Blue intensity along core paths (after domain review) | Dendroclimatology labs | Matches CooRecorder BI on a shared sample | Later |
+| T17 | Manual pith with `--scale`: in single-image mode the pith is applied after resizing, so coordinates are in processed-image px, not original px (undocumented). Decide original-image px, convert, test | CLI users giving a pith | Pith given in original px lands on the same wood after resize | Next (QA) |
 
 Priority order set by the PI on 2026-10-11 from `docs/research/competitive-landscape.md`: T11 → T8 (manual) → T10 (overlay) → T9 (installer) → T3 (crossdating; note Fritts, a new MIT PyQt6 app, overlaps) → T14 → T5/T6 → T15 → T16. TRAS is a GUI product: no benchmarking or detector-tuning tasks (Henry, 2026-10-11; former T12/T13 dropped).
 
