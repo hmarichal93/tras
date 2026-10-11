@@ -28,7 +28,7 @@ PACKAGE_NAME:=tras
 STRICT_PATHS:=tras/params.py tras/api.py tras/analysis tras/io tras/evaluation tras/cores \
 	tras/cli/benchmark.py tras/cli/core.py tras/cli/detect.py tras/cli/export_json.py tras/utils/cli_config.py \
 	tras/utils/batch_helper.py tras/utils/ring_properties.py tras/utils/ring_sampling.py \
-	tras/utils/pos_exporter.py tras/widgets/core_dialog.py tests
+	tras/utils/pos_exporter.py tras/utils/shape_rings.py tras/widgets/core_dialog.py tests
 
 setup:  # Setup the development environment
 	$(call exec,uv sync --dev)

@@ -435,81 +435,13 @@ class ExportDialog(QtWidgets.QDialog):
             return None
         
         import csv
-        from tras.shape import Shape
-        
-        # Get ring shapes (polygons, not linestrips)
-        ring_shapes = [
-            s for s in self.parent_window.canvas.shapes 
-            if getattr(s, "shape_type", "") == "polygon"
-        ]
-        
-        if not ring_shapes:
-            return None
-        
-        # Calculate properties using the same method as _action_ring_properties
-        def _polygon_area(shape: Shape) -> float:
-            points = [(p.x(), p.y()) for p in shape.points]
-            if len(points) < 3:
-                return 0.0
-            area = 0.0
-            for j in range(len(points)):
-                x1, y1 = points[j]
-                x2, y2 = points[(j + 1) % len(points)]
-                area += x1 * y2 - x2 * y1
-            return abs(area) / 2.0
-        
-        # Sort by area (smallest to largest)
-        ring_shapes.sort(key=_polygon_area)
-        
-        measurements_dict = {}
-        if hasattr(self.parent_window, 'radial_line_measurements') and self.parent_window.radial_line_measurements:
-            measurements_dict = self.parent_window.radial_line_measurements.get("measurements", {})
-        
-        ring_properties = []
-        prev_outer_area = 0.0
-        
-        for shape in ring_shapes:
-            points = [(p.x(), p.y()) for p in shape.points]
-            if len(points) < 3:
-                continue
-            
-            # Calculate area
-            area = 0.0
-            n = len(points)
-            for j in range(n):
-                x1, y1 = points[j]
-                x2, y2 = points[(j + 1) % n]
-                area += x1 * y2 - x2 * y1
-            area = abs(area) / 2.0
-            
-            # Calculate perimeter
-            perimeter = 0.0
-            for j in range(n):
-                x1, y1 = points[j]
-                x2, y2 = points[(j + 1) % n]
-                perimeter += ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
-            
-            outer_area = area
-            ring_area = max(outer_area - prev_outer_area, 0.0)
-            
-            props = {
-                "label": shape.label,
-                "area": ring_area,
-                "cumulative_area": outer_area,
-                "perimeter": perimeter,
-            }
-            prev_outer_area = outer_area
-            
-            if shape.label in measurements_dict:
-                props["radial_width_px"] = measurements_dict[shape.label]["radial_width"]
-            else:
-                props["radial_width_px"] = None
-            
-            ring_properties.append(props)
-        
+
+        # Same measurements as the Ring Properties dialog (exclusion zones are not rings).
+        prepared = self.parent_window._prepare_ring_properties_data()
+        ring_properties = prepared[0] if prepared else []
         if not ring_properties:
             return None
-        
+
         # Determine filename
         metadata = getattr(self.parent_window, 'sample_metadata', None) or {}
         if metadata.get('sample_code'):

@@ -131,3 +131,37 @@ def test_MainWindow_annotate_jpg(qtbot: QtBot, data_dir) -> None:
 
     tras.testing.assert_labelfile_sanity(out_file)
     shutil.rmtree(tmp_dir)
+
+
+@pytest.mark.gui
+def test_exclusion_zones_are_not_rings(qtbot: QtBot, data_dir) -> None:
+    """Exclusion polygons are subtracted from areas, never measured or relabelled as rings."""
+    from PyQt5.QtCore import QPointF
+
+    from tras.shape import Shape
+
+    win = tras.app.MainWindow(filename=osp.join(data_dir, "raw/2011_000003.jpg"))
+    qtbot.addWidget(win)
+    _show_window_and_wait_for_imagedata(qtbot=qtbot, win=win)
+
+    def polygon(label, xy):
+        shape = Shape(label=label, shape_type="polygon")
+        for x, y in xy:
+            shape.addPoint(QPointF(x, y))
+        shape.close()
+        return shape
+
+    inner = polygon("1", [(140, 100), (180, 100), (180, 140), (140, 140)])
+    outer = polygon("2", [(120, 80), (200, 80), (200, 160), (120, 160)])
+    exclusion = polygon("exclusion", [(150, 110), (160, 110), (160, 120), (150, 120)])
+    win.loadShapes([inner, outer, exclusion], replace=False)
+    win.pith_xy = (160.0, 120.0)
+    win.sample_metadata = {"harvested_year": 2020}
+
+    ring_properties, _, _ = win._prepare_ring_properties_data()
+
+    assert [p["label"] for p in ring_properties] == ["2019", "2020"]
+    assert ring_properties[0]["area"] == pytest.approx(1600 - 100)
+    assert exclusion.label == "exclusion"
+    win.setClean()  # otherwise close() asks to save (modal) and blocks
+    win.close()

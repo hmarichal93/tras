@@ -52,6 +52,9 @@ from tras.widgets import CoreDialog
 
 from . import utils
 from tras.utils.qt_image import qimage_to_numpy
+from tras.utils.shape_rings import ring_property_rows
+from tras.utils.shape_rings import rings_inner_to_outer
+from tras.utils.shape_rings import split_ring_shapes
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
@@ -1494,27 +1497,12 @@ class MainWindow(QtWidgets.QMainWindow):
         if not self.sample_metadata or 'harvested_year' not in self.sample_metadata:
             return
         
-        # Get all polygon shapes (each polygon is treated as a ring)
-        ring_shapes = [
-            s for s in self.canvas.shapes if getattr(s, "shape_type", "") == "polygon"
-        ]
+        # Exclusion zones are polygons too, but must keep their label.
+        ring_shapes, _ = split_ring_shapes(self.canvas.shapes)
         if not ring_shapes:
             return
-        
-        def polygon_area(shape: Shape) -> float:
-            points = [(p.x(), p.y()) for p in shape.points]
-            if len(points) < 3:
-                return 0.0
-            area = 0.0
-            for j in range(len(points)):
-                x1, y1 = points[j]
-                x2, y2 = points[(j + 1) % len(points)]
-                area += x1 * y2 - x2 * y1
-            return abs(area) / 2.0
-        
-        # Smallest area ≈ innermost ring
-        ring_shapes.sort(key=polygon_area)
-        
+        ring_shapes = rings_inner_to_outer(ring_shapes)
+
         # Relabel: Sorted rings go from innermost to outermost (ring_1 to ring_N)
         # Innermost (ring_1) gets oldest year, outermost (ring_N) gets harvested_year
         harvested_year = self.sample_metadata['harvested_year']
@@ -2064,120 +2052,20 @@ class MainWindow(QtWidgets.QMainWindow):
         if not self.canvas.shapes and not self.radial_line_measurements:
             return None
         
-        # Filter ring shapes (exclude exclusion areas) and sort by label (ring_1, ring_2, ...)
-        ring_shapes = [
-            s for s in self.canvas.shapes 
-            if getattr(s, "shape_type", "") == "polygon" 
-            and getattr(s, "label", "") != "exclusion"
-        ]
-        # Get exclusion areas
-        exclusion_shapes = [
-            s for s in self.canvas.shapes 
-            if getattr(s, "shape_type", "") == "polygon" 
-            and getattr(s, "label", "") == "exclusion"
-        ]
+        ring_shapes, exclusion_shapes = split_ring_shapes(self.canvas.shapes)
         use_polygon_metrics = len(ring_shapes) > 0
         measurements_dict = (self.radial_line_measurements or {}).get("measurements", {})
-        
+
         ring_properties: list[dict] = []
         radial_measurements: list[dict] = []
-        
-        def _polygon_area(shape: Shape) -> float:
-            points = [(p.x(), p.y()) for p in shape.points]
-            if len(points) < 3:
-                return 0.0
-            area = 0.0
-            for j in range(len(points)):
-                x1, y1 = points[j]
-                x2, y2 = points[(j + 1) % len(points)]
-                area += x1 * y2 - x2 * y1
-            return abs(area) / 2.0
-        
+
         if use_polygon_metrics:
-            # Automatically re-label rings before computing properties
-            # (in case user added/removed rings manually)
-            logger.info("Auto-relabeling rings before computing properties...")
+            # Re-label first, in case the user added or removed rings by hand.
             self._relabel_rings_with_years()
-            ring_shapes.sort(key=_polygon_area)
-            logger.info(f"Computing properties for {len(ring_shapes)} rings...")
-            
-            prev_outer_area = 0.0
-            prev_outer_area_no_exclusion = 0.0
-            for shape in ring_shapes:
-                points = [(p.x(), p.y()) for p in shape.points]
-                if len(points) < 3:
-                    logger.warning(f"Skipping {shape.label}: too few points ({len(points)})")
-                    continue
-                
-                area = 0.0
-                n = len(points)
-                for j in range(n):
-                    x1, y1 = points[j]
-                    x2, y2 = points[(j + 1) % n]
-                    area += x1 * y2 - x2 * y1
-                area = abs(area) / 2.0
-                
-                perimeter = 0.0
-                for j in range(n):
-                    x1, y1 = points[j]
-                    x2, y2 = points[(j + 1) % n]
-                    perimeter += ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
-                
-                outer_area = area
-                outer_area_no_exclusion = area  # Store original area before exclusion
-                
-                # Subtract exclusion areas that intersect with this ring's cumulative area
-                excluded_area = 0.0
-                if exclusion_shapes:
-                    from shapely.geometry import Polygon as ShapelyPolygon
-                    try:
-                        # Create Shapely polygon for the ring (cumulative area)
-                        ring_poly = ShapelyPolygon(points)
-                        if not ring_poly.is_valid:
-                            ring_poly = ring_poly.buffer(0)  # Fix invalid polygon
-                        
-                        # Calculate excluded area that intersects with this ring
-                        for excl_shape in exclusion_shapes:
-                            excl_points = [(p.x(), p.y()) for p in excl_shape.points]
-                            if len(excl_points) >= 3:
-                                excl_poly = ShapelyPolygon(excl_points)
-                                if not excl_poly.is_valid:
-                                    excl_poly = excl_poly.buffer(0)
-                                
-                                # Find intersection with current ring
-                                if ring_poly.intersects(excl_poly):
-                                    intersection = ring_poly.intersection(excl_poly)
-                                    if intersection.area > 0:
-                                        excluded_area += intersection.area
-                        
-                        # Subtract excluded area from cumulative area
-                        outer_area = max(outer_area - excluded_area, 0.0)
-                    except Exception as e:
-                        logger.warning(f"Error computing exclusion areas for ring {shape.label}: {e}")
-                
-                # Compute ring area (growth area) after exclusion
-                ring_area = max(outer_area - prev_outer_area, 0.0)
-                # Compute ring area without exclusion (for comparison)
-                ring_area_no_exclusion = max(outer_area_no_exclusion - prev_outer_area_no_exclusion, 0.0)
-                
-                props = {
-                    "label": shape.label,
-                    "area": ring_area,  # Area with exclusion subtracted
-                    "area_no_exclusion": ring_area_no_exclusion,  # Area without exclusion
-                    "cumulative_area": outer_area,  # Cumulative area with exclusion subtracted
-                    "cumulative_area_no_exclusion": outer_area_no_exclusion,  # Cumulative area without exclusion
-                    "perimeter": perimeter,
-                }
-                prev_outer_area = outer_area
-                prev_outer_area_no_exclusion = outer_area_no_exclusion
-                
-                if shape.label in measurements_dict:
-                    props["radial_width_px"] = measurements_dict[shape.label]["radial_width"]
-                else:
-                    props["radial_width_px"] = None
-                
-                ring_properties.append(props)
-            
+            ring_properties = ring_property_rows(
+                ring_shapes, exclusion_shapes, self.pith_xy, measurements_dict
+            )
+            logger.info(f"Computed properties for {len(ring_properties)} rings")
             if not ring_properties:
                 return None
         if measurements_dict:
