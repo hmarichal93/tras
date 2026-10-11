@@ -3,8 +3,8 @@
 Two sources of cases:
 
 * **Virtual cores**: rays from the pith of annotated cross-sections (UruDendro). Ground
-  truth = where the annotated rings cross the ray. No public annotated core dataset
-  exists (2026-10), so this is the main quantitative test.
+  truth = where the annotated rings cross the ray. Public core datasets exist (see
+  ``docs/benchmarks.md``) but TRAS is not benchmarked on them; this is the main test.
 * **CooRecorder paths**: real expert measurements (``.pos``) on real images.
 
 Each case is run twice: with the pith end given (as when the user draws the path from
