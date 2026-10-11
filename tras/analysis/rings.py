@@ -27,6 +27,7 @@ from tras.analysis.geometry import polygon_centroid
 from tras.analysis.geometry import polygon_perimeter
 from tras.analysis.geometry import ray_angles
 from tras.analysis.geometry import ray_polygon_distances
+from tras.io.tucson import RingWidthSeries
 
 DEFAULT_N_RAYS = 360
 
@@ -176,3 +177,32 @@ def _excluded_areas(
 def _valid_polygon(polygon: Any) -> Any:
     """Repair self-intersecting polygons (``buffer(0)`` is shapely's standard fix)."""
     return polygon if polygon.is_valid else polygon.buffer(0)
+
+
+def radial_width_series(
+    rings: Sequence[npt.ArrayLike],
+    pith_xy: tuple[float, float],
+    directions_deg: Sequence[float],
+    outer_year: int,
+    unit_per_px: float = 1.0,
+    name: str = "R",
+) -> list[RingWidthSeries]:
+    """One ring-width series per direction (degrees, image coordinates: 0 = +x, 90 = +y).
+
+    The first ring is measured from the pith. Lets a cross-section be crossdated against
+    itself, like several cores from one tree.
+    """
+    ordered = [np.asarray(rings[i], dtype=np.float64) for i in order_rings_by_area(rings)]
+    angles = np.deg2rad(np.asarray(directions_deg, dtype=np.float64)) % (2 * np.pi)
+    profiles = np.array(
+        [
+            fill_missing_by_angle(ray_polygon_distances(r, pith_xy, angles), r, pith_xy, angles)
+            for r in ordered
+        ]
+    )
+    widths = radial_widths(profiles) * unit_per_px  # (n_rings, n_directions)
+    first_year = outer_year - len(ordered) + 1
+    return [
+        RingWidthSeries(f"{name}{int(round(d)):03d}", first_year, tuple(float(w) for w in widths[:, k]))
+        for k, d in enumerate(directions_deg)
+    ]
