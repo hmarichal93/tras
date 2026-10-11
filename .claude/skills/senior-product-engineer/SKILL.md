@@ -38,8 +38,8 @@ Current state of the product: `docs/product-roadmap.md` (plan), `docs/benchmarks
 
 - **Correctness of exported data beats everything.** A wrong year or width in an `.rwl` that
   a user publishes is the worst failure mode. Dating, units and file syntax get tests first.
-- **Accuracy claims need benchmark numbers** on the held-out split and the CooRecorder set;
-  "looks better on one image" is not evidence.
+- **TRAS is a GUI product, not algorithm research.** No benchmarking or tuning tasks; accuracy
+  claims cite published results. Value comes from workflow, usability, dating and formats.
 - **Remove friction in the daily loop** (open → detect → correct → export) before adding new
   analysis features.
 - **Interoperate, don't lock in.** Read and write the formats people already use (.pos,
@@ -54,7 +54,6 @@ Current state of the product: `docs/product-roadmap.md` (plan), `docs/benchmarks
       (single source: `detection_defaults.yaml` / `params.py`).
 - [ ] Qt-free core with unit tests; GUI test for the dialog/menu; `make test` green.
 - [ ] `make lint_strict` green; new modules added to `STRICT_PATHS`.
-- [ ] Benchmark run if detection changed; `docs/benchmarks.md` updated with date and command.
 - [ ] User manual page in `docs/manual/` for non-programmers (steps, menu paths,
       screenshots, troubleshooting); developer docs (README, `docs/cores.md`) updated with
       a runnable example; strings translatable.

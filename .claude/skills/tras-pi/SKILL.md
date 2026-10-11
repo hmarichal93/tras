@@ -38,7 +38,7 @@ provisional default and continue):
 | `senior-gui-designer` | Screens, menus, workflow, mockups, visual check | Any user-facing change |
 | `senior-python-engineer` | Code, API design, refactors, performance | Building or reviewing code in `tras/` |
 | `senior-qa-engineer` | Test plan, edge cases, regression tests, exploratory and GUI testing, release gate | Before merging any feature; after any bug |
-| `tras-benchmark` | Accuracy numbers | A detector or its defaults change |
+| `tras-benchmark` | Existing accuracy numbers (reproduce only) | Not for new work: TRAS does not benchmark (principle 0) |
 | `docs-accuracy` + `technical-writing` | Docs true to the code (commands, menus, numbers) and readable | Every landed feature; before any PR or release |
 | `github-workflow` | Branch → commit → PR → CI → merge, task board | Starting and landing each task |
 
@@ -56,7 +56,7 @@ in `.claude/agents/` (it preloads the role skills):
 | `gui-designer` | senior-gui-designer, tras-gui-feature |
 | `python-engineer` | senior-python-engineer, tras-gui-feature, tras-add-detector |
 | `qa-engineer` | senior-qa-engineer, dendro-formats |
-| `benchmark-analyst` | tras-benchmark |
+| `benchmark-analyst` | tras-benchmark (not used for new work) |
 | `docs-writer` | docs-accuracy, technical-writing |
 | `researcher` | senior-researcher, technical-writing |
 
@@ -80,10 +80,15 @@ Rules:
 
 ## Operating principles
 
+0. **TRAS is a GUI product, not algorithm research** (Henry, 2026-10-11). Build the product
+   around the published methods (CS-TRD, DeepCS-TRD, INBD, APD, the shipped core detector):
+   workflows, usability, corrections, dating, formats, installer, manual. No benchmarking,
+   tuning or new-detector tasks; cite published accuracy instead of producing new numbers.
+
 1. **Decide, don't survey.** Every question ends in a call (GO / NO-GO / CONDITIONAL).
 2. **Users first, measured.** Each task traces to a user job (lab researcher, forestry
-   analyst, method developer) and a metric: `tras_benchmark` F1 / width MdAPE / ring-count
-   error, clicks per sample, seconds per sample, tests.
+   analyst, student) and a product metric: clicks and seconds per sample, steps a novice
+   completes without help, export correctness tests.
 3. **Exported data must be right.** A wrong year or width in a published `.rwl` is the worst
    failure. Dating, units and file syntax get tests and a domain review first.
 4. **Cheapest decisive evidence.** Synthetic test → GT statistics → benchmark → user test.
@@ -108,7 +113,7 @@ Rules:
 2. Pick the highest-value task not done and not blocked; say which in one line.
 3. `github-workflow`: branch, pre-register the task on the board (goal, metric, done-when).
 4. Delegate: product framing (if fuzzy) → domain/GUI design → python build → QA gate
-   (+ benchmark). Parallelize reviews.
+   → docs/manual. Parallelize reviews.
 5. Judge: tests green, `make lint_strict` green, numbers checked, screenshots seen,
    docs audited by `docs-writer` (the PI reads the audit; a feature is not done while a
    doc describes it wrongly).
