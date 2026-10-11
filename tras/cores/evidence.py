@@ -91,13 +91,19 @@ def tilt_search(
     The tilt is refined between grid steps by fitting a parabola through the best score
     and its two neighbours.
     """
-    tilts = np.deg2rad(np.linspace(-max_tilt_deg, max_tilt_deg, n_tilts)) if n_tilts > 1 else np.zeros(1)
+    tilts = (
+        np.deg2rad(np.linspace(-max_tilt_deg, max_tilt_deg, n_tilts))
+        if n_tilts > 1
+        else np.zeros(1)
+    )
     scores = np.stack([_sheared_median(response, offsets, valid, t) for t in tilts])  # (T, S)
     scores = np.where(np.isfinite(scores), scores, -np.inf)
     best = scores.argmax(axis=0)
     columns = np.arange(scores.shape[1])
     score = scores[best, columns]
-    tilt = tilts[best] + _parabolic_offset(scores, best) * (tilts[1] - tilts[0] if n_tilts > 1 else 0.0)
+    tilt = tilts[best] + _parabolic_offset(scores, best) * (
+        tilts[1] - tilts[0] if n_tilts > 1 else 0.0
+    )
     score[~np.isfinite(score)] = 0.0
     return Evidence(score=score, tilt=tilt)
 

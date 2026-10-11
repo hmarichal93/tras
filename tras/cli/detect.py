@@ -140,8 +140,12 @@ def main(
         None, "--sampling-nr", help="Number of radial samples for postprocess resampling"
     ),
     # CS-TRD parameters
-    cstrd_sigma: Optional[float] = typer.Option(None, "--cstrd-sigma", help="CS-TRD Gaussian sigma"),
-    cstrd_th_low: Optional[float] = typer.Option(None, "--cstrd-th-low", help="CS-TRD low threshold"),
+    cstrd_sigma: Optional[float] = typer.Option(
+        None, "--cstrd-sigma", help="CS-TRD Gaussian sigma"
+    ),
+    cstrd_th_low: Optional[float] = typer.Option(
+        None, "--cstrd-th-low", help="CS-TRD low threshold"
+    ),
     cstrd_th_high: Optional[float] = typer.Option(
         None, "--cstrd-th-high", help="CS-TRD high threshold"
     ),

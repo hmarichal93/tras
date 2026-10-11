@@ -18,7 +18,6 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from typing import Optional
 
 import numpy as np
 import numpy.typing as npt
@@ -54,16 +53,16 @@ class DetectionResult:
     image: npt.NDArray[np.uint8]
     pith_xy: tuple[float, float]
     rings: RingList
-    preprocessing: Optional[PreprocessingInfo]
-    output_path: Optional[Path] = None
-    params: Optional[DetectionParams] = None
+    preprocessing: PreprocessingInfo | None
+    output_path: Path | None = None
+    params: DetectionParams | None = None
 
 
 def detect(
     image_path: Path | str,
     *,
-    output: Optional[Path | str] = None,
-    params: Optional[DetectionParams] = None,
+    output: Path | str | None = None,
+    params: DetectionParams | None = None,
     **flat_overrides: Any,
 ) -> DetectionResult:
     """Detect the pith and the annual rings of one cross-section image.
@@ -118,7 +117,7 @@ _load_image = load_image
 
 def preprocess(
     image: npt.NDArray[np.uint8], params: DetectionParams
-) -> tuple[npt.NDArray[np.uint8], Optional[PreprocessingInfo]]:
+) -> tuple[npt.NDArray[np.uint8], PreprocessingInfo | None]:
     """Resize and/or remove the background when requested; otherwise return as-is."""
     if params.resize_scale is None and not params.remove_background:
         return image, None
@@ -126,9 +125,7 @@ def preprocess(
     from tras.utils.preprocess_helper import preprocess_image
 
     scale = params.resize_scale or 1.0
-    logger.info(
-        "Preprocessing (scale={}, remove_background={})", scale, params.remove_background
-    )
+    logger.info("Preprocessing (scale={}, remove_background={})", scale, params.remove_background)
     processed = preprocess_image(
         image,
         scale_factor=scale,
@@ -146,7 +143,7 @@ def preprocess(
 
 def locate_pith(
     image: npt.NDArray[np.uint8], params: DetectionParams
-) -> Optional[tuple[float, float]]:
+) -> tuple[float, float] | None:
     """Return the pith from manual coordinates or APD.
 
     Returns ``None`` when INBD will locate the pith itself, so APD is not run for nothing.
@@ -169,7 +166,7 @@ def locate_pith(
 
 def detect_rings(
     image: npt.NDArray[np.uint8],
-    pith_xy: Optional[tuple[float, float]],
+    pith_xy: tuple[float, float] | None,
     params: DetectionParams,
 ) -> tuple[RingList, tuple[float, float]]:
     """Run the selected ring detector. Returns ``(rings, pith_xy)``.
@@ -225,21 +222,19 @@ def _detect_rings_deepcstrd(
 
 def _detect_rings_inbd(
     image: npt.NDArray[np.uint8],
-    pith_xy: Optional[tuple[float, float]],
+    pith_xy: tuple[float, float] | None,
     params: DetectionParams,
 ) -> tuple[RingList, tuple[float, float]]:
     from tras.utils.inbd_helper import detect_rings_inbd
 
     center = None if params.inbd.auto_pith else pith_xy
-    rings, pith = detect_rings_inbd(
+    rings, pith = detect_rings_inbd(  # type: ignore[misc]  # return_pith=True → tuple
         image, center_xy=center, model_id=params.inbd.model, return_pith=True
     )
-    return rings, (float(pith[0]), float(pith[1]))
+    return list(rings), (float(pith[0]), float(pith[1]))
 
 
-def build_label_shapes(
-    pith_xy: tuple[float, float], rings: RingList
-) -> list[dict[str, Any]]:
+def build_label_shapes(pith_xy: tuple[float, float], rings: RingList) -> list[dict[str, Any]]:
     """Convert rings and pith to labelme-compatible shape dicts."""
     shapes: list[dict[str, Any]] = [
         _shape_dict(f"ring_{idx}", [[float(x), float(y)] for x, y in ring], "polygon")
@@ -265,7 +260,7 @@ def _save_detection_results(
     image: npt.NDArray[np.uint8],
     pith_xy: tuple[float, float],
     rings: RingList,
-    preprocessing_info: Optional[dict] = None,
+    preprocessing_info: dict | None = None,
 ) -> None:
     """Serialize detection results to the TRAS label file (JSON) format."""
     flags = {}

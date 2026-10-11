@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
-from typing import Optional
 
 import numpy as np
 from loguru import logger
@@ -63,8 +62,8 @@ class CoreDialog(QtWidgets.QDialog):
         self,
         image: np.ndarray,
         drawn_paths: list[np.ndarray],
-        mm_per_px: Optional[float],
-        outer_year: Optional[int],
+        mm_per_px: float | None,
+        outer_year: int | None,
         image_name: str = "core",
         parent: QtWidgets.QWidget | None = None,
     ):
@@ -75,8 +74,8 @@ class CoreDialog(QtWidgets.QDialog):
         self._drawn_paths = drawn_paths
         self._mm_per_px = mm_per_px
         self._image_name = image_name
-        self._thread: Optional[QtCore.QThread] = None
-        self._worker: Optional[CoreWorker] = None
+        self._thread: QtCore.QThread | None = None
+        self._worker: CoreWorker | None = None
         self.results: list[CoreResult] = []
 
         layout = QtWidgets.QVBoxLayout(self)
@@ -107,7 +106,7 @@ class CoreDialog(QtWidgets.QDialog):
             form.addWidget(widget)
         return group
 
-    def _build_dating_group(self, outer_year: Optional[int]) -> QtWidgets.QGroupBox:
+    def _build_dating_group(self, outer_year: int | None) -> QtWidgets.QGroupBox:
         group = QtWidgets.QGroupBox(self.tr("Dating and scale"))
         form = QtWidgets.QFormLayout(group)
         self.outer_year = QtWidgets.QSpinBox()
@@ -116,7 +115,8 @@ class CoreDialog(QtWidgets.QDialog):
         self.outer_year.setValue(outer_year or 0)
         form.addRow(self.tr("Year of outermost ring:"), self.outer_year)
         scale_text = (
-            self.tr("%.5f mm/px") % self._mm_per_px if self._mm_per_px
+            self.tr("%.5f mm/px") % self._mm_per_px
+            if self._mm_per_px
             else self.tr("not set (Tools → Set Scale); widths in px, no .pos")
         )
         form.addRow(self.tr("Scale:"), QtWidgets.QLabel(scale_text))
@@ -143,7 +143,9 @@ class CoreDialog(QtWidgets.QDialog):
         self.sensitivity.setRange(0.5, 10.0)
         self.sensitivity.setSingleStep(0.25)
         self.sensitivity.setValue(2.5)
-        self.sensitivity.setToolTip(self.tr("Classical threshold; lower finds more (and weaker) rings"))
+        self.sensitivity.setToolTip(
+            self.tr("Classical threshold; lower finds more (and weaker) rings")
+        )
         form.addRow(self.tr("Sensitivity (classical):"), self.sensitivity)
         return group
 

@@ -7,8 +7,8 @@ minimizes total distance (Hungarian algorithm on the 1-D distances).
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Sequence
 
 import numpy as np
 from scipy.optimize import linear_sum_assignment

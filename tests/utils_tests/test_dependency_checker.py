@@ -1,14 +1,10 @@
 """Tests for dependency_checker utilities."""
 
-import pytest
-
-from tras.utils.dependency_checker import (
-    check_all_dependencies,
-    check_deepcstrd_models,
-    check_devernay_library,
-    check_python_package,
-    validate_dependencies_for_method,
-)
+from tras.utils.dependency_checker import check_all_dependencies
+from tras.utils.dependency_checker import check_deepcstrd_models
+from tras.utils.dependency_checker import check_devernay_library
+from tras.utils.dependency_checker import check_python_package
+from tras.utils.dependency_checker import validate_dependencies_for_method
 
 
 def test_check_python_package_installed():
@@ -66,7 +62,3 @@ def test_validate_dependencies_for_method_invalid():
     is_valid, error_msg = validate_dependencies_for_method("invalid_method")
     assert is_valid is False
     assert error_msg is not None
-
-
-
-

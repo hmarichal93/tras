@@ -16,8 +16,8 @@ neighbouring rings, so a normal growth trend is not flagged.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Sequence
 
 import numpy as np
 import numpy.typing as npt
@@ -84,7 +84,9 @@ def flag_width_outliers(measurements: Sequence[RingMeasurement]) -> list[QCFlag]
         if m.index <= JUVENILE_RINGS:
             continue
         if score < -WIDTH_OUTLIER_Z:
-            flags.append(QCFlag(m.index, "narrow", f"{m.label} is unusually narrow (z={score:.1f})"))
+            flags.append(
+                QCFlag(m.index, "narrow", f"{m.label} is unusually narrow (z={score:.1f})")
+            )
         elif score > WIDTH_OUTLIER_Z:
             flags.append(QCFlag(m.index, "wide", f"{m.label} is unusually wide (z={score:.1f})"))
     return flags
@@ -100,16 +102,26 @@ def flag_geometry(
         collapsed = float(np.mean(np.abs(ring_widths) <= COLLAPSED_WIDTH_PX))
         if crossing > MAX_CROSSING_FRACTION:
             flags.append(
-                QCFlag(m.index, "crossing", f"{m.label} crosses the inner ring on {crossing:.0%} of rays")
+                QCFlag(
+                    m.index,
+                    "crossing",
+                    f"{m.label} crosses the inner ring on {crossing:.0%} of rays",
+                )
             )
         if collapsed > MAX_COLLAPSED_FRACTION:
             flags.append(
-                QCFlag(m.index, "partial", f"{m.label} touches the inner ring on {collapsed:.0%} of rays")
+                QCFlag(
+                    m.index,
+                    "partial",
+                    f"{m.label} touches the inner ring on {collapsed:.0%} of rays",
+                )
             )
     return flags
 
 
-def _moving_median_excluding_self(values: npt.NDArray[np.float64], half: int) -> npt.NDArray[np.float64]:
+def _moving_median_excluding_self(
+    values: npt.NDArray[np.float64], half: int
+) -> npt.NDArray[np.float64]:
     out = np.empty_like(values)
     for i in range(len(values)):
         lo, hi = max(0, i - half), min(len(values), i + half + 1)

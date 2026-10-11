@@ -5,7 +5,6 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 from typing import Any
-from typing import Optional
 
 import numpy as np
 import numpy.typing as npt
@@ -29,7 +28,7 @@ def polygon_perimeter(points: npt.NDArray[np.float32]) -> float:
 def compute_ring_properties(
     rings: list[npt.NDArray[np.float32]],
     pith_xy: tuple[float, float],
-    outer_year: Optional[int] = None,
+    outer_year: int | None = None,
 ) -> list[dict[str, Any]]:
     """Ring properties in pixels as dicts, innermost first.
 

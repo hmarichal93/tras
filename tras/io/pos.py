@@ -25,7 +25,6 @@ import re
 from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 
@@ -43,22 +42,22 @@ class PosPoint:
     x: float
     y: float
     kind: str = RING  # ring | seasonwood | gap
-    end: Optional[tuple[float, float]] = None
+    end: tuple[float, float] | None = None
     label: str = ""
 
 
 @dataclass(frozen=True)
 class PosFile:
     points: tuple[PosPoint, ...]
-    dpi: Optional[float] = None
-    image_file: Optional[str] = None
-    dated_year: Optional[int] = None  # year of the first ring in file order
-    pith_xy_mm: Optional[tuple[float, float]] = None
-    distance_to_pith_mm: Optional[float] = None
-    years_to_pith: Optional[int] = None
+    dpi: float | None = None
+    image_file: str | None = None
+    dated_year: int | None = None  # year of the first ring in file order
+    pith_xy_mm: tuple[float, float] | None = None
+    distance_to_pith_mm: float | None = None
+    years_to_pith: int | None = None
     comments: tuple[str, ...] = field(default_factory=tuple)
 
-    def pith_first(self) -> Optional[bool]:
+    def pith_first(self) -> bool | None:
         """True if points run pith→bark, False if bark→pith, None if unknown.
 
         Decided from ``PithCoordinates``: the end of the path closer to the pith.
@@ -75,7 +74,7 @@ class PosFile:
         """Ring widths in file order (one per pair of consecutive boundaries)."""
         return _ring_widths(self.points)
 
-    def chronological_widths_mm(self, pith_first: Optional[bool] = None) -> list[float]:
+    def chronological_widths_mm(self, pith_first: bool | None = None) -> list[float]:
         """Ring widths ordered oldest (pith side) first.
 
         Args:
@@ -171,11 +170,15 @@ def _num(text: str) -> float:
 def _ring_widths(points: tuple[PosPoint, ...]) -> list[float]:
     """Walk the path and sum segment lengths between consecutive ring boundaries."""
     widths: list[float] = []
-    current: Optional[float] = None  # None until the first boundary is reached
-    previous: Optional[tuple[float, float]] = None
+    current: float | None = None  # None until the first boundary is reached
+    previous: tuple[float, float] | None = None
     skip_next = False
     for i, point in enumerate(points):
-        segment = 0.0 if previous is None else float(np.hypot(point.x - previous[0], point.y - previous[1]))
+        segment = (
+            0.0
+            if previous is None
+            else float(np.hypot(point.x - previous[0], point.y - previous[1]))
+        )
         if current is not None and not skip_next:
             current += segment
         skip_next = point.kind == GAP and not _is_second_of_gap_pair(points, i)
@@ -200,7 +203,7 @@ def _is_second_of_gap_pair(points: tuple[PosPoint, ...], i: int) -> bool:
 # ---------------------------------------------------------------------------- writing
 
 
-def write_pos(path: Path | str, pos: PosFile, written: Optional[_dt.datetime] = None) -> None:
+def write_pos(path: Path | str, pos: PosFile, written: _dt.datetime | None = None) -> None:
     """Write a ``.pos`` file CooRecorder/CDendro can open."""
     path = Path(path)
     stamp = (written or _dt.datetime.now()).strftime("%Y-%m-%d %H:%M:%S")

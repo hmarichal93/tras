@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
-from typing import Optional
-from typing import Sequence
+from collections.abc import Sequence
 
 import numpy as np
 import numpy.typing as npt
@@ -15,7 +14,6 @@ from tras.cores.axis import find_cores
 from tras.cores.detect import CoreParams
 from tras.cores.detect import CoreResult
 from tras.cores.detect import detect_core_rings
-
 
 # Tuned on the UruDendro virtual-core split (docs/benchmarks.md): the learned map is
 # best read on a narrow band along the path.
@@ -44,7 +42,9 @@ def default_core_params(**overrides) -> CoreParams:
     """
     evidence = overrides.get("evidence")
     if evidence is None:
-        evidence = "deep" if deep_model_available(overrides.get("model", "generic")) else "classical"
+        evidence = (
+            "deep" if deep_model_available(overrides.get("model", "generic")) else "classical"
+        )
     tuned = DEEP_DEFAULTS if evidence != "classical" else {}
     return CoreParams(**{**tuned, **overrides, "evidence": evidence})
 
@@ -61,10 +61,10 @@ def _fit_to_core(params: CoreParams, core: DetectedCore) -> CoreParams:
 def analyze_core_image(
     image: npt.NDArray,
     *,
-    paths: Optional[Sequence[npt.ArrayLike]] = None,
-    params: Optional[CoreParams] = None,
-    mm_per_px: Optional[float] = None,
-    outer_year: Optional[int] = None,
+    paths: Sequence[npt.ArrayLike] | None = None,
+    params: CoreParams | None = None,
+    mm_per_px: float | None = None,
+    outer_year: int | None = None,
 ) -> list[CoreResult]:
     """Detect ring boundaries on every core in ``image``.
 

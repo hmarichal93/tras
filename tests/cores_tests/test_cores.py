@@ -14,10 +14,10 @@ from tras.cores import to_pos
 from tras.cores import to_series
 from tras.cores import write_csv
 from tras.cores.ribbon import extract_ribbon
+from tras.cores.ribbon import sample_path
 from tras.cores.synthetic import DEFAULT_BOUNDARIES
 from tras.cores.synthetic import centre_path as horizontal_path
 from tras.cores.synthetic import synthetic_core
-from tras.cores.ribbon import sample_path
 from tras.io.pos import read_pos
 from tras.io.pos import write_pos
 
@@ -40,7 +40,9 @@ def test_ribbon_of_straight_path_is_a_crop():
 
 def test_detects_boundaries_with_known_pith_side():
     image = synthetic_core()
-    result = detect_core_rings(image, horizontal_path(image), CoreParams(**{**vars(CLASSICAL), "pith_side": "start"}))
+    result = detect_core_rings(
+        image, horizontal_path(image), CoreParams(**{**vars(CLASSICAL), "pith_side": "start"})
+    )
     found = np.array([b.s for b in result.boundaries])
     assert len(found) == len(BOUNDARIES)
     np.testing.assert_allclose(found, BOUNDARIES, atol=2)
@@ -58,7 +60,9 @@ def test_auto_orientation_puts_pith_first(flip):
 def test_tilted_boundaries_give_perpendicular_widths():
     tilt = 30.0
     image = synthetic_core(height=60, tilt_deg=tilt)
-    result = detect_core_rings(image, horizontal_path(image), CoreParams(evidence="classical", half_width=20))
+    result = detect_core_rings(
+        image, horizontal_path(image), CoreParams(evidence="classical", half_width=20)
+    )
     assert len(result.boundaries) == len(BOUNDARIES)
     tilts = np.rad2deg([abs(b.tilt) for b in result.boundaries])
     assert np.median(tilts) == pytest.approx(tilt, abs=6)
@@ -68,7 +72,9 @@ def test_tilted_boundaries_give_perpendicular_widths():
 
 def test_years_and_mm_widths():
     image = synthetic_core()
-    result = detect_core_rings(image, horizontal_path(image), CLASSICAL, mm_per_px=0.01, outer_year=2020)
+    result = detect_core_rings(
+        image, horizontal_path(image), CLASSICAL, mm_per_px=0.01, outer_year=2020
+    )
     assert result.years[-1] == 2020
     assert len(result.years) == len(BOUNDARIES) - 1
     np.testing.assert_allclose(result.widths_mm, result.widths_px * 0.01)
@@ -103,8 +109,11 @@ def test_analyze_core_image_end_to_end():
 def test_exports_round_trip(tmp_path: Path):
     image = synthetic_core(height=60, tilt_deg=20)
     result = detect_core_rings(
-        image, horizontal_path(image), CoreParams(evidence="classical", half_width=20),
-        mm_per_px=0.01, outer_year=2020,
+        image,
+        horizontal_path(image),
+        CoreParams(evidence="classical", half_width=20),
+        mm_per_px=0.01,
+        outer_year=2020,
     )
 
     pos_path = tmp_path / "core.pos"
@@ -112,7 +121,9 @@ def test_exports_round_trip(tmp_path: Path):
     pos = read_pos(pos_path)
     assert pos.dated_year == 2020
     # CooRecorder recomputes the same perpendicular widths from the double points.
-    np.testing.assert_allclose(pos.chronological_widths_mm(pith_first=False), result.widths_mm, atol=1e-3)
+    np.testing.assert_allclose(
+        pos.chronological_widths_mm(pith_first=False), result.widths_mm, atol=1e-3
+    )
 
     series = to_series(result, "CORE1")
     assert series.last_year == 2020

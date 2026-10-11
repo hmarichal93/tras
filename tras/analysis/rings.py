@@ -12,11 +12,10 @@ areas.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import asdict
 from dataclasses import dataclass
 from typing import Any
-from typing import Optional
-from typing import Sequence
 
 import numpy as np
 import numpy.typing as npt
@@ -38,7 +37,7 @@ class RingMeasurement:
 
     index: int  # 1 = innermost ring
     label: str
-    year: Optional[int]
+    year: int | None
     area: float  # area of this ring's band (growth of the year)
     cumulative_area: float  # area enclosed by the outer boundary
     perimeter: float  # outer boundary length
@@ -83,9 +82,7 @@ def radial_profiles(
     """``(n_rings, n_rays)`` pith-to-boundary distances, in the order given."""
     angles = ray_angles(n_rays)
     profiles = [
-        fill_missing_by_angle(
-            ray_polygon_distances(ring, pith_xy, angles), ring, pith_xy, angles
-        )
+        fill_missing_by_angle(ray_polygon_distances(ring, pith_xy, angles), ring, pith_xy, angles)
         for ring in rings
     ]
     return np.array(profiles, dtype=np.float64).reshape(len(profiles), n_rays)
@@ -104,8 +101,8 @@ def measure_rings(
     rings: Sequence[npt.ArrayLike],
     pith_xy: tuple[float, float],
     *,
-    labels: Optional[Sequence[str]] = None,
-    outer_year: Optional[int] = None,
+    labels: Sequence[str] | None = None,
+    outer_year: int | None = None,
     exclusions: Sequence[npt.ArrayLike] = (),
     n_rays: int = DEFAULT_N_RAYS,
 ) -> list[RingMeasurement]:
@@ -203,6 +200,8 @@ def radial_width_series(
     widths = radial_widths(profiles) * unit_per_px  # (n_rings, n_directions)
     first_year = outer_year - len(ordered) + 1
     return [
-        RingWidthSeries(f"{name}{int(round(d)):03d}", first_year, tuple(float(w) for w in widths[:, k]))
+        RingWidthSeries(
+            f"{name}{int(round(d)):03d}", first_year, tuple(float(w) for w in widths[:, k])
+        )
         for k, d in enumerate(directions_deg)
     ]

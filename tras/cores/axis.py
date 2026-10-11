@@ -58,9 +58,11 @@ def find_cores(image: npt.NDArray, max_cores: int = 20) -> list[DetectedCore]:
     small = cv2.resize(gray, None, fx=factor, fy=factor, interpolation=cv2.INTER_AREA)
     small = cv2.GaussianBlur(small, (5, 5), 0)
 
-    regions = _best_candidate_regions(small)
-    cores = [_centreline(r, factor) for r in regions[:max_cores]]
-    cores = [c for c in cores if c is not None]
+    cores: list[DetectedCore] = []
+    for region in _best_candidate_regions(small)[:max_cores]:
+        core = _centreline(region, factor)
+        if core is not None:
+            cores.append(core)
     return sorted(cores, key=lambda c: (round(c.path_xy[:, 1].mean() / 50), c.path_xy[:, 0].mean()))
 
 
@@ -74,7 +76,7 @@ def _to_gray(image: npt.NDArray) -> npt.NDArray[np.uint8]:
 def _best_candidate_regions(small: npt.NDArray[np.uint8]) -> list[npt.NDArray[np.float64]]:
     """Pixel coordinates (x, y) of each elongated region in the better Otsu class."""
     _, mask = cv2.threshold(small, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    options = [_elongated_regions(mask), _elongated_regions(255 - mask)]
+    options = [_elongated_regions(mask), _elongated_regions(cv2.bitwise_not(mask))]
     return max(options, key=lambda regions: sum(len(r) for r in regions))
 
 
@@ -82,7 +84,8 @@ def _elongated_regions(mask: npt.NDArray[np.uint8]) -> list[npt.NDArray[np.float
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-    n, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
+    n, labels, stats_mat, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
+    stats = np.asarray(stats_mat)
     min_area = MIN_AREA_FRACTION * mask.size
 
     regions = []

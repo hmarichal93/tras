@@ -12,7 +12,6 @@ import csv
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import numpy.typing as npt
@@ -42,7 +41,7 @@ class AnnotatedPath:
     image_path: Path
     path_xy: npt.NDArray[np.float64]  # (N, 2) px, pith end first
     boundaries_px: tuple[float, ...]  # arc lengths from the path start
-    mm_per_px: Optional[float] = None
+    mm_per_px: float | None = None
 
 
 def load_urudendro(
@@ -72,9 +71,7 @@ def load_urudendro(
     return sorted(sections, key=lambda s: s.name)
 
 
-def load_coorecorder_pairs(
-    pos_dir: Path | str, images_dir: Path | str
-) -> list[AnnotatedPath]:
+def load_coorecorder_pairs(pos_dir: Path | str, images_dir: Path | str) -> list[AnnotatedPath]:
     """Pair each ``<disc>_<direction>.pos`` with the clean image ``<disc>.<ext>``.
 
     Points are assumed pith-first (as in the TRAS ForestScience comparison data): the
@@ -102,7 +99,7 @@ def load_coorecorder_pairs(
     return pairs
 
 
-def _find_image(folder: Path, stem: str) -> Optional[Path]:
+def _find_image(folder: Path, stem: str) -> Path | None:
     for suffix in IMAGE_SUFFIXES:
         candidate = folder / f"{stem}{suffix}"
         if candidate.exists():

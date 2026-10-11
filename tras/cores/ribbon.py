@@ -70,7 +70,9 @@ class Ribbon:
         return np.arange(self.values.shape[1]) * self.path.step
 
 
-def sample_path(polyline: npt.ArrayLike, step: float = 1.0, smoothing_px: float = 0.0) -> SampledPath:
+def sample_path(
+    polyline: npt.ArrayLike, step: float = 1.0, smoothing_px: float = 0.0
+) -> SampledPath:
     """Resample a polyline at constant arc-length ``step`` and compute its frame.
 
     Args:

@@ -2,20 +2,14 @@ import os.path as osp
 import shutil
 import tempfile
 
+import numpy as np
 import pytest
-from PyQt5.QtCore import QPoint
-from PyQt5.QtCore import QSize
-from PyQt5.QtCore import Qt
-from PyQt5.QtCore import QTimer
+from PIL import Image
 from pytestqt.qtbot import QtBot
 
 import tras.app
 import tras.config
 import tras.testing
-
-import numpy as np
-from PIL import Image
-
 from tras.api import _save_detection_results
 from tras.cores.synthetic import synthetic_core
 
@@ -32,14 +26,15 @@ def data_dir(tmp_path):
     annotated.mkdir()
     ring = np.array([[60, 60], [200, 60], [200, 180], [60, 180]], dtype=np.float32)
     _save_detection_results(
-        annotated / "2011_000003.json", synthetic_core(length=320, height=240), (130.0, 120.0), [ring]
+        annotated / "2011_000003.json",
+        synthetic_core(length=320, height=240),
+        (130.0, 120.0),
+        [ring],
     )
     return str(tmp_path)
 
 
-def _show_window_and_wait_for_imagedata(
-    qtbot: QtBot, win: tras.app.MainWindow
-) -> None:
+def _show_window_and_wait_for_imagedata(qtbot: QtBot, win: tras.app.MainWindow) -> None:
     win.show()
 
     def check_imageData():

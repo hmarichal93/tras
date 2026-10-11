@@ -14,10 +14,9 @@ the pith) and with ``pith_side="auto"`` to measure orientation accuracy.
 from __future__ import annotations
 
 import dataclasses
+from collections.abc import Iterable
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
-from typing import Iterable
-from typing import Optional
 
 import numpy as np
 from PIL import Image
@@ -143,8 +142,12 @@ def summarize(results: Iterable[CaseResult]) -> BenchmarkSummary:
         f1=f1,
         mae_px=sum(weighted_mae) / tp if tp else float("nan"),
         orientation_accuracy=float(np.mean([r.orientation_ok for r in rows])) if rows else 0.0,
-        mean_abs_ring_count_error=float(np.mean([abs(r.ring_count_error) for r in rows])) if rows else 0.0,
-        width_mdape=float(np.median([e for r in rows for e in r.width_errors])) if any(r.width_errors for r in rows) else float("nan"),
+        mean_abs_ring_count_error=float(np.mean([abs(r.ring_count_error) for r in rows]))
+        if rows
+        else 0.0,
+        width_mdape=float(np.median([e for r in rows for e in r.width_errors]))
+        if any(r.width_errors for r in rows)
+        else float("nan"),
     )
 
 
@@ -152,7 +155,7 @@ def run_cases(
     cases: list[AnnotatedPath],
     params: CoreParams = CoreParams(),
     tolerance_px: float = DEFAULT_TOLERANCE_PX,
-    workers: Optional[int] = None,
+    workers: int | None = None,
 ) -> list[CaseResult]:
     """Evaluate every case, grouping cases by image so each image loads once."""
     by_image: dict[str, list[AnnotatedPath]] = {}
@@ -216,8 +219,11 @@ def render_core_image(
     rotation[0, 2] += out_w / 2 - centre[0]
     rotation[1, 2] += out_h / 2 - centre[1]
     rotated = cv2.warpAffine(
-        canvas, rotation, (out_w, out_h),
-        borderMode=cv2.BORDER_CONSTANT, borderValue=(background,) * 3,
+        canvas,
+        rotation,
+        (out_w, out_h),
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=(background,) * 3,
     )
     start = rotation @ np.array([padding_px, padding_px + h // 2, 1.0])
     end = rotation @ np.array([padding_px + w - 1, padding_px + h // 2, 1.0])

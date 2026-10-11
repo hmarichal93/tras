@@ -10,10 +10,9 @@ measures ``|a → c|`` (perpendicular), and the next ring starts again from ``b`
 from __future__ import annotations
 
 import csv
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
-from typing import Optional
-from typing import Sequence
 
 import numpy as np
 
@@ -43,7 +42,7 @@ def boundary_direction(result: CoreResult, boundary: CoreBoundary) -> np.ndarray
 
 def to_pos(
     result: CoreResult,
-    image_file: Optional[str] = None,
+    image_file: str | None = None,
     comments: Sequence[str] = (),
 ) -> PosFile:
     """CooRecorder file, bark first, with perpendicular double points."""
@@ -86,23 +85,35 @@ def write_csv(result: CoreResult, path: Path | str) -> None:
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(
-            ["ring", "year", "width_mm", "width_px", "path_width_px", "outer_boundary_s_px",
-             "outer_boundary_x", "outer_boundary_y", "tilt_deg", "strength"]
+            [
+                "ring",
+                "year",
+                "width_mm",
+                "width_px",
+                "path_width_px",
+                "outer_boundary_s_px",
+                "outer_boundary_x",
+                "outer_boundary_y",
+                "tilt_deg",
+                "strength",
+            ]
         )
         for k, width in enumerate(widths_px):
             outer = result.boundaries[k + 1]
-            writer.writerow([
-                k + 1,
-                "" if years is None else years[k],
-                "" if widths_mm is None else f"{widths_mm[k]:.4f}",
-                f"{width:.2f}",
-                f"{result.path_widths_px[k]:.2f}",
-                f"{outer.s:.2f}",
-                f"{outer.xy[0]:.2f}",
-                f"{outer.xy[1]:.2f}",
-                f"{np.rad2deg(outer.tilt):.1f}",
-                f"{outer.strength:.2f}",
-            ])
+            writer.writerow(
+                [
+                    k + 1,
+                    "" if years is None else years[k],
+                    "" if widths_mm is None else f"{widths_mm[k]:.4f}",
+                    f"{width:.2f}",
+                    f"{result.path_widths_px[k]:.2f}",
+                    f"{outer.s:.2f}",
+                    f"{outer.xy[0]:.2f}",
+                    f"{outer.xy[1]:.2f}",
+                    f"{np.rad2deg(outer.tilt):.1f}",
+                    f"{outer.strength:.2f}",
+                ]
+            )
 
 
 def to_label_shapes(result: CoreResult, core_index: int = 1) -> list[dict[str, Any]]:
@@ -111,7 +122,9 @@ def to_label_shapes(result: CoreResult, core_index: int = 1) -> list[dict[str, A
     Boundary labels are ``core<k>_<year>`` when dated, else ``core<k>_b<index>``.
     """
     path_points = result.path.xy[:: max(1, len(result.path.xy) // 200)]
-    shapes = [_shape(f"{CORE_PATH_LABEL}_{core_index}", path_points.tolist(), "linestrip", core_index)]
+    shapes = [
+        _shape(f"{CORE_PATH_LABEL}_{core_index}", path_points.tolist(), "linestrip", core_index)
+    ]
     years = result.years
     for i, boundary in enumerate(result.boundaries):
         direction = boundary_direction(result, boundary) * result.half_width
@@ -129,7 +142,9 @@ def to_label_shapes(result: CoreResult, core_index: int = 1) -> list[dict[str, A
     return shapes
 
 
-def _shape(label: str, points: list, shape_type: str, group: int, description: str = "") -> dict[str, Any]:
+def _shape(
+    label: str, points: list, shape_type: str, group: int, description: str = ""
+) -> dict[str, Any]:
     return {
         "label": label,
         "points": [[float(x), float(y)] for x, y in points],
@@ -141,7 +156,7 @@ def _shape(label: str, points: list, shape_type: str, group: int, description: s
 
 
 def export_results(
-    results: Sequence[CoreResult], folder: Path | str, stem: str, image_file: Optional[str] = None
+    results: Sequence[CoreResult], folder: Path | str, stem: str, image_file: str | None = None
 ) -> list[Path]:
     """Write per core ``<stem>_core<k>.csv`` (+ ``.pos`` when scaled) and, when dated and
     scaled, one ``<stem>.rwl`` with all cores. Returns the written paths."""

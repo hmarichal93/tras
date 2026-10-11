@@ -69,7 +69,8 @@ def write_outputs(
     shapes = []
     for k, result in enumerate(results, start=1):
         shapes += to_label_shapes(result, core_index=k)
-        logger.info(f"{image_path.stem}_core{k}: {len(result.boundaries)} boundaries, {len(result.widths_px)} rings")
+        n_boundaries, n_rings = len(result.boundaries), len(result.widths_px)
+        logger.info(f"{image_path.stem}_core{k}: {n_boundaries} boundaries, {n_rings} rings")
     LabelFile(filename=None, enforce_image_data=False).save(
         filename=str(output_dir / f"{image_path.stem}.json"),
         shapes=shapes,
@@ -84,18 +85,38 @@ def write_outputs(
 @app.command()
 def main(
     input_path: Path = typer.Argument(..., help="Core image or folder of core images"),
-    output_dir: Optional[Path] = typer.Option(None, "-o", "--output-dir", help="Default: <input folder>/tras_cores"),
-    path: Optional[str] = typer.Option(None, "--path", help="Measurement path 'x1,y1;x2,y2;...' (px)"),
-    path_from_pos_file: Optional[Path] = typer.Option(None, "--path-from-pos", help="Use the path of a CooRecorder .pos"),
-    dpi: Optional[float] = typer.Option(None, "--dpi", help="Scan resolution (default: image metadata)"),
-    mm_per_px: Optional[float] = typer.Option(None, "--mm-per-px", help="Pixel size in mm (overrides --dpi)"),
-    outer_year: Optional[int] = typer.Option(None, "--outer-year", help="Year of the outermost ring"),
+    output_dir: Optional[Path] = typer.Option(
+        None, "-o", "--output-dir", help="Default: <input folder>/tras_cores"
+    ),
+    path: Optional[str] = typer.Option(
+        None, "--path", help="Measurement path 'x1,y1;x2,y2;...' (px)"
+    ),
+    path_from_pos_file: Optional[Path] = typer.Option(
+        None, "--path-from-pos", help="Use the path of a CooRecorder .pos"
+    ),
+    dpi: Optional[float] = typer.Option(
+        None, "--dpi", help="Scan resolution (default: image metadata)"
+    ),
+    mm_per_px: Optional[float] = typer.Option(
+        None, "--mm-per-px", help="Pixel size in mm (overrides --dpi)"
+    ),
+    outer_year: Optional[int] = typer.Option(
+        None, "--outer-year", help="Year of the outermost ring"
+    ),
     pith_side: str = typer.Option("auto", "--pith-side", help="auto | start | end of the path"),
-    evidence: Optional[str] = typer.Option(None, "--evidence", help="classical | deep | hybrid (default: best available)"),
+    evidence: Optional[str] = typer.Option(
+        None, "--evidence", help="classical | deep | hybrid (default: best available)"
+    ),
     half_width: Optional[int] = typer.Option(None, "--half-width", help="Ribbon half-width (px)"),
-    min_ring_width: Optional[float] = typer.Option(None, "--min-ring-width", help="Minimum ring width (px)"),
-    sensitivity: Optional[float] = typer.Option(None, "--sensitivity", help="Classical threshold (noise units)"),
-    deep_threshold: Optional[float] = typer.Option(None, "--deep-threshold", help="Deep probability threshold"),
+    min_ring_width: Optional[float] = typer.Option(
+        None, "--min-ring-width", help="Minimum ring width (px)"
+    ),
+    sensitivity: Optional[float] = typer.Option(
+        None, "--sensitivity", help="Classical threshold (noise units)"
+    ),
+    deep_threshold: Optional[float] = typer.Option(
+        None, "--deep-threshold", help="Deep probability threshold"
+    ),
 ) -> None:
     """Detect ring boundaries on increment cores and export CooRecorder/Tucson files.
 
@@ -124,9 +145,13 @@ def main(
     for image_path in images:
         scale = mm_per_px or (MM_PER_INCH / dpi if dpi else mm_per_px_from_dpi(image_path))
         if scale is None:
-            logger.warning(f"{image_path.name}: no scale (--dpi/--mm-per-px); widths in px only, no .pos")
+            logger.warning(
+                f"{image_path.name}: no scale (--dpi/--mm-per-px); widths in px only, no .pos"
+            )
         image = np.array(Image.open(image_path).convert("RGB"))
-        results = analyze_core_image(image, paths=paths, params=params, mm_per_px=scale, outer_year=outer_year)
+        results = analyze_core_image(
+            image, paths=paths, params=params, mm_per_px=scale, outer_year=outer_year
+        )
         write_outputs(image_path, image, results, out)
     print(f"Results written to {out}")
 

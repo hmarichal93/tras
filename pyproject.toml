@@ -82,6 +82,12 @@ markers = [
     "gui: mark a test as a GUI test.",
 ]
 
+[tool.ruff]
+line-length = 100
+# Vendored research implementations (CS-TRD, DeepCS-TRD, INBD, APD, UruDendro) keep
+# their upstream style.
+extend-exclude = ["tras/tree_ring_methods"]
+
 [tool.ruff.lint]
 select = [
     "E",
@@ -96,6 +102,15 @@ force-single-line = true
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = [
     "F401",
+]
+# Tests embed fixture data (file headers, base64 images) verbatim.
+"tests/**" = [
+    "E501",
+]
+# typer evaluates CLI annotations at runtime: keep Optional[...] for Python 3.9.
+"tras/cli/*.py" = [
+    "UP007",
+    "UP045",
 ]
 
 [tool.mypy]

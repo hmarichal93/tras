@@ -1,9 +1,10 @@
 """Qt-free batch processing runner for the TRAS GUI.
 
-Shared by the GUI batch dialog and the ``tras_detect`` folder mode. It writes one ``.json`` label file per image, then a single combined
-``summary.pdf`` (one image per page) and a CLI-compatible ``batch_config.yml`` recording
-the settings used. Already-processed images (those with an existing ``.json``) are
-skipped so a batch can be resumed.
+Shared by the GUI batch dialog and the ``tras_detect`` folder mode. It writes one
+``.json`` label file per image, then a single combined ``summary.pdf`` (one image per
+page) and a CLI-compatible ``batch_config.yml`` recording the settings used.
+Already-processed images (those with an existing ``.json``) are skipped so a batch can
+be resumed.
 
 This module is intentionally free of any Qt dependency so it can be tested headless.
 The Qt threading wrapper lives in ``tras/widgets/batch_dialog.py``.
@@ -57,9 +58,7 @@ class BatchSummary:
 def find_images(input_dir: Path) -> list[Path]:
     """Return image files in ``input_dir`` (non-recursive), sorted by name."""
     return sorted(
-        f
-        for f in input_dir.iterdir()
-        if f.is_file() and f.suffix.lower() in IMAGE_EXTENSIONS
+        f for f in input_dir.iterdir() if f.is_file() and f.suffix.lower() in IMAGE_EXTENSIONS
     )
 
 
@@ -88,6 +87,8 @@ def _load_result_from_json(
     Used to include already-processed (skipped) images in the summary PDF.
     """
     label = LabelFile(str(json_path))
+    if label.imageData is None:
+        raise ValueError(f"{json_path} has no embedded image")
     image = _decode_embedded_image(label.imageData)
 
     pith_xy: tuple[float, float] = (0.0, 0.0)
@@ -196,9 +197,7 @@ def run_batch(
                     write_image_reports(
                         output_dir / image_path.stem, image, pith_xy, rings, scale_value, scale_unit
                     )
-            results.append(
-                {"name": name, "image": image, "pith_xy": pith_xy, "rings": rings}
-            )
+            results.append({"name": name, "image": image, "pith_xy": pith_xy, "rings": rings})
         except Exception as exc:
             logger.error(f"[{idx}/{total}] Failed to process {name}: {exc}")
             errors += 1
@@ -213,9 +212,7 @@ def run_batch(
     config_path = output_dir / "batch_config.yml"
     dump_config(_effective_config(config, params), config_path)
 
-    logger.info(
-        f"Batch complete: {processed} processed, {skipped} skipped, {errors} error(s)"
-    )
+    logger.info(f"Batch complete: {processed} processed, {skipped} skipped, {errors} error(s)")
     return BatchSummary(
         total=total,
         processed=processed,

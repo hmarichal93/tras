@@ -13,8 +13,6 @@ from __future__ import annotations
 import warnings
 from dataclasses import dataclass
 from dataclasses import field
-from typing import Optional
-from typing import Sequence
 
 import numpy as np
 import numpy.typing as npt
@@ -85,7 +83,7 @@ class CoreParams:
     pith_side: str = "auto"
     evidence: str = "classical"
     model: str = "generic"
-    deep_scale: Optional[float] = None
+    deep_scale: float | None = None
     deep_threshold: float = 0.3
     curvature_half_width: int = 30
     snap_px: int = 0
@@ -116,9 +114,9 @@ class CoreResult:
     path: SampledPath
     boundaries: tuple[CoreBoundary, ...]
     half_width: int
-    mm_per_px: Optional[float] = None
-    outer_year: Optional[int] = None
-    evidence: Optional[FloatArray] = field(default=None, repr=False)
+    mm_per_px: float | None = None
+    outer_year: int | None = None
+    evidence: FloatArray | None = field(default=None, repr=False)
 
     @property
     def path_widths_px(self) -> FloatArray:
@@ -135,11 +133,11 @@ class CoreResult:
         return np.diff(s) * np.cos((tilt[1:] + tilt[:-1]) / 2.0)
 
     @property
-    def widths_mm(self) -> Optional[FloatArray]:
+    def widths_mm(self) -> FloatArray | None:
         return None if self.mm_per_px is None else self.widths_px * self.mm_per_px
 
     @property
-    def years(self) -> Optional[list[int]]:
+    def years(self) -> list[int] | None:
         """Calendar year of each measured ring (oldest first) if ``outer_year`` is set."""
         if self.outer_year is None:
             return None
@@ -149,11 +147,11 @@ class CoreResult:
 
 def detect_core_rings(
     image: npt.NDArray,
-    path: Sequence[Sequence[float]],
+    path: npt.ArrayLike,
     params: CoreParams = CoreParams(),
     *,
-    mm_per_px: Optional[float] = None,
-    outer_year: Optional[int] = None,
+    mm_per_px: float | None = None,
+    outer_year: int | None = None,
 ) -> CoreResult:
     """Detect ring boundaries along ``path`` in ``image``.
 
@@ -174,12 +172,20 @@ def detect_core_rings(
         # Tilts are not passed: under the wrong polarity they are meaningless, and the
         # lane-by-lane tracer follows boundaries up to 45° on its own.
         vote = curvature_vote(
-            image, path, ribbon.s[np.round(peaks).astype(int)], np.zeros(len(peaks)),
-            params.channel, params.edge_sigma, params.background, params.curvature_half_width,
+            image,
+            path,
+            ribbon.s[np.round(peaks).astype(int)],
+            np.zeros(len(peaks)),
+            params.channel,
+            params.edge_sigma,
+            params.background,
+            params.curvature_half_width,
         )
         if vote is not None and vote != pith_at_start:
             pith_at_start = vote
-            evidence, peaks, strengths = _boundaries_for(pith_at_start, positive, negative, deep, params)
+            evidence, peaks, strengths = _boundaries_for(
+                pith_at_start, positive, negative, deep, params
+            )
 
     boundaries = [
         CoreBoundary(
@@ -213,7 +219,7 @@ def boundary_evidence(ribbon: Ribbon, params: CoreParams) -> tuple[Evidence, Evi
         return tilt_search(response, *args), tilt_search(-response, *args)
 
 
-def deep_evidence(image: npt.NDArray, path: Sequence[Sequence[float]], params: CoreParams) -> Evidence:
+def deep_evidence(image: npt.NDArray, path: npt.ArrayLike, params: CoreParams) -> Evidence:
     """U-Net boundary probability along the path, combined over lanes with tilt search."""
     from tras.cores.deep import boundary_probability_along_path
     from tras.cores.deep import training_scale
@@ -248,7 +254,7 @@ def _robust_z(values: FloatArray) -> FloatArray:
     return (values - np.median(values)) / _robust_sigma(values)
 
 
-def _threshold(params: CoreParams) -> Optional[float]:
+def _threshold(params: CoreParams) -> float | None:
     """Peak threshold; ``None`` means the score is already a probability."""
     return None if params.evidence == "deep" else params.sensitivity
 
@@ -269,7 +275,7 @@ def _boundaries_for(
     pith_at_start: bool,
     positive: Evidence,
     negative: Evidence,
-    deep: Optional[Evidence],
+    deep: Evidence | None,
     params: CoreParams,
 ) -> tuple[Evidence, FloatArray, FloatArray]:
     """Evidence for the given orientation and its picked (sub-pixel) peaks."""
@@ -305,7 +311,9 @@ def refine_peaks(score: FloatArray, peaks: npt.NDArray[np.intp]) -> FloatArray:
     p = peaks[inner]
     left, centre, right = score[p - 1], score[p], score[p + 1]
     curvature = left - 2 * centre + right
-    offset = np.where(curvature < 0, 0.5 * (left - right) / np.where(curvature < 0, curvature, -1), 0.0)
+    offset = np.where(
+        curvature < 0, 0.5 * (left - right) / np.where(curvature < 0, curvature, -1), 0.0
+    )
     refined[inner] += np.clip(offset, -0.5, 0.5)
     return refined
 
@@ -313,7 +321,7 @@ def refine_peaks(score: FloatArray, peaks: npt.NDArray[np.intp]) -> FloatArray:
 def pick_boundaries(
     score: FloatArray,
     min_distance: float,
-    sensitivity: Optional[float],
+    sensitivity: float | None,
     probability_threshold: float = 0.3,
 ) -> tuple[npt.NDArray[np.intp], FloatArray]:
     """Peaks of ``score`` at least ``min_distance`` apart.
@@ -327,7 +335,9 @@ def pick_boundaries(
     distance = max(1, int(round(min_distance)))
     if sensitivity is None:
         peaks, _ = find_peaks(
-            score, distance=distance, height=probability_threshold,
+            score,
+            distance=distance,
+            height=probability_threshold,
             prominence=probability_threshold / 2,
         )
         return peaks, score[peaks]

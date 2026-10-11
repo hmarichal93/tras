@@ -9,9 +9,9 @@ slot after the last year. Spec: ``docs/research/core-detection-sota.md``.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
 
 PRECISIONS = {0.01: 999, 0.001: -9999}
 ID_WIDTH = 8
@@ -42,9 +42,7 @@ def sanitize_series_id(name: str) -> str:
     return (cleaned or "TRAS")[:ID_WIDTH]
 
 
-def write_rwl(
-    path: Path | str, series: Sequence[RingWidthSeries], precision: float = 0.01
-) -> None:
+def write_rwl(path: Path | str, series: Sequence[RingWidthSeries], precision: float = 0.01) -> None:
     """Write series to a Tucson ``.rwl`` file.
 
     Args:

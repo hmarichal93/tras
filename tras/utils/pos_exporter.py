@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from typing import Any
-from typing import Optional
 
 from loguru import logger
 
@@ -16,7 +15,7 @@ from tras.io.pos import write_pos
 UNIT_TO_MM = {"mm": 1.0, "cm": 10.0, "um": 1e-3, "µm": 1e-3, "m": 1000.0, "in": MM_PER_INCH}
 
 
-def mm_per_pixel(image_scale: Optional[dict[str, Any]]) -> Optional[float]:
+def mm_per_pixel(image_scale: dict[str, Any] | None) -> float | None:
     """Millimetres per pixel from a GUI scale dict ``{'value': unit/px, 'unit': str}``."""
     if not image_scale or not image_scale.get("value"):
         return None
@@ -29,9 +28,9 @@ def export_to_pos(
     measurements: dict[str, dict[str, Any]],
     pith_xy: tuple[float, float],
     direction_xy: tuple[float, float],
-    image_scale: Optional[dict[str, Any]] = None,
-    metadata: Optional[dict[str, Any]] = None,
-    image_file: Optional[str] = None,
+    image_scale: dict[str, Any] | None = None,
+    metadata: dict[str, Any] | None = None,
+    image_file: str | None = None,
 ) -> bool:
     """Write the boundary crossings of one radial line as a CooRecorder ``.pos`` file.
 
@@ -61,9 +60,9 @@ def build_radial_pos(
     measurements: dict[str, dict[str, Any]],
     pith_xy: tuple[float, float],
     direction_xy: tuple[float, float],
-    image_scale: Optional[dict[str, Any]],
+    image_scale: dict[str, Any] | None,
     metadata: dict[str, Any],
-    image_file: Optional[str] = None,
+    image_file: str | None = None,
 ) -> PosFile:
     """Build a bark-first ``PosFile`` from radial-line boundary crossings."""
     mm_px = mm_per_pixel(image_scale)
@@ -71,16 +70,16 @@ def build_radial_pos(
         logger.warning(".POS export without a physical scale: writing 1 px = 1 mm")
         mm_px = 1.0
 
-    crossings = sorted(
-        measurements.values(), key=lambda m: m["distance_from_pith"], reverse=True
-    )
+    crossings = sorted(measurements.values(), key=lambda m: m["distance_from_pith"], reverse=True)
     boundaries = [
         PosPoint(m["intersection_point"][0] * mm_px, m["intersection_point"][1] * mm_px)
         for m in crossings
     ]
     # The line starts at the pith, so the pith closes the innermost ring.
     points = tuple(boundaries + [PosPoint(pith_xy[0] * mm_px, pith_xy[1] * mm_px, label="pith")])
-    comments = [f"TRAS radial line from pith towards ({direction_xy[0]:.1f}, {direction_xy[1]:.1f}) px"]
+    comments = [
+        f"TRAS radial line from pith towards ({direction_xy[0]:.1f}, {direction_xy[1]:.1f}) px"
+    ]
     if metadata.get("sample_code"):
         comments.insert(0, str(metadata["sample_code"]))
 

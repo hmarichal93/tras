@@ -15,9 +15,6 @@ caller falls back on polarity.
 
 from __future__ import annotations
 
-from typing import Optional
-from typing import Sequence
-
 import numpy as np
 import numpy.typing as npt
 
@@ -42,14 +39,14 @@ TRACE_STEP_PX = 1
 
 def curvature_vote(
     image: npt.NDArray,
-    path: Sequence[Sequence[float]],
-    boundaries_s: Sequence[float],
-    tilts: Sequence[float],
+    path: npt.ArrayLike,
+    boundaries_s: npt.ArrayLike,
+    tilts: npt.ArrayLike,
     channel: str = "gray",
     edge_sigma: float = 1.5,
     background: float = 81.0,
     half_width: int = CURVATURE_HALF_WIDTH,
-) -> Optional[bool]:
+) -> bool | None:
     """True if curvature says the pith is at the path start, False if at the end.
 
     ``half_width`` must stay inside the wood (on a core: below half its diameter).
@@ -57,10 +54,12 @@ def curvature_vote(
     if half_width < 5:
         return None
     ribbon = extract_ribbon(image, path, half_width)
-    response = np.abs(edge_response(normalize_lanes(ribbon_intensity(ribbon, channel), background), edge_sigma))
+    response = np.abs(
+        edge_response(normalize_lanes(ribbon_intensity(ribbon, channel), background), edge_sigma)
+    )
     offsets = ribbon.offsets
     signs = []
-    for s0, tilt in zip(boundaries_s, tilts):
+    for s0, tilt in zip(np.asarray(boundaries_s, dtype=float), np.asarray(tilts, dtype=float)):
         b = _fit_curvature(response, offsets, s0, tilt)
         if b is not None and abs(b) * half_width**2 >= MIN_SAG_PX:
             signs.append(b < 0)
@@ -76,7 +75,7 @@ def curvature_vote(
 
 def _fit_curvature(
     response: npt.NDArray[np.float64], offsets: npt.NDArray[np.float64], s0: float, tilt: float
-) -> Optional[float]:
+) -> float | None:
     """Quadratic coefficient of the boundary trace ``s(o)``, or None if unreliable.
 
     The boundary is traced lane by lane from the centre lane outwards, each lane
@@ -103,7 +102,7 @@ def _fit_curvature(
     return float(coefficients[0]) if residual <= MAX_FIT_RESIDUAL_PX else None
 
 
-def _local_peak(profile: npt.NDArray[np.float64], centre: float, radius: int) -> Optional[float]:
+def _local_peak(profile: npt.NDArray[np.float64], centre: float, radius: int) -> float | None:
     lo, hi = int(np.floor(centre)) - radius, int(np.ceil(centre)) + radius + 1
     if lo < 0 or hi > len(profile):
         return None

@@ -63,8 +63,17 @@ def test_single_image_cli_flags_override_defaults(tmp_path):
         mock_detect.return_value = _mock_detection(tmp_path)
         result = CliRunner().invoke(
             app,
-            [str(image_file), "--ring-method", "cstrd", "--cstrd-sigma", "2.5", "--pith-x", "10",
-             "--pith-y", "20"],
+            [
+                str(image_file),
+                "--ring-method",
+                "cstrd",
+                "--cstrd-sigma",
+                "2.5",
+                "--pith-x",
+                "10",
+                "--pith-y",
+                "20",
+            ],
         )
 
     assert result.exit_code == 0, result.output

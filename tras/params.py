@@ -19,7 +19,6 @@ import dataclasses
 from dataclasses import dataclass
 from dataclasses import field
 from typing import Any
-from typing import Optional
 
 from tras.config.detection_defaults import get_detection_defaults
 
@@ -47,9 +46,7 @@ class DeepCstrdParams:
     alpha: int = field(default_factory=lambda: int(_section("deepcstrd")["alpha"]))
     nr: int = field(default_factory=lambda: int(_section("deepcstrd")["nr"]))
     rotations: int = field(default_factory=lambda: int(_section("deepcstrd")["rotations"]))
-    threshold: float = field(
-        default_factory=lambda: float(_section("deepcstrd")["threshold"])
-    )
+    threshold: float = field(default_factory=lambda: float(_section("deepcstrd")["threshold"]))
     width: int = field(default_factory=lambda: int(_section("deepcstrd")["width"]))
     height: int = field(default_factory=lambda: int(_section("deepcstrd")["height"]))
 
@@ -64,11 +61,11 @@ class InbdParams:
 class PithParams:
     auto: bool = field(default_factory=lambda: bool(_section("pith")["auto"]))
     method: str = field(default_factory=lambda: str(_section("pith")["method"]))
-    x: Optional[float] = None
-    y: Optional[float] = None
+    x: float | None = None
+    y: float | None = None
 
     @property
-    def manual_xy(self) -> Optional[tuple[float, float]]:
+    def manual_xy(self) -> tuple[float, float] | None:
         """Manual pith coordinates, or ``None`` if not both given."""
         if self.x is None or self.y is None:
             return None
@@ -87,7 +84,7 @@ class DetectionParams:
     sampling_nr: int = field(
         default_factory=lambda: int(get_detection_defaults()["sampling"]["nr"])
     )
-    resize_scale: Optional[float] = None
+    resize_scale: float | None = None
     remove_background: bool = False
 
     def __post_init__(self) -> None:
@@ -128,7 +125,7 @@ def validate_params(params: DetectionParams) -> None:
 
 
 # Flat keyword -> (nested section or None for top level, field name).
-_FLAT_KEYS: dict[str, tuple[Optional[str], str]] = {
+_FLAT_KEYS: dict[str, tuple[str | None, str]] = {
     "ring_method": (None, "ring_method"),
     "sampling_nr": (None, "sampling_nr"),
     "scale": (None, "resize_scale"),

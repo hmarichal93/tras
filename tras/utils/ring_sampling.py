@@ -20,15 +20,11 @@ def build_rays_xy(
     sampling_nr: int, center_xy: tuple[float, float], max_radius: float
 ) -> list[LineString]:
     """Rays from ``center_xy`` at evenly spaced angles, each ``max_radius`` long."""
-    ends = points_at_distances(
-        center_xy, ray_angles(sampling_nr), np.full(sampling_nr, max_radius)
-    )
+    ends = points_at_distances(center_xy, ray_angles(sampling_nr), np.full(sampling_nr, max_radius))
     return [LineString([center_xy, (float(x), float(y))]) for x, y in ends]
 
 
-def ray_radii(
-    ring_xy: np.ndarray, center_xy: tuple[float, float], sampling_nr: int
-) -> np.ndarray:
+def ray_radii(ring_xy: np.ndarray, center_xy: tuple[float, float], sampling_nr: int) -> np.ndarray:
     """Distance from the center to the ring along each of ``sampling_nr`` rays.
 
     Takes the farthest crossing per ray; rays that miss the ring (center outside it) use

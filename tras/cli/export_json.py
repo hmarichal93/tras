@@ -11,7 +11,6 @@ from loguru import logger
 from tras import utils
 from tras._label_file import LabelFile
 
-
 # Minimum point count per shape type for rasterization (see tras.utils.shape).
 _MIN_POINTS = {"polygon": 3, None: 3, "point": 1, "line": 2, "linestrip": 2}
 UNLABELED = "unlabeled"
@@ -70,9 +69,7 @@ def main():
     for name, value in label_name_to_value.items():
         label_names[value] = name  # type: ignore[call-overload]
 
-    lbl_viz = imgviz.label2rgb(
-        lbl, imgviz.asgray(image), label_names=label_names, loc="rb"
-    )
+    lbl_viz = imgviz.label2rgb(lbl, imgviz.asgray(image), label_names=label_names, loc="rb")
 
     PIL.Image.fromarray(image).save(osp.join(out_dir, "img.png"))
     utils.lblsave(osp.join(out_dir, "label.png"), lbl)

@@ -37,7 +37,9 @@ def test_ray_distances_on_square():
 
 def test_ray_distance_takes_outer_hit_on_concave_ring():
     # U-shape opening upwards; the ray towards -y crosses two edges.
-    shape = np.array([[-3, -3], [3, -3], [3, 3], [1, 3], [1, -1], [-1, -1], [-1, 3], [-3, 3]], float)
+    shape = np.array(
+        [[-3, -3], [3, -3], [3, 3], [1, 3], [1, -1], [-1, -1], [-1, 3], [-3, 3]], float
+    )
     d = ray_polygon_distances(shape, (0, 1), np.array([-np.pi / 2]))
     assert d[0] == pytest.approx(4.0)
 

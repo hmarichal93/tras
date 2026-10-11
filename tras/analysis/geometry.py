@@ -88,13 +88,13 @@ def points_at_distances(
 ) -> FloatArray:
     """Convert polar samples around ``center_xy`` back to ``(K, 2)`` x/y points."""
     cx, cy = center_xy
-    return np.stack(
-        [cx + distances * np.cos(angles), cy + distances * np.sin(angles)], axis=1
-    )
+    return np.stack([cx + distances * np.cos(angles), cy + distances * np.sin(angles)], axis=1)
 
 
 def fill_missing_by_angle(
-    distances: FloatArray, polygon: npt.ArrayLike, center_xy: tuple[float, float],
+    distances: FloatArray,
+    polygon: npt.ArrayLike,
+    center_xy: tuple[float, float],
     angles: FloatArray,
 ) -> FloatArray:
     """Replace ``NaN`` distances with the polygon vertex closest in angle.

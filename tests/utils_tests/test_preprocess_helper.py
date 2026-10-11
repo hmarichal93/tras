@@ -42,7 +42,3 @@ def test_preprocess_image_rgba():
     image = np.random.randint(0, 255, (100, 100, 4), dtype=np.uint8)
     result = preprocess_image(image, scale_factor=1.0, remove_background=False)
     assert result.shape == (100, 100, 3)  # Should be converted to RGB
-
-
-
-

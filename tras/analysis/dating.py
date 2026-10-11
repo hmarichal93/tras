@@ -19,9 +19,9 @@ All series are ``{year: width}`` mappings or ``RingWidthSeries``.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Mapping
-from typing import Sequence
 
 import numpy as np
 
@@ -137,7 +137,9 @@ def build_master(series_list: Sequence[YearSeries], method: str = "p2yrsl") -> d
     return {y: float(np.mean([i[y] for i in indices if y in i])) for y in years}
 
 
-def leave_one_out_masters(series_list: Sequence[YearSeries], method: str = "p2yrsl") -> list[dict[int, float]]:
+def leave_one_out_masters(
+    series_list: Sequence[YearSeries], method: str = "p2yrsl"
+) -> list[dict[int, float]]:
     """For each series, the master built from all *other* series (no self-correlation)."""
     return [
         build_master([s for j, s in enumerate(series_list) if j != i], method)

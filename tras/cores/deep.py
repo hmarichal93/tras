@@ -33,21 +33,31 @@ def training_scale(image_shape: tuple[int, ...]) -> float:
     return TRAINING_SIDE_PX / max(image_shape[:2])
 
 
-def boundary_probability(ribbon: Ribbon, model_id: str = "generic", scale: float = 1.0) -> npt.NDArray[np.float64]:
+def boundary_probability(
+    ribbon: Ribbon, model_id: str = "generic", scale: float = 1.0
+) -> npt.NDArray[np.float64]:
     """Per-pixel boundary probability on the ribbon grid (same shape as the ribbon)."""
     rgb = np.clip(ribbon.values[..., :3], 0, 255).astype(np.uint8)
     h, w = rgb.shape[:2]
-    resized = cv2.resize(rgb, (max(1, round(w * scale)), max(1, round(h * scale))), interpolation=cv2.INTER_AREA)
+    resized = cv2.resize(
+        rgb, (max(1, round(w * scale)), max(1, round(h * scale))), interpolation=cv2.INTER_AREA
+    )
     bgr = cv2.cvtColor(resized, cv2.COLOR_RGB2BGR)  # DeepCS-TRD was trained on BGR input
     padded, (ph, pw) = _pad_to_multiple(bgr, _UNET_MULTIPLE)
 
     probability = _predict(padded, model_id)[:ph, :pw]
-    return cv2.resize(probability.astype(np.float32), (w, h), interpolation=cv2.INTER_LINEAR).astype(np.float64)
+    return cv2.resize(
+        probability.astype(np.float32), (w, h), interpolation=cv2.INTER_LINEAR
+    ).astype(np.float64)
 
 
 def boundary_probability_along_path(
-    image: npt.NDArray, path_xy: npt.ArrayLike, half_width: int, model_id: str = "generic",
-    scale: float = 1.0, context_px: int = 96,
+    image: npt.NDArray,
+    path_xy: npt.ArrayLike,
+    half_width: int,
+    model_id: str = "generic",
+    scale: float = 1.0,
+    context_px: int = 96,
 ) -> Ribbon:
     """Run the U-Net on the image crop around the path, then straighten the result.
 
@@ -66,14 +76,20 @@ def boundary_probability_along_path(
     crop = np.ascontiguousarray(image[y0:y1, x0:x1, :3]).astype(np.uint8)
 
     ch, cw = crop.shape[:2]
-    resized = cv2.resize(crop, (max(1, round(cw * scale)), max(1, round(ch * scale))), interpolation=cv2.INTER_AREA)
+    resized = cv2.resize(
+        crop, (max(1, round(cw * scale)), max(1, round(ch * scale))), interpolation=cv2.INTER_AREA
+    )
     padded, (ph, pw) = _pad_to_multiple(cv2.cvtColor(resized, cv2.COLOR_RGB2BGR), _UNET_MULTIPLE)
     probability = _predict(padded, model_id)[:ph, :pw]
-    probability = cv2.resize(probability.astype(np.float32), (cw, ch), interpolation=cv2.INTER_LINEAR)
+    probability = cv2.resize(
+        probability.astype(np.float32), (cw, ch), interpolation=cv2.INTER_LINEAR
+    )
     return extract_ribbon(probability, path - [x0, y0], half_width)
 
 
-def _pad_to_multiple(image: npt.NDArray[np.uint8], multiple: int) -> tuple[npt.NDArray[np.uint8], tuple[int, int]]:
+def _pad_to_multiple(
+    image: npt.NDArray[np.uint8], multiple: int
+) -> tuple[npt.NDArray[np.uint8], tuple[int, int]]:
     h, w = image.shape[:2]
     H = int(np.ceil(h / multiple) * multiple)
     W = int(np.ceil(w / multiple) * multiple)
