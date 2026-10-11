@@ -10,7 +10,7 @@ ground truth.
 **Order of work.** Fix and harden the cross-section pipeline first (correctness, one shared
 analysis core, evaluation). Then add core detection on top of the same building blocks.
 
-## Problems found in the current code (2026-10-10 audit)
+## Problems found in the 2026-10-10 audit (all fixed in T1)
 
 | # | Problem | Where | Effect |
 |---|---------|-------|--------|
@@ -48,7 +48,8 @@ parallel boundaries. The same engine also measures a path drawn on a cross-secti
    user-drawn) into a rectified strip.
 2. **Boundary evidence.** Two interchangeable sources:
    - classical: oriented intensity gradient across the strip (latewood → earlywood transition);
-   - learned: the DeepCS-TRD U-Net boundary probability map, run tiled on the strip.
+   - learned: the DeepCS-TRD U-Net boundary probability map, run on the natural image crop
+     around the path, then straightened into the strip.
 3. **Boundary picking.** Consensus over several parallel lanes across the core width (robust
    to cracks and resin), then 1-D peak detection with a minimum ring width.
 4. **Width perpendicular to the boundary.** Estimate each boundary's local tilt and correct the
@@ -57,7 +58,7 @@ parallel boundaries. The same engine also measures a path drawn on a cross-secti
    CSV, and a TRAS label file the GUI can edit.
 6. **Benchmark without a core dataset.** Cut virtual cores from the 64 annotated UruDendro
    cross-sections along pith→bark rays. The annotated rings give exact boundary positions.
-7. **GUI and CLI.** `tras_detect --mode core`, and a core dialog in the GUI.
+7. **GUI and CLI.** `tras_core` CLI and the Core Analysis dialog (done).
 
 ### Phase 3: Product polish
 
@@ -72,7 +73,7 @@ Managed by the `cv-pi` orchestrator (see `CLAUDE.md`, "How work is organized").
 
 | # | Task | User job | Metric / done when | State |
 |---|------|----------|--------------------|-------|
-| T1 | Phases 1–3 above | All | 135 tests, benchmarks in `docs/benchmarks.md` | Done (2026-10-11) |
+| T1 | Phases 1–3 above | All | 135 tests at close (2026-10-11), benchmarks in `docs/benchmarks.md` | Done (2026-10-11) |
 | T2 | Export core measurements from the edited canvas (not the raw detection); *Draw Core Boundary* tool | Lab researcher correcting cores | Dragged/added/deleted boundaries change .pos/.rwl/CSV; years relabelled; GUI test | In progress |
 | T3 | Crossdating entry point (`tras_dating` CLI + report): series vs master, COFECHA-style flags | Lab researcher dating series | Flags a shifted series in a synthetic set; reads TRAS and dplR `.rwl` | Next |
 | T4 | QC flags visible on the canvas and in the ring list | Anyone reviewing detections | Flagged rings highlighted; GUI test | Next |

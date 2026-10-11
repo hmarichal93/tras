@@ -29,7 +29,7 @@ second audience. So:
 - Screenshots are real: render the GUI offscreen (`QT_QPA_PLATFORM=offscreen`, drive the
   app programmatically, `window.grab().save(...)`), crop to the relevant area, PNG < 300 KB,
   in `docs/manual/img/`. Regenerate them when the GUI changes (keep the script in
-  `tools/manual_screenshots.py`).
+  `tools/manual_screenshots.py`, to be written in T8).
 - Developer docs (CLI, API, architecture, benchmarks) stay separate.
 
 ## Scope
@@ -66,7 +66,7 @@ CLI `--help` texts, GUI tooltips that describe workflow, PR descriptions.
 ## Rules
 
 - No manual page without screenshots; GUI changes regenerate the affected screenshots
-  in the same PR (`tools/manual_screenshots.py`).
+  in the same PR (`tools/manual_screenshots.py`, T8).
 
 - Never invent numbers; quote `docs/benchmarks.md` with its date.
 - Dates absolute; remove stale "TODO", "coming soon", old names (`labelme` paths, removed buttons).

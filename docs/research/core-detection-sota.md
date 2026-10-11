@@ -89,7 +89,8 @@ Sources: [NOAA treeinfo.txt](https://www.ncei.noaa.gov/pub/data/paleo/treering/t
 
 1. Straighten the image along the core path into a ribbon (a rectified strip).
 2. Boundary evidence: signed derivative of a robust (median) across-band profile, or the
-   DeepCS-TRD U-Net boundary probability map run on the ribbon.
+   DeepCS-TRD U-Net boundary probability map, run on the natural image crop around the path
+   and then straightened into the ribbon (`tras/cores/deep.py::boundary_probability_along_path`).
 3. Peak picking with a minimum ring width (CooRecorder's "lowest earlywood width").
 4. Width measured perpendicular to each boundary, using its local orientation.
 5. Export `.pos` with double points, Tucson `.rwl`, CSV, and a TRAS label file.

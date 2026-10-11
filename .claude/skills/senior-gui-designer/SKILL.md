@@ -39,7 +39,7 @@ PY
 ```
 
 Then `Read` the PNG. Never ship a layout you have not looked at. Any GUI change also
-updates the user-manual screenshots (`tools/manual_screenshots.py`, `docs/manual/img/`).
+updates the user-manual screenshots (`tools/manual_screenshots.py` (T8), `docs/manual/img/`).
 
 ## Design principles
 
@@ -58,8 +58,8 @@ updates the user-manual screenshots (`tools/manual_screenshots.py`, `docs/manual
   so review effort goes to the doubtful rings.
 - **Long work is visible and cancellable.** Anything over ~0.5 s runs in a worker with a
   progress dialog that names the step; anything over ~5 s has Cancel.
-- **Errors say what to do.** "No scale set — use Tools → Set Image Scale, or results will be in
-  pixels" beats "scale is None". Never show a traceback in a dialog.
+- **Errors say what to do.** "No scale set — use Tools → Cross-section → Set Image Scale, or
+  results will be in pixels" beats "scale is None". Never show a traceback in a dialog.
 - **Undo and no data loss.** Destructive actions (replace detected rings, clear shapes) are
   undoable or confirmed once. Do not delete shapes the user drew by hand.
 - **Keyboard first for repetitive work.** Frequent actions get shortcuts listed in the

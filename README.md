@@ -30,7 +30,7 @@ TRAS integrates **state-of-the-art computer vision** and **deep learning** metho
   <img src="assets/screenshot-main.png" alt="TRAS Main Interface" width="800"/>
 </p>
 
-**Three ways to use TRAS:**
+**Ways to use TRAS:**
 
 | Interface | Command | Best for |
 |-----------|---------|----------|
@@ -49,10 +49,11 @@ TRAS integrates **state-of-the-art computer vision** and **deep learning** metho
 <td width="50%" valign="top">
 
 ### 🔬 Automatic Detection
-- **APD** — Automatic Pith Detection (~1 s, CPU); methods `apd`, `apd_pcl`, `apd_dl` (YOLO)
-- **CS-TRD** — Classical edge detection (~73 s, CPU) *[Linux/macOS only]*
-- **DeepCS-TRD** — Deep learning U-Net (~101 s, GPU)
+- **APD** — Automatic Pith Detection (~1 s, CPU, estimate); methods `apd`, `apd_pcl`, `apd_dl` (YOLO)
+- **CS-TRD** — Classical edge detection (131 s per disc, CPU) *[Linux/macOS only]*
+- **DeepCS-TRD** — Deep learning U-Net (45 s per disc, GTX 1650 GPU)
 - **INBD** — Iterative Next Boundary Detection (CVPR 2023, GPU)
+- Timings: [docs/benchmarks.md](docs/benchmarks.md) (2026-10-10)
 
 <img src="assets/detection-methods.png" alt="Detection Methods" width="100%"/>
 
@@ -137,15 +138,17 @@ Generate comprehensive reports with a single click:
 
 ### 1. Download TRAS
 
-**Linux / macOS:**
 ```bash
-export TRAS_VERSION=2.1.9          # update when a newer release is available
-wget https://github.com/hmarichal93/tras/archive/refs/tags/v${TRAS_VERSION}.tar.gz
-tar -xzf v${TRAS_VERSION}.tar.gz
-cd tras-${TRAS_VERSION}
+git clone https://github.com/hmarichal93/tras.git
+cd tras
 ```
 
-> **Alternative:** download manually from [Releases](https://github.com/hmarichal93/tras/releases/latest) and extract, then `cd` into the extracted folder.
+> **Note:** increment cores (`tras_core`), `tras_benchmark` and Tucson `.rwl` export are not in a
+> release yet (latest release: v2.2.0). Until the next release, install from the repository as above.
+>
+> **Alternative after the next release:** download the source archive from
+> [Releases](https://github.com/hmarichal93/tras/releases/latest), extract it, then `cd` into the
+> extracted folder.
 
 ### 2. Create the Environment
 
@@ -195,13 +198,13 @@ tras --version                     # print the version
 The **Tools** menu has three entries:
 
 - **Cross-section** — the step-by-step workflow for an open disc image (set scale → preprocess → detect → measure → export).
-- **Increment Core** — measure cores (set scale → draw core path → Core Analysis → correct boundaries → Export Core Measurements to `.pos`/`.rwl`/`.csv`).
+- **Increment Core** — measure cores (set scale and metadata → optional core path → Core Analysis → correct boundaries → Export Core Measurements to `.pos`/`.rwl`/`.csv`).
 - **Batch Processing (Cross-sections)…** — run detection over an entire folder (see below).
 
 ### 📁 GUI Batch Processing
 
-**`Tools → Batch Processing…`** opens a dialog where you pick an input folder and configure the
-detection settings inline — optional physical scale, preprocessing, pith method, and ring method
+**`Tools → Batch Processing (Cross-sections)…`** opens a dialog where you pick an input folder
+and configure the detection settings inline — optional physical scale, preprocessing, pith method, and ring method
 with its parameters. Detection runs in the background with a live progress bar.
 
 For every image, TRAS writes a `.json` label file. When the batch finishes it also produces:
@@ -210,6 +213,8 @@ For every image, TRAS writes a `.json` label file. When the batch finishes it al
 |--------|-------------|
 | `summary.pdf` | One page per image — detected rings overlaid on the image, with the filename as the page title |
 | `batch_config.yml` | The exact settings used, re-loadable by the CLI (`tras_detect --config`) |
+| `radii.rwl` | Tucson ring widths along four compass radii (N/E/S/W) per image; only when you set *Outer year* and a scale |
+| `radii_ids.csv` | Maps series IDs back to image names; only when two image names share their first 7 characters |
 
 > 💡 All outputs are written **into the input folder itself**, alongside the images. Images that
 > already have a `.json` are skipped, so an interrupted batch resumes simply by running it again.
@@ -224,7 +229,7 @@ For every image, TRAS writes a `.json` label file. When the batch finishes it al
 tras_detect image.jpg -o output.json
 
 # With custom parameters
-tras_detect image.jpg --ring-method deepcstrd --pith-method apd_dl
+tras_detect image.jpg --ring-method cstrd --pith-method apd
 ```
 
 **Batch folder:**
@@ -242,13 +247,16 @@ tras_detect /path/to/images --config config.yml --scale-value 0.025 --ring-metho
 **Outputs:**
 - **Single image** → `<stem>_detected.json` (or your custom `-o` path)
 - **Batch folder** → `tras_out/<stem>.json`, `<stem>.csv`, and `<stem>.pdf` per image, plus a
-  combined `summary.pdf` and the `batch_config.yml` actually used
+  combined `summary.pdf` and the `batch_config.yml` actually used. With `--outer-year` (or
+  `dating.outer_year`) and a scale it also writes `radii.rwl` (and `radii_ids.csv` when image
+  names collide)
 
 > A physical scale (config file or `--scale-value`/`--scale-unit`) gives CSV and PDF values in
 > physical units; without it they are in pixels. Defaults for every parameter come from
 > [`tras/config/detection_defaults.yaml`](tras/config/detection_defaults.yaml), shared with the GUI.
 
-See [`examples/cli/process_config.yml`](examples/cli/process_config.yml) for a complete configuration template.
+See [`examples/cli/process_config.yml`](examples/cli/process_config.yml) for a configuration template
+(every key and its default: [`tras/config/detection_defaults.yaml`](tras/config/detection_defaults.yaml)).
 
 ---
 
@@ -263,8 +271,14 @@ tras_core scan.tif --outer-year 2023              # find cores automatically
 tras_core disc.jpg --path "120,40;3900,85"         # measure along a given path
 ```
 
-In the GUI: **Tools → Increment Core → Core Analysis…**, correct the boundaries on the image, then
-**Export Core Measurements…**.
+In the GUI (all under **Tools → Increment Core**):
+
+1. Open the image, then **Set Image Scale** and **Sample Metadata**.
+2. Optional: **Draw Core Path** from pith to bark.
+3. **Core Analysis…** → set *Outermost complete ring year* → **Detect rings** → **Add to image**.
+4. Correct: drag or delete boundary lines; add missed ones with **Draw Core Boundary** (Ctrl+B).
+5. **Export Core Measurements…** writes `.pos`/`.rwl`/`.csv` from the corrected image.
+
 Full guide: **[docs/cores.md](docs/cores.md)**.
 
 ---
@@ -293,18 +307,18 @@ Core ring widths differ from the CooRecorder expert by a median of 3.3 %.
 <br/>
 
 > These per-image tools live under the **`Tools → Cross-section`** submenu. To process a whole folder at
-> once, use **`Tools → Batch Processing…`** instead (see [GUI Batch Processing](#-gui-batch-processing)).
+> once, use **`Tools → Batch Processing (Cross-sections)…`** instead (see [GUI Batch Processing](#-gui-batch-processing)).
 
 1. **📁 Load Image** — `File → Open` or drag-and-drop a wood cross-section image
 2. **📏 Set Scale** *(optional)* — `Tools → Cross-section → Set Image Scale`; draw a known-length line or enter it directly
 3. **🖼️ Preprocess** *(optional)* — `Tools → Cross-section → Preprocess Image`; crop, resize, or remove background
-4. **🎯 Detect Rings** — `Tools → Cross-section → Tree Ring Detection`
+4. **🎯 Detect Rings** — `Tools → Cross-section → Detect Tree Rings`
    - Pith: APD auto (`apd`, `apd_pcl`, `apd_dl`) or manual click
    - Method: CS-TRD (Linux/macOS), DeepCS-TRD, or INBD
 5. **📝 Add Metadata** — `Tools → Cross-section → Sample Metadata`; harvested year, sample code, notes
 6. **📐 Measure Width** *(optional)* — `Tools → Cross-section → Measure Ring Width`; define a radial transect
-7. **📊 View Properties** — `Tools → Cross-section → Ring Properties`; review measurements
-8. **💾 Export** — JSON, CSV (all data), or .POS (CooRecorder format)
+7. **📊 View Properties** — `Tools → Cross-section → View Ring Properties`; review measurements
+8. **💾 Export** — `Tools → Cross-section → Export Data`: JSON, CSV (all data), .POS (CooRecorder), Tucson .rwl (N/E/S/W radii), PDF report
 
 </details>
 
@@ -324,8 +338,10 @@ TRAS stores its configuration in `~/.trasrc`. You can customize:
 
 - Default shape colors (wood theme)
 - Keyboard shortcuts
-- Detection method defaults
 - UI preferences
+
+Detection defaults live in [`tras/config/detection_defaults.yaml`](tras/config/detection_defaults.yaml)
+(shared by the GUI, CLI and API), not in `~/.trasrc`.
 
 ---
 

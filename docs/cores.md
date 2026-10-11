@@ -42,10 +42,11 @@ The scale comes from the image's DPI metadata, which flatbed scanners write. Oth
 2. Optional: draw one path per core with **Tools → Increment Core → Draw Core Path**, from
    pith to bark (Ctrl+click ends the path).
 3. **Tools → Increment Core → Core Analysis…** → choose *Find cores automatically* or *Use drawn
-   paths*, check *Outermost complete ring year* → **Detect rings** → **Add to image**. The
+   core paths*, set *Outermost complete ring year* → **Detect rings** → **Add to image**. The
    path and one line per boundary appear on the canvas.
 4. Correct the boundaries: drag a line to move it, delete it to merge two rings, or add a
-   missed one with **Draw Core Boundary** (Ctrl+B): click two points across the boundary.
+   missed one with **Tools → Increment Core → Draw Core Boundary** (Ctrl+B): click two points
+   across the boundary.
 5. **Tools → Increment Core → Export Core Measurements…** writes `.csv` per core, `.pos`
    (needs the scale) and `.rwl` (needs the scale and a year) from the lines as they are on
    the image, and relabels the lines with their years. Lines that cross no core path are
@@ -83,6 +84,7 @@ incomplete. TRAS saves it with the sample metadata in the label file.
 | Pith detected at the wrong end | `--pith-side start` or `end` (start = first path point) |
 | Ring-porous wood (dark earlywood vessels) | `--evidence classical` and, in Python, `CoreParams(boundary_step="light_to_dark")` |
 | Very narrow rings (< 1 mm) | `--evidence classical`: the U-Net works at ~0.3 mm per model pixel |
+| No boundaries found with the default (deep) evidence | Try `--evidence classical` (in the GUI: *Boundary evidence*) |
 
 ## Python API
 

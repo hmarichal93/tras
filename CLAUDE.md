@@ -11,7 +11,7 @@ TRAS (Tree Ring Analyzer Suite) is a dendrochronology tool for automatic tree ri
 ```bash
 make setup       # Install all dependencies (uv sync --dev)
 make format      # Format code with ruff
-make lint        # Lint/type-check check
+make lint        # ruff format check + ruff lint (no type check)
 make check       # Run all checks (lint + mypy + translations); legacy code still fails
 make lint_strict # Format/lint/type gate on STRICT_PATHS (what CI enforces)
 make test        # Run all tests (headless; no datasets or model weights needed)
@@ -35,7 +35,7 @@ Image → Preprocessing (crop/resize/bg removal)
       → Ring Detection (CS-TRD / DeepCS-TRD / INBD)
       → Ring Resampling (radial ray casting, 360 points)
       → Ring Properties (area, perimeter, radial width)
-      → Export (JSON / CSV / PDF / .POS)
+      → Export (JSON / CSV / PDF / .POS / .rwl)
 ```
 
 ### Key modules
@@ -68,8 +68,8 @@ when adding or changing a detection parameter, update this YAML so every entry p
 ### Detection methods (`tras/tree_ring_methods/`)
 
 - **APD** (`apd/`) — Automatic pith detection via local orientation estimation + accumulation. Variants: `apd`, `apd_pcl` (parallel coordinates), `apd_dl` (YOLO-based)
-- **CS-TRD** (`cstrd/`) — Classical edge-based ring detection (~73 s CPU)
-- **DeepCS-TRD** (`deepcstrd/`) — U-Net deep learning approach (~101 s GPU)
+- **CS-TRD** (`cstrd/`) — Classical edge-based ring detection (131 s/disc CPU; `docs/benchmarks.md`)
+- **DeepCS-TRD** (`deepcstrd/`) — U-Net deep learning approach (45 s/disc on a GTX 1650)
 - **INBD** (`inbd/`) — Iterative Next Boundary Detection (CVPR 2023, GPU)
 - **U2Net** (`urudendro/`) — Background segmentation via U-Net
 
@@ -83,8 +83,8 @@ Label files are JSON, written/read by `tras/_label_file.py`. Shapes use `labelme
 
 The Tools menu has **Cross-section** and **Increment Core** submenus (per-image workflows; scale and metadata appear in both) and **Batch Processing (Cross-sections)…**. Core paths are linestrips labelled `core_path` (drawn via *Draw Core Path*); other linestrips are open rings. Core exports (*Export Core Measurements…*) are rebuilt from the canvas shapes by `tras/cores/edit.py` (`core_path_<k>` + boundary lines; hand-drawn lines are labelled `core_boundary`), so user corrections reach the `.pos`/`.rwl`/CSV.
 
-- **CLI**: `tras_detect` accepts a YAML config file for batch jobs. See `examples/cli/process_config.yml` for the full template covering scale, preprocessing, postprocessing, pith/ring method selection, and method-specific parameters.
-- **GUI**: `tras/widgets/batch_dialog.py` (`BatchProcessDialog`) configures settings inline and runs `tras/utils/batch_helper.py::run_batch` in a worker thread. It iterates every image in the selected folder and **writes outputs into that same input folder**: one `.json` label file per image, a combined `summary.pdf` (one image per page, ring overlay, filename as title), and a CLI-compatible `batch_config.yml` of the settings used. Images that already have a `.json` are skipped, so a batch can be resumed. `batch_helper.py` is Qt-free and reuses `api.detect()`, `cli_config.get_detection_params()`, and `report_pdf.generate_summary_pdf()`.
+- **CLI**: `tras_detect` accepts a YAML config file for batch jobs. See `examples/cli/process_config.yml` for a template covering scale, preprocessing, postprocessing, pith/ring method selection, and method-specific parameters.
+- **GUI**: `tras/widgets/batch_dialog.py` (`BatchProcessDialog`) configures settings inline and runs `tras/utils/batch_helper.py::run_batch` in a worker thread. It iterates every image in the selected folder and **writes outputs into that same input folder**: one `.json` label file per image, a combined `summary.pdf` (one image per page, ring overlay, filename as title), a CLI-compatible `batch_config.yml` of the settings used, and `radii.rwl` (N/E/S/W radii; + `radii_ids.csv` on series-ID collisions) when an outer year and a scale are set. Images that already have a `.json` are skipped, so a batch can be resumed. `batch_helper.py` is Qt-free and reuses `api.detect()`, `cli_config.get_detection_params()`, and `report_pdf.generate_summary_pdf()`.
 
 ### Design rules
 

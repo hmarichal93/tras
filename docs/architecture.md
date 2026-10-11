@@ -54,8 +54,8 @@ load_image → preprocess (resize, U2Net background) → locate_pith (manual | A
 ```
 
 Parameters: `DetectionParams` (frozen dataclass). The legacy flat keywords
-(`cstrd_sigma=...`) still work and map onto it. Unknown keywords raise instead of being
-ignored.
+(`cstrd_sigma=...`) still work and map onto it. Unknown keywords to `detect()` raise;
+unknown keys in a YAML config are currently ignored.
 
 ## Core pipeline (`tras.cores`)
 

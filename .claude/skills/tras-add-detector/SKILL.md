@@ -11,7 +11,7 @@ Read `docs/architecture.md` first. The rule: one owner per decision, logic in th
 
 1. Code: vendored research code under `tras/tree_ring_methods/<name>/` (not linted) or a
    clean package under `tras/`.
-2. Bridge: `tras/utils/<name>_helper.py::detect_rings_<name>(image, pith_xy, ...) -> list[(N,2) x/y arrays]`.
+2. Bridge: `tras/utils/<name>_helper.py::detect_rings_<name>(image, center_xy, ...) -> list[(N,2) x/y arrays]`.
 3. Defaults: add a section to `tras/config/detection_defaults.yaml`.
 4. Params: add `<Name>Params` frozen dataclass in `tras/params.py` (defaults read from the
    YAML), a field on `DetectionParams`, extend `RING_METHODS`, add flat keys to `_FLAT_KEYS`
