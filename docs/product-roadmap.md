@@ -79,6 +79,8 @@ Managed by the `cv-pi` orchestrator (see `CLAUDE.md`, "How work is organized").
 | T5 | Incomplete outer ring: `core<k>_bark` marker; exported to CSV/.pos, left out of .rwl | Lab researcher (Schulman dating) | Bark ring never appears as a full width in .rwl | Next |
 | T6 | Missing rings (0-width) and crack/gap pairs, written as CooRecorder gap markers in .pos | Lab researcher with damaged cores | Round-trip with CooRecorder conventions; domain review | Next |
 | T7 | Provenance: boundaries dragged by hand marked user-edited (not detector strength) | QA of corrected series | Edited lines carry no `strength=` | Next |
+| T8 | **User manual** for non-programmers (`docs/manual/`): install, first disc, correcting rings, cores, batch, exports explained, troubleshooting, glossary; real screenshots from `tools/manual_screenshots.py` | Dendro student / lab technician | A novice follows it start to finish without help; every menu path matches the GUI | Next (after T2) |
+| T9 | **Installer without terminal** (Windows/macOS/Linux): download, double-click, run; weights fetched on first use | Dendro student on Windows | No conda/terminal step in the manual's install page | Scope with product-engineer |
 
 ## How progress is checked
 

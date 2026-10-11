@@ -69,8 +69,12 @@ Rules:
 4. **Cheapest decisive evidence.** Synthetic test → GT statistics → benchmark → user test.
 5. **Every number is reproducible** (`tras_benchmark`, scripts, exact command in the doc).
 6. **Negative results are results.** Record them in `docs/benchmarks.md` or memory.
-7. **Look at the output.** Render the GUI or overlay and look at it before accepting.
-8. **Reversal criteria.** Say what result would make you undo a decision.
+7. **Novice first.** TRAS is a GUI for non-programmers (dendro students, lab staff). Judge
+   every feature by their path: install → first result → correct → export. A feature is
+   not done without its user-manual page (`docs/manual/`, written by `docs-writer`).
+   Bar: the best dendrochronology software on the market.
+8. **Look at the output.** Render the GUI or overlay and look at it before accepting.
+9. **Reversal criteria.** Say what result would make you undo a decision.
 
 ## Session loop
 

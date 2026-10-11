@@ -55,8 +55,9 @@ Current state of the product: `docs/product-roadmap.md` (plan), `docs/benchmarks
 - [ ] Qt-free core with unit tests; GUI test for the dialog/menu; `make test` green.
 - [ ] `make lint_strict` green; new modules added to `STRICT_PATHS`.
 - [ ] Benchmark run if detection changed; `docs/benchmarks.md` updated with date and command.
-- [ ] User-facing docs updated (README, `docs/cores.md` or relevant page) with a runnable
-      example; strings translatable.
+- [ ] User manual page in `docs/manual/` for non-programmers (steps, menu paths,
+      screenshots, troubleshooting); developer docs (README, `docs/cores.md`) updated with
+      a runnable example; strings translatable.
 - [ ] Failure modes known and documented (what inputs break it, what the user sees).
 - [ ] Changelog/PR description: what, why, evidence, how to try it.
 

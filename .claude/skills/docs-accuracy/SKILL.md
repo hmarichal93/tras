@@ -9,9 +9,27 @@ Docs are part of the product: a wrong command or menu path costs the user more t
 missing one. Style comes from `technical-writing`; this skill makes sure the content is
 **true today**.
 
+## Who reads TRAS docs
+
+TRAS is a **GUI product for non-programmers**: dendrochronology students, lab technicians,
+forestry analysts. They never open a terminal if they can avoid it. Developers are the
+second audience. So:
+
+- **The user manual (`docs/manual/`) comes first.** Every user-facing feature has a manual
+  page: what it is for, numbered steps with exact menu paths and button names as they
+  appear on screen, a screenshot per key step, what the output files mean, and
+  "If something goes wrong" (symptom → what to do).
+- No code, no jargon in the manual. Explain domain terms once (glossary) and software terms
+  never ("JSON file" → "TRAS project file (.json)").
+- Screenshots are real: render the GUI offscreen (`QT_QPA_PLATFORM=offscreen`, drive the
+  app programmatically, `window.grab().save(...)`), crop to the relevant area, PNG < 300 KB,
+  in `docs/manual/img/`. Regenerate them when the GUI changes (keep the script in
+  `tools/manual_screenshots.py`).
+- Developer docs (CLI, API, architecture, benchmarks) stay separate.
+
 ## Scope
 
-`README.md`, `CLAUDE.md`, `docs/*.md`, `examples/`, `.claude/skills/*/SKILL.md`,
+`docs/manual/` (user manual, highest priority), `README.md`, `CLAUDE.md`, `docs/*.md`, `examples/`, `.claude/skills/*/SKILL.md`,
 CLI `--help` texts, GUI tooltips that describe workflow, PR descriptions.
 
 ## Audit procedure
