@@ -28,6 +28,7 @@ from tras.cores.orientation import curvature_vote
 from tras.cores.ribbon import Ribbon
 from tras.cores.ribbon import SampledPath
 from tras.cores.ribbon import extract_ribbon
+from tras.cores.ribbon import sample_path
 
 FloatArray = npt.NDArray[np.float64]
 
@@ -41,6 +42,8 @@ DEEP_CONTEXT_PX = 96
 # Effective resolution of the DeepCS-TRD training images (mm per model pixel): UruDendro
 # and the ForestScience discs at 0.16–0.2 mm/px, resized to 1504 px, give 0.31–0.33.
 DEEP_MODEL_MM_PER_PX = 0.3
+# Boundaries up to this many minimum ring widths beyond the user's path ends are kept.
+END_TOLERANCE_RINGS = 0.5
 # Finest analysis grid (mm per sample) of the classical detector, ≈ 1270 dpi.
 MIN_MM_PER_SAMPLE = 0.02
 BOUNDARY_STEPS = ("dark_to_light", "light_to_dark")
@@ -78,6 +81,8 @@ class CoreParams:
         sampling_step: Analysis grid spacing in px. ``None``: 1 px, or coarser for scans
             finer than ``MIN_MM_PER_SAMPLE`` mm/px when the scale is known. Lengths above
             (``half_width``, ``min_ring_width``, ...) are in grid samples.
+        end_margin: The path is analysed this many minimum ring widths beyond both ends,
+            so a boundary exactly at a path end is still found (0 disables).
     """
 
     half_width: int = 25
@@ -97,6 +102,7 @@ class CoreParams:
     curvature_half_width: int = 30
     snap_px: int = 0
     sampling_step: float | None = None
+    end_margin: float = 0.0
 
     def __post_init__(self) -> None:
         if self.evidence not in EVIDENCE_SOURCES:
@@ -173,13 +179,20 @@ def detect_core_rings(
         outer_year: Calendar year of the outermost measured ring.
     """
     step = sampling_step(params, mm_per_px)
+    # Analyse a slightly longer path: a boundary exactly at a path end (users often
+    # start/stop on one) then becomes an interior peak instead of being lost.
+    margin = params.end_margin * params.min_ring_width * step
+    user_path = np.asarray(path, dtype=np.float64)
+    path = extend_polyline(user_path, margin)
     ribbon = extract_ribbon(image, path, params.half_width, step)
     positive, negative = boundary_evidence(ribbon, params)
     deep = None
     if params.evidence != "classical":
         deep = deep_evidence(image, path, params, step, deep_scale(params, image.shape, mm_per_px))
 
-    pith_at_start = initial_orientation(positive, negative, params)
+    # Orientation from the user's path only: the extension may cover bark or background.
+    inner = int(round(margin / step))
+    pith_at_start = initial_orientation(_trim(positive, inner), _trim(negative, inner), params)
     evidence, peaks, strengths = _boundaries_for(pith_at_start, positive, negative, deep, params)
     if params.pith_side == "auto":
         # Tilts are not passed: under the wrong polarity they are meaningless, and the
@@ -210,17 +223,56 @@ def detect_core_rings(
         )
         for p, st in zip(peaks, strengths)
     ]
-    path_obj, score = ribbon.path, evidence.score
+    score = evidence.score
     if not pith_at_start:
-        path_obj, boundaries, score = _reverse(ribbon, boundaries, score)
+        _, boundaries, score = _reverse(ribbon, boundaries, score)
+    measured = sample_path(
+        user_path, step=step, smoothing_px=ribbon.path.step * params.half_width / 2
+    )
+    if not pith_at_start:
+        measured = measured.reversed()
+    boundaries = _within_user_path(
+        boundaries, margin, measured.length, END_TOLERANCE_RINGS * params.min_ring_width * step
+    )
     return CoreResult(
-        path=path_obj,
+        path=measured,
         boundaries=tuple(boundaries),
         half_width=int(round(params.half_width * step)),
         mm_per_px=mm_per_px,
         outer_year=outer_year,
         evidence=score,
     )
+
+
+def _trim(evidence: Evidence, n: int) -> Evidence:
+    """Evidence without ``n`` samples at each end."""
+    if n <= 0 or 2 * n >= len(evidence.score):
+        return evidence
+    return Evidence(score=evidence.score[n:-n], tilt=evidence.tilt[n:-n])
+
+
+def extend_polyline(polyline: npt.ArrayLike, margin: float) -> FloatArray:
+    """Prolong a polyline by ``margin`` px beyond both ends along its end directions."""
+    pts = np.asarray(polyline, dtype=np.float64)
+    if margin <= 0 or len(pts) < 2:
+        return pts
+    start_dir = pts[0] - pts[1]
+    end_dir = pts[-1] - pts[-2]
+    start_dir /= max(np.linalg.norm(start_dir), 1e-12)
+    end_dir /= max(np.linalg.norm(end_dir), 1e-12)
+    return np.vstack([pts[0] + margin * start_dir, pts, pts[-1] + margin * end_dir])
+
+
+def _within_user_path(
+    boundaries: list[CoreBoundary], margin: float, length: float, tolerance: float
+) -> list[CoreBoundary]:
+    """Shift arc lengths back to the user's path and drop boundaries beyond its ends."""
+    kept = []
+    for b in boundaries:
+        s = b.s - margin
+        if -tolerance <= s <= length + tolerance:
+            kept.append(CoreBoundary(s=s, xy=b.xy, tilt=b.tilt, strength=b.strength))
+    return kept
 
 
 def boundary_evidence(ribbon: Ribbon, params: CoreParams) -> tuple[Evidence, Evidence]:

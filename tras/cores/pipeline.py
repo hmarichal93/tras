@@ -15,9 +15,11 @@ from tras.cores.detect import CoreParams
 from tras.cores.detect import CoreResult
 from tras.cores.detect import detect_core_rings
 
-# Tuned on the UruDendro virtual-core split (docs/benchmarks.md): the learned map is
-# best read on a narrow band along the path.
-DEEP_DEFAULTS = {"half_width": 5, "deep_threshold": 0.15}
+# Tuned on the UruDendro virtual-core split, confirmed on CooRecorder paths
+# (docs/benchmarks.md): the learned map is best read on a narrow band, and analysing a
+# little past the path ends recovers boundaries that users click exactly at the ends.
+# (The end margin hurts classical evidence, so it is not a global default.)
+DEEP_DEFAULTS = {"half_width": 5, "deep_threshold": 0.15, "end_margin": 2.0}
 
 
 def deep_model_available(model_id: str = "generic") -> bool:

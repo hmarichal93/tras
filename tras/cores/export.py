@@ -35,7 +35,7 @@ def boundary_direction(result: CoreResult, boundary: CoreBoundary) -> np.ndarray
     The boundary makes angle ``tilt`` with the path normal: direction
     ``sin(tilt)·tangent + cos(tilt)·normal``.
     """
-    idx = min(int(round(boundary.s / result.path.step)), len(result.path.xy) - 1)
+    idx = int(np.clip(round(boundary.s / result.path.step), 0, len(result.path.xy) - 1))
     tangent, normal = result.path.tangent[idx], result.path.normal[idx]
     return np.sin(boundary.tilt) * tangent + np.cos(boundary.tilt) * normal
 
